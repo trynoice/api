@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:13
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+    ports:
+      - "5432:5432"
+    networks: [ postgres ]
+    restart: unless-stopped
+
+  postgres-init:
+    container_name: postgres-init
+    depends_on:
+      - postgres
+    image: postgres:13
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: admin
+      PGPASSWORD: password
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        while ! psql -c "select 1" >/dev/null 2>&1; do
+          sleep 1s
+          echo "waiting for postgres container..."
+        done
+        psql -c "drop database if exists develop"
+        psql -c "create database develop"
+    networks: [ postgres ]
+
+  pgadmin:
+    container_name: pgadmin
+    depends_on:
+      - postgres
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.org
+      PGADMIN_DEFAULT_PASSWORD: password
+    volumes:
+      - pgadmin:/root/.pgadmin
+    ports:
+      - "5433:80"
+    networks: [ postgres ]
+    restart: unless-stopped
+
+networks:
+  postgres:
+    driver: bridge
+
+volumes:
+  postgres:
+  pgadmin:
