@@ -38,5 +38,11 @@ dependencies {
     implementation "org.springdoc:springdoc-openapi-ui:1.5.11"
     implementation "org.postgresql:postgresql"
 
+
+    testAnnotationProcessor "org.projectlombok:lombok"
+
+    testCompileOnly "org.projectlombok:lombok"
+
     testImplementation "org.springframework.boot:spring-boot-starter-test"
+    testImplementation "org.testcontainers:postgresql:1.16.0"
 }
