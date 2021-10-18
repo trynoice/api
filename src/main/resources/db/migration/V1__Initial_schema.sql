@@ -1,0 +1,8 @@
+-- A table to describe the columns that all basic entities must have.
+--
+-- CREATE TABLE basic_entity (
+--   id serial NOT NULL PRIMARY KEY,
+--   created_at timestamp with time zone NOT NULL,
+--   deleted_at timestamp with time zone,
+--   version bigint NOT NULL
+-- );
