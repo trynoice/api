@@ -80,6 +80,7 @@ public class BasicEntity<ID extends Serializable> {
 
     @Version
     @NonNull
+    @Setter(AccessLevel.NONE)
     private Long version;
 
     @PrePersist

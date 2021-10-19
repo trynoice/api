@@ -1,5 +1,6 @@
 package com.trynoice.api.data;
 
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.TestConfiguration;
 
 /**
@@ -7,5 +8,6 @@ import org.springframework.boot.test.context.TestConfiguration;
  * context.
  */
 @TestConfiguration
+@SpringBootApplication
 public class TestConfig {
 }
