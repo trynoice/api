@@ -35,10 +35,11 @@ As a convention, all production configuration must be accepted through environme
 enable such behaviour, use [application.properties](src/main/resources/application.properties) to
 inject environment variables in Spring configuration.
 
-| Name            | Description              | Default |
-| --------------- | ------------------------ | :-----: |
-| `PGDB_HOST`     | PostgreSQL server host   |    -    |
-| `PGDB_PORT`     | PostgreSQL server port   |  5432   |
-| `PGDB_NAME`     | PostgreSQL database name |    -    |
-| `PGDB_USER`     | PostgreSQL user name     |    -    |
-| `PGDB_PASSWORD` | PostgreSQL user password |    -    |
+| Name               | Description                  | Default |
+| ------------------ | ---------------------------- | :-----: |
+| `PGDB_HOST`        | PostgreSQL server host       |    -    |
+| `PGDB_PORT`        | PostgreSQL server port       |  5432   |
+| `PGDB_NAME`        | PostgreSQL database name     |    -    |
+| `PGDB_USER`        | PostgreSQL user name         |    -    |
+| `PGDB_PASSWORD`    | PostgreSQL user password     |    -    |
+| `AUTH_HMAC_SECRET` | HMAC secret for signing JWTs |    -    |
