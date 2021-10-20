@@ -16,18 +16,17 @@ import java.util.Optional;
  * <p>
  * {@link BasicEntityCRUDRepository} is a direct descendant of Spring's {@link CrudRepository}. It
  * implements soft-deletes for the descendants of {@link BasicEntity}. Soft deleted entities are
- * referred to as inactive while the undeleted entities are called active.
- * </p>
+ * referred to as inactive while the undeleted entities are called active. </p>
  * <p>
  * All methods from the {@link CrudRepository} retain their original behaviour except {@code
  * delete*} methods. The {@code delete*} methods' default behaviour is overridden to support soft
- * deletes. All the other methods from {@link CrudRepository} are <b>unaware of soft-delete</b>.
- * </p>
- * <p>
+ * deletes. All the other methods from {@link CrudRepository} are <b>unaware of soft-deletes</b>.
  * The {@link BasicEntityCRUDRepository} doesn't support hard deletes at all. Moreover, it adds new
  * methods to find, count and check existence of active and inactive entities, e.g. {@link
- * BasicEntityCRUDRepository#countActive() countActive()}.
- * </p>
+ * BasicEntityCRUDRepository#countActive() countActive()}. </p>
+ * <p>
+ * {@link BasicEntityCRUDRepository} <b>doesn't support cascaded operations</b>. Any cascaded
+ * updates and deletes must be manually handled by the clients. </p>
  *
  * @param <T>  type of the {@link BasicEntity}.
  * @param <ID> type of the ID for {@link BasicEntity}.
