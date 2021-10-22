@@ -1,4 +1,4 @@
-package com.trynoice.api.data;
+package com.trynoice.api.platform;
 
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
-import java.util.Calendar;
+import java.time.LocalDateTime;
 import java.util.Stack;
 
 import static java.util.Arrays.asList;
@@ -34,7 +34,7 @@ public class BasicEntityCRUDRepositoryTest {
             activeEntityStack.push(repository.save(new TestEntity()));
 
             val entity = new TestEntity();
-            entity.setDeletedAt(Calendar.getInstance());
+            entity.setDeletedAt(LocalDateTime.now());
             inactiveEntityStack.push(repository.save(entity));
         }
     }

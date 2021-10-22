@@ -1,4 +1,4 @@
-package com.trynoice.api.data;
+package com.trynoice.api.platform;
 
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.TestConfiguration;

@@ -35,11 +35,11 @@ import java.io.IOException;
 @Slf4j
 public class AuthBearerJWTReadFilter extends OncePerRequestFilter {
 
-    private final AuthService authService;
+    private final AccountService accountService;
 
     @Autowired
-    public AuthBearerJWTReadFilter(@NonNull AuthService authService) {
-        this.authService = authService;
+    public AuthBearerJWTReadFilter(@NonNull AccountService accountService) {
+        this.accountService = accountService;
     }
 
     @Override
@@ -51,7 +51,7 @@ public class AuthBearerJWTReadFilter extends OncePerRequestFilter {
         val header = request.getHeader("authorization");
         if (header != null && header.toLowerCase().startsWith("bearer ")) {
             val context = SecurityContextHolder.createEmptyContext();
-            val authentication = authService.verifyBearerJWT(header.substring(7));
+            val authentication = accountService.verifyBearerJWT(header.substring(7));
             context.setAuthentication(authentication);
             SecurityContextHolder.setContext(context);
         }

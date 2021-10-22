@@ -1,4 +1,4 @@
-package com.trynoice.api.data;
+package com.trynoice.api.platform;
 
 import lombok.AccessLevel;
 import lombok.Data;
@@ -12,11 +12,9 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.PrePersist;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
 import javax.persistence.Version;
 import java.io.Serializable;
-import java.util.Calendar;
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -52,8 +50,8 @@ import java.util.Calendar;
  * </pre>
  * </p>
  *
- * @param <ID> a serializable type representing the primary key the table, typically {@link Long} or
- *             {@link Integer}.
+ * @param <ID> a serializable type representing the primary key of the table, typically {@link Long}
+ *             or {@link Integer}.
  */
 @MappedSuperclass
 @Data
@@ -62,29 +60,39 @@ public class BasicEntity<ID extends Serializable> {
 
     static final String SOFT_DELETE_FIELD = "deletedAt";
 
+    /**
+     * Primary key of the database table.
+     */
+    @NonNull
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @NonNull
     @Setter(AccessLevel.NONE)
     private ID id;
 
+    /**
+     * Creation timestamp of this row in the table.
+     */
+    @NonNull
     @Column(updatable = false)
-    @Temporal(TemporalType.TIMESTAMP)
-    @NonNull
     @Setter(AccessLevel.NONE)
-    private Calendar createdAt;
+    private LocalDateTime createdAt;
 
-    @Temporal(TemporalType.TIMESTAMP)
+    /**
+     * Deletion timestamp of this row in the table. It is used for facilitating soft-deletes.
+     */
     @Setter(AccessLevel.PACKAGE)
-    private Calendar deletedAt;
+    private LocalDateTime deletedAt;
 
-    @Version
+    /**
+     * Optimistic lock used by the JPA operations.
+     */
     @NonNull
+    @Version
     @Setter(AccessLevel.NONE)
     private Long version;
 
     @PrePersist
     void setCreatedAt() {
-        this.createdAt = Calendar.getInstance();
+        this.createdAt = LocalDateTime.now();
     }
 }
