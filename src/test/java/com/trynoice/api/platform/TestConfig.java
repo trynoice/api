@@ -4,8 +4,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.TestConfiguration;
 
 /**
- * Test configuration to add {@link TestEntity} and {@link TestEntityRepository} to the application
- * context.
+ * Test configuration to add only {@link TestEntity} and {@link TestEntityRepository} to the
+ * application context.
  */
 @TestConfiguration
 @SpringBootApplication

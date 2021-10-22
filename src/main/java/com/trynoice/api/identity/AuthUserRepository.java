@@ -1,7 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.models.AuthUser;
-import com.trynoice.api.platform.BasicEntityCRUDRepository;
+import com.trynoice.api.platform.BasicEntityCrudRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -13,7 +13,7 @@ import java.util.Optional;
  * com.trynoice.api.platform.BasicEntity BasicEntity}.
  */
 @Repository
-public interface AuthUserRepository extends BasicEntityCRUDRepository<AuthUser, Integer> {
+public interface AuthUserRepository extends BasicEntityCrudRepository<AuthUser, Integer> {
 
     /**
      * Finds an "active" auth user using their email.

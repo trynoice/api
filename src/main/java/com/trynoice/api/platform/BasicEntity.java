@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
  * </ol>
  *
  * <p>
- * To enable soft deletes, clients must use {@link BasicEntityCRUDRepository} for database
+ * To enable soft deletes, clients must use {@link BasicEntityCrudRepository} for database
  * interactions.
  * </p>
  *
