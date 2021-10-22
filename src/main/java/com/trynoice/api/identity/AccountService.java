@@ -6,7 +6,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
-import com.trynoice.api.identity.exceptions.RefreshTokenVerificationFailed;
+import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthCredentials;
@@ -33,7 +33,7 @@ import java.util.List;
 @Slf4j
 class AccountService {
 
-    private static final String REFRESH_TOKEN_ORDINAL_CLAIM = "ord";
+    static final String REFRESH_TOKEN_ORDINAL_CLAIM = "ord";
 
     private final AuthUserRepository authUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -121,31 +121,31 @@ class AccountService {
      * @param refreshToken refresh token provided the user
      * @param userAgent    user-agent that user used to make this request
      * @return fresh {@link AuthCredentials}
-     * @throws RefreshTokenVerificationFailed if the refresh token is invalid, expired or re-used.
+     * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
     @Transactional
     AuthCredentials issueAuthCredentials(
         @NonNull String refreshToken,
         @NonNull String userAgent
-    ) throws RefreshTokenVerificationFailed {
+    ) throws RefreshTokenVerificationException {
         final long tokenId, tokenVersion;
         try {
             val decodedToken = jwtVerifier.verify(refreshToken);
             tokenId = Long.parseLong(decodedToken.getId());
             tokenVersion = decodedToken.getClaim(REFRESH_TOKEN_ORDINAL_CLAIM).asLong();
         } catch (JWTVerificationException e) {
-            throw new RefreshTokenVerificationFailed("refresh token verification failed", e);
+            throw new RefreshTokenVerificationException("refresh token verification failed", e);
         }
 
         var token = refreshTokenRepository.findActiveById(tokenId)
-            .orElseThrow(() -> new RefreshTokenVerificationFailed("refresh token doesn't exist in database"));
+            .orElseThrow(() -> new RefreshTokenVerificationException("refresh token doesn't exist in database"));
 
         // if token version is different, it implies that an old refresh token is being re-used.
         // delete token on re-use to effectively sign out both the legitimate user and the attacker.
         if (tokenVersion != token.getVersion()) {
             refreshTokenRepository.delete(token);
-            throw new RefreshTokenVerificationFailed("refresh token version mismatch");
+            throw new RefreshTokenVerificationException("refresh token version mismatch");
         }
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
