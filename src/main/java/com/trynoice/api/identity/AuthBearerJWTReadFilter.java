@@ -1,7 +1,6 @@
 package com.trynoice.api.identity;
 
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,7 +31,6 @@ import java.io.IOException;
  * {@link org.springframework.security.core.context.SecurityContext SecurityContext}. </p>
  */
 @Component
-@Slf4j
 public class AuthBearerJWTReadFilter extends OncePerRequestFilter {
 
     private final AccountService accountService;

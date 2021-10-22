@@ -52,8 +52,12 @@ public interface SignInTokenDispatchStrategy {
         private final SesClient sesClient;
 
         public Email(String sourceEmail) {
+            this(sourceEmail, SesClient.create());
+        }
+
+        Email(@NonNull String sourceEmail, @NonNull SesClient sesClient) {
             this.sourceEmail = sourceEmail;
-            this.sesClient = SesClient.create();
+            this.sesClient = sesClient;
         }
 
         @Override

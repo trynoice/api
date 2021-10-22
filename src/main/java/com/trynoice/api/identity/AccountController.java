@@ -1,7 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
-import com.trynoice.api.identity.exceptions.RefreshTokenVerificationFailed;
+import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.SignInRequest;
@@ -132,7 +132,7 @@ class AccountController {
         try {
             val credentials = accountService.issueAuthCredentials(refreshToken, userAgent);
             return ResponseEntity.ok(credentials);
-        } catch (RefreshTokenVerificationFailed e) {
+        } catch (RefreshTokenVerificationException e) {
             log.trace("failed to issue fresh auth credentials", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
