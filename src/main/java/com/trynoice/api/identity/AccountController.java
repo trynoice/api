@@ -1,6 +1,6 @@
 package com.trynoice.api.identity;
 
-import com.trynoice.api.identity.exceptions.AuthUserNotFoundException;
+import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationFailed;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthCredentials;
@@ -104,7 +104,7 @@ class AccountController {
         try {
             accountService.signIn(request.getEmail());
             return ResponseEntity.status(HttpStatus.CREATED).build();
-        } catch (AuthUserNotFoundException e) {
+        } catch (AccountNotFoundException e) {
             log.trace("sign-in request failed", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (SignInTokenDispatchException e) {

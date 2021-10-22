@@ -5,7 +5,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import com.trynoice.api.identity.exceptions.AuthUserNotFoundException;
+import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationFailed;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthConfiguration;
@@ -82,12 +82,12 @@ class AccountService {
      * Checks if an account with the given email exists and then sends a sign-in link to the email.
      *
      * @param email email of the account's user
-     * @throws AuthUserNotFoundException    if an account with the given email doesn't exist.
+     * @throws AccountNotFoundException     if an account with the given email doesn't exist.
      * @throws SignInTokenDispatchException if email cannot be sent (due to upstream service error).
      */
-    void signIn(@NonNull String email) throws AuthUserNotFoundException, SignInTokenDispatchException {
+    void signIn(@NonNull String email) throws AccountNotFoundException, SignInTokenDispatchException {
         val user = authUserRepository.findActiveByEmail(email)
-            .orElseThrow(() -> new AuthUserNotFoundException("email", email));
+            .orElseThrow(() -> new AccountNotFoundException("email", email));
 
         val refreshToken = createSignInToken(user);
         signInTokenDispatchStrategy.dispatch(refreshToken, email);
