@@ -38,7 +38,7 @@ public class GlobalControllerAdvice {
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     void handleInternalError(@NonNull final Throwable e) {
-        log.error("unhandled error during api class", e);
+        log.error("encountered an uncaught exception while processing the request", e);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

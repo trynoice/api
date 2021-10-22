@@ -68,14 +68,9 @@ class AccountController {
 
     @NonNull
     @PostMapping("/signUp")
-    ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpRequest request) {
-        try {
-            accountService.signUp(request.getEmail(), request.getName());
-            return ResponseEntity.status(HttpStatus.CREATED).build();
-        } catch (SignInTokenDispatchException e) {
-            log.warn("failed to send sign-in token", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpRequest request) throws SignInTokenDispatchException {
+        accountService.signUp(request.getEmail(), request.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     /**
@@ -100,19 +95,15 @@ class AccountController {
 
     @NonNull
     @PostMapping("/signIn")
-    ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInRequest request) {
+    ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInRequest request) throws SignInTokenDispatchException {
         try {
             accountService.signIn(request.getEmail());
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (AccountNotFoundException e) {
             log.trace("sign-in request failed", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (SignInTokenDispatchException e) {
-            log.warn("failed to send sign-in token", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-
 
     /**
      * <p>
