@@ -1,7 +1,8 @@
 # development config (profile specified as a system property in build.gradle).
 
 logging.level.root=info
-logging.level.com.trynoice.api=debug
+logging.level.org.springframework.web=debug
+logging.level.com.trynoice.api=trace
 spring.output.ansi.enabled=always
 
 # not a browser application.
@@ -11,11 +12,6 @@ spring.devtools.livereload.enabled=false
 spring.jpa.hibernate.ddl-auto=validate
 spring.jpa.show-sql=true
 
-# defaults from ./scripts/postgres-with-docker-compose.yaml.
-spring.datasource.url=jdbc:postgresql://localhost:5432/develop
-spring.datasource.username=admin
-spring.datasource.password=password
-
 springdoc.api-docs.enabled=true
 springdoc.api-docs.path=/api-docs.json
 springdoc.swagger-ui.enabled=true
@@ -23,3 +19,6 @@ springdoc.swagger-ui.path=/api-docs.html
 springdoc.default-produces-media-type=application/json
 
 app.auth.hmac-secret=sin5ZCR7O5nrGwxLoOygGKp+NxVittYkbHhyWdVPHDlJHO+jPzRZ/b5/PhTURn9W1AyHDPORB/8jXgDMrgce7g
+app.auth.refresh-token-expiry=15d
+app.auth.access-token-expiry=6h
+app.auth.sign-in-token-dispatcher=console

@@ -1,27 +1,31 @@
-package com.trynoice.api.identity;
+package com.trynoice.api.identity.models;
 
-import com.trynoice.api.data.BasicEntity;
+import com.trynoice.api.platform.BasicEntity;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
+import lombok.ToString;
 
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.OneToMany;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
-import java.util.Calendar;
+import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * A data access object that maps to the {@code auth_user} table in the database.
+ */
 @Entity
 @Data
 @Builder
+@NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class AuthUser extends BasicEntity<Integer> {
@@ -32,18 +36,18 @@ public class AuthUser extends BasicEntity<Integer> {
     @NonNull
     private String name;
 
-    @Temporal(TemporalType.TIMESTAMP)
     @NonNull
     @Builder.Default
     @Setter(AccessLevel.NONE)
-    private Calendar lastActiveAt = Calendar.getInstance();
+    private LocalDateTime lastActiveAt = LocalDateTime.now();
 
+    @ToString.Exclude
     @OneToMany(mappedBy = "owner", fetch = FetchType.LAZY)
     private List<RefreshToken> refreshTokens;
 
     @PrePersist
     @PreUpdate
     void setLastActiveAt() {
-        this.lastActiveAt = Calendar.getInstance();
+        this.lastActiveAt = LocalDateTime.now();
     }
 }

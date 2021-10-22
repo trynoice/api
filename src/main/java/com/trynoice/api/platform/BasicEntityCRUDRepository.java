@@ -1,4 +1,4 @@
-package com.trynoice.api.data;
+package com.trynoice.api.platform;
 
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Modifying;
@@ -43,21 +43,25 @@ public interface BasicEntityCRUDRepository<T extends BasicEntity<ID>, ID extends
 
     String SET_INACTIVE_CLAUSE = " e." + BasicEntity.SOFT_DELETE_FIELD + " = now() ";
 
+    @NonNull
     @Transactional(readOnly = true)
     @Query("select e from #{#entityName} e where" + WHERE_ACTIVE_CLAUSE)
-    @NonNull List<T> findAllActive();
+    List<T> findAllActive();
 
+    @NonNull
     @Transactional(readOnly = true)
     @Query("select e from #{#entityName} e where" + WHERE_INACTIVE_CLAUSE)
-    @NonNull List<T> findAllInactive();
+    List<T> findAllInactive();
 
+    @NonNull
     @Transactional(readOnly = true)
     @Query("select e from #{#entityName} e where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    @NonNull Optional<T> findActiveById(ID id);
+    Optional<T> findActiveById(ID id);
 
+    @NonNull
     @Transactional(readOnly = true)
     @Query("select e from #{#entityName} e where e.id = ?1 and" + WHERE_INACTIVE_CLAUSE)
-    @NonNull Optional<T> findInactiveById(ID id);
+    Optional<T> findInactiveById(ID id);
 
     @Transactional(readOnly = true)
     @Query("select count(e) from #{#entityName} e where" + WHERE_ACTIVE_CLAUSE)
@@ -77,21 +81,21 @@ public interface BasicEntityCRUDRepository<T extends BasicEntity<ID>, ID extends
         return findInactiveById(id).isPresent();
     }
 
-    @Transactional
-    @Modifying
-    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
     @Override
+    @Modifying
+    @Transactional
+    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
     void deleteById(@NonNull ID id);
 
-    @Transactional
     @Modifying
+    @Transactional
     @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e.id = ?1 and" + WHERE_INACTIVE_CLAUSE)
     void undeleteByID(@NonNull ID id);
 
-    @Transactional
-    @Modifying
-    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id = :#{#p.id} and" + WHERE_ACTIVE_CLAUSE)
     @Override
+    @Modifying
+    @Transactional
+    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id = :#{#p.id} and" + WHERE_ACTIVE_CLAUSE)
     void delete(@Param("p") @NonNull T entity);
 
     @Transactional
@@ -99,23 +103,23 @@ public interface BasicEntityCRUDRepository<T extends BasicEntity<ID>, ID extends
     @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e.id = :#{#p.id} and" + WHERE_INACTIVE_CLAUSE)
     void undelete(@Param("p") @NonNull T entity);
 
-    @Transactional
-    @Modifying
     @Override
+    @Modifying
+    @Transactional
     default void deleteAll(@NonNull Iterable<? extends T> entities) {
         entities.forEach(this::delete);
     }
 
-    @Transactional
     @Modifying
+    @Transactional
     default void undeleteAll(@NonNull Iterable<? extends T> entities) {
         entities.forEach(this::undelete);
     }
 
-    @Transactional
-    @Modifying
-    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id in ?1 and" + WHERE_ACTIVE_CLAUSE)
     @Override
+    @Modifying
+    @Transactional
+    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id in ?1 and" + WHERE_ACTIVE_CLAUSE)
     void deleteAllById(@NonNull Iterable<? extends ID> ids);
 
     @Transactional
@@ -123,9 +127,9 @@ public interface BasicEntityCRUDRepository<T extends BasicEntity<ID>, ID extends
     @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e.id in ?1 and" + WHERE_INACTIVE_CLAUSE)
     void undeleteAllById(@NonNull Iterable<? extends ID> ids);
 
-    @Transactional
-    @Modifying
     @Override
+    @Modifying
+    @Transactional
     default void deleteAll() {
         throw new UnsupportedOperationException();
     }

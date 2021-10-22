@@ -2,6 +2,8 @@ package com.trynoice.api.identity;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.trynoice.api.identity.models.AuthConfiguration;
+import com.trynoice.api.identity.models.AuthUser;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,18 +21,28 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceTest {
+class AccountServiceTest {
 
     private static final String TEST_HMAC_SECRET = "test-hmac-secret";
 
     @Mock
     private AuthUserRepository authUserRepository;
 
-    private AuthService service;
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private AuthConfiguration authConfiguration;
+
+    @Mock
+    private SignInTokenDispatchStrategy signInTokenDispatchStrategy;
+
+    private AccountService service;
 
     @BeforeEach
     void setUp() {
-        this.service = new AuthService(authUserRepository, TEST_HMAC_SECRET);
+        when(authConfiguration.getHmacSecret()).thenReturn(TEST_HMAC_SECRET);
+        this.service = new AccountService(authUserRepository, refreshTokenRepository, authConfiguration, signInTokenDispatchStrategy);
     }
 
     @Test

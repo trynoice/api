@@ -1,20 +1,26 @@
 package com.trynoice.api;
 
 import com.trynoice.api.identity.AuthBearerJWTReadFilter;
+import com.trynoice.api.identity.SignInTokenDispatchStrategy;
+import com.trynoice.api.identity.models.AuthConfiguration;
+import com.trynoice.api.platform.GlobalControllerAdvice;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.Banner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.web.access.ExceptionTranslationFilter;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.validation.annotation.Validated;
 
 @SpringBootApplication
 public class Application {
@@ -25,6 +31,31 @@ public class Application {
             .run(args);
     }
 
+    @NonNull
+    @Validated
+    @Bean
+    @ConfigurationProperties("app.auth")
+    AuthConfiguration authConfiguration() {
+        return new AuthConfiguration();
+    }
+
+    @NonNull
+    @Bean
+    SignInTokenDispatchStrategy signInTokenDispatchStrategy(
+        @NonNull @Value("${app.auth.sign-in-token-dispatcher}") String strategy,
+        @NonNull @Value("${app.auth.sign-in-token-dispatcher.email.from}") String sourceEmail
+    ) {
+        switch (strategy) {
+            case "email":
+                return new SignInTokenDispatchStrategy.Email(sourceEmail);
+            case "console":
+                return new SignInTokenDispatchStrategy.Console();
+            default:
+                throw new IllegalArgumentException("unsupported sign-in token dispatch strategy: " + strategy);
+        }
+    }
+
+    @NonNull
     @Bean
     OpenAPI openAPI() {
         return new OpenAPI()
@@ -34,38 +65,48 @@ public class Application {
                     .addSecuritySchemes("bearer-token", new SecurityScheme()
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
-                        .bearerFormat("JWT")
-                    )
-            );
+                        .bearerFormat("JWT")));
     }
 
     @Configuration
-    static class MyWebSecurityConfiguration extends WebSecurityConfigurerAdapter {
+    static class WebSecurityConfiguration extends WebSecurityConfigurerAdapter {
 
         private final AuthBearerJWTReadFilter authBearerJWTReadFilter;
+        private final GlobalControllerAdvice globalControllerAdvice;
 
         @Autowired
-        public MyWebSecurityConfiguration(@NonNull AuthBearerJWTReadFilter authBearerJWTReadFilter) {
+        public WebSecurityConfiguration(
+            @NonNull AuthBearerJWTReadFilter authBearerJWTReadFilter,
+            @NonNull GlobalControllerAdvice globalControllerAdvice
+        ) {
             this.authBearerJWTReadFilter = authBearerJWTReadFilter;
+            this.globalControllerAdvice = globalControllerAdvice;
         }
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
             // disable default filters.
-            http.securityContext().disable()
+            http.csrf().disable()
+                .formLogin().disable()
                 .headers().disable()
-                .csrf().disable()
+                .httpBasic().disable()
                 .logout().disable()
+                .rememberMe().disable()
                 .requestCache().disable()
+                .securityContext().disable()
                 .sessionManagement().disable();
+
+            http.exceptionHandling()
+                .authenticationEntryPoint(globalControllerAdvice.noOpAuthenticationEntrypoint());
 
             // use request filter to use SecurityContext for authorizing requests.
             http.authorizeRequests()
                 .antMatchers("/v1/accounts/**").permitAll()
-                .anyRequest().authenticated();
+                .antMatchers("/v1/**").fullyAuthenticated()
+                .anyRequest().permitAll();
 
             // add custom filter to set SecurityContext based on Authorization bearer JWT.
-            http.addFilterBefore(authBearerJWTReadFilter, ExceptionTranslationFilter.class);
+            http.addFilterAfter(authBearerJWTReadFilter, AnonymousAuthenticationFilter.class);
         }
     }
 }
