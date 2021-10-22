@@ -1,7 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.models.RefreshToken;
-import com.trynoice.api.platform.BasicEntityCRUDRepository;
+import com.trynoice.api.platform.BasicEntityCrudRepository;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -9,5 +9,5 @@ import org.springframework.stereotype.Repository;
  * com.trynoice.api.platform.BasicEntity BasicEntity}.
  */
 @Repository
-public interface RefreshTokenRepository extends BasicEntityCRUDRepository<RefreshToken, Long> {
+public interface RefreshTokenRepository extends BasicEntityCrudRepository<RefreshToken, Long> {
 }

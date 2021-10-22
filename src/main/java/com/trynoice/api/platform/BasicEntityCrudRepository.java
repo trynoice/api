@@ -14,25 +14,25 @@ import java.util.Optional;
 
 /**
  * <p>
- * {@link BasicEntityCRUDRepository} is a direct descendant of Spring's {@link CrudRepository}. It
+ * {@link BasicEntityCrudRepository} is a direct descendant of Spring's {@link CrudRepository}. It
  * implements soft-deletes for the descendants of {@link BasicEntity}. Soft deleted entities are
  * referred to as inactive while the undeleted entities are called active. </p>
  * <p>
  * All methods from the {@link CrudRepository} retain their original behaviour except {@code
  * delete*} methods. The {@code delete*} methods' default behaviour is overridden to support soft
  * deletes. All the other methods from {@link CrudRepository} are <b>unaware of soft-deletes</b>.
- * The {@link BasicEntityCRUDRepository} doesn't support hard deletes at all. Moreover, it adds new
+ * The {@link BasicEntityCrudRepository} doesn't support hard deletes at all. Moreover, it adds new
  * methods to find, count and check existence of active and inactive entities, e.g. {@link
- * BasicEntityCRUDRepository#countActive() countActive()}. </p>
+ * BasicEntityCrudRepository#countActive() countActive()}. </p>
  * <p>
- * {@link BasicEntityCRUDRepository} <b>doesn't support cascaded operations</b>. Any cascaded
+ * {@link BasicEntityCrudRepository} <b>doesn't support cascaded operations</b>. Any cascaded
  * updates and deletes must be manually handled by the clients. </p>
  *
  * @param <T>  type of the {@link BasicEntity}.
  * @param <ID> type of the ID for {@link BasicEntity}.
  */
 @NoRepositoryBean
-public interface BasicEntityCRUDRepository<T extends BasicEntity<ID>, ID extends Serializable>
+public interface BasicEntityCrudRepository<T extends BasicEntity<ID>, ID extends Serializable>
     extends CrudRepository<T, ID> {
 
     String WHERE_ACTIVE_CLAUSE = " e." + BasicEntity.SOFT_DELETE_FIELD + " is null ";
@@ -82,54 +82,52 @@ public interface BasicEntityCRUDRepository<T extends BasicEntity<ID>, ID extends
     }
 
     @Override
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
     void deleteById(@NonNull ID id);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e.id = ?1 and" + WHERE_INACTIVE_CLAUSE)
     void undeleteByID(@NonNull ID id);
 
     @Override
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id = :#{#p.id} and" + WHERE_ACTIVE_CLAUSE)
     void delete(@Param("p") @NonNull T entity);
 
     @Transactional
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e.id = :#{#p.id} and" + WHERE_INACTIVE_CLAUSE)
     void undelete(@Param("p") @NonNull T entity);
 
     @Override
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     default void deleteAll(@NonNull Iterable<? extends T> entities) {
         entities.forEach(this::delete);
     }
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     default void undeleteAll(@NonNull Iterable<? extends T> entities) {
         entities.forEach(this::undelete);
     }
 
     @Override
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id in ?1 and" + WHERE_ACTIVE_CLAUSE)
     void deleteAllById(@NonNull Iterable<? extends ID> ids);
 
     @Transactional
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e.id in ?1 and" + WHERE_INACTIVE_CLAUSE)
     void undeleteAllById(@NonNull Iterable<? extends ID> ids);
 
     @Override
-    @Modifying
-    @Transactional
     default void deleteAll() {
         throw new UnsupportedOperationException();
     }

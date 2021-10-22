@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.Stack;
@@ -13,11 +14,15 @@ import java.util.Stack;
 import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class BasicEntityCRUDRepositoryTest {
+@ActiveProfiles("test")
+public class BasicEntityCrudRepositoryTest {
 
     private Stack<TestEntity> activeEntityStack;
     private Stack<TestEntity> inactiveEntityStack;
@@ -95,75 +100,70 @@ public class BasicEntityCRUDRepositoryTest {
     void deleteById() {
         val entity = activeEntityStack.pop();
         repository.deleteById(entity.getId());
-        assertFalse(repository.existsActiveById(entity.getId()));
-        assertTrue(repository.existsInactiveById(entity.getId()));
+        assertInactive(entity.getId());
     }
 
     @Test
     void undeleteByID() {
         val entity = inactiveEntityStack.pop();
         repository.undeleteByID(entity.getId());
-        assertFalse(repository.existsInactiveById(entity.getId()));
-        assertTrue(repository.existsActiveById(entity.getId()));
+        assertActive(entity.getId());
     }
 
     @Test
     void delete() {
         val entity = activeEntityStack.pop();
         repository.delete(entity);
-        assertFalse(repository.existsActiveById(entity.getId()));
-        assertTrue(repository.existsInactiveById(entity.getId()));
+        assertInactive(entity.getId());
     }
 
     @Test
     void undelete() {
         val entity = inactiveEntityStack.pop();
         repository.undelete(entity);
-        assertFalse(repository.existsInactiveById(entity.getId()));
-        assertTrue(repository.existsActiveById(entity.getId()));
+        assertActive(entity.getId());
     }
 
     @Test
     void deleteAll() {
         val entities = asList(activeEntityStack.pop(), activeEntityStack.pop());
         repository.deleteAll(entities);
-
-        entities.forEach(entity -> {
-            assertFalse(repository.existsActiveById(entity.getId()));
-            assertTrue(repository.existsInactiveById(entity.getId()));
-        });
+        entities.forEach(entity -> assertInactive(entity.getId()));
     }
 
     @Test
     void undeleteAll() {
         val entities = asList(inactiveEntityStack.pop(), inactiveEntityStack.pop());
         repository.undeleteAll(entities);
-
-        entities.forEach(entity -> {
-            assertFalse(repository.existsInactiveById(entity.getId()));
-            assertTrue(repository.existsActiveById(entity.getId()));
-        });
+        entities.forEach(entity -> assertActive(entity.getId()));
     }
 
     @Test
     void deleteAllById() {
         val ids = asList(activeEntityStack.pop().getId(), activeEntityStack.pop().getId());
         repository.deleteAllById(ids);
-
-        ids.forEach(id -> {
-            assertFalse(repository.existsActiveById(id));
-            assertTrue(repository.existsInactiveById(id));
-        });
+        ids.forEach(this::assertInactive);
     }
 
     @Test
     void undeleteAllById() {
         val ids = asList(inactiveEntityStack.pop().getId(), inactiveEntityStack.pop().getId());
         repository.undeleteAllById(ids);
+        ids.forEach(this::assertActive);
+    }
 
-        ids.forEach(id -> {
-            assertFalse(repository.existsInactiveById(id));
-            assertTrue(repository.existsActiveById(id));
-        });
+    @Test
+    void deleteAll_global() {
+        assertThrows(UnsupportedOperationException.class, () -> repository.deleteAll());
+    }
+
+    private void assertActive(int entityId) {
+        val dbEntity = repository.findById(entityId).orElseThrow();
+        assertNull(dbEntity.getDeletedAt());
+    }
+
+    private void assertInactive(int entityId) {
+        val dbEntity = repository.findById(entityId).orElseThrow();
+        assertNotNull(dbEntity.getDeletedAt());
     }
 }
