@@ -31,12 +31,12 @@ import java.io.IOException;
  * {@link org.springframework.security.core.context.SecurityContext SecurityContext}. </p>
  */
 @Component
-public class AuthBearerJWTReadFilter extends OncePerRequestFilter {
+public class BearerTokenAuthFilter extends OncePerRequestFilter {
 
     private final AccountService accountService;
 
     @Autowired
-    public AuthBearerJWTReadFilter(@NonNull AccountService accountService) {
+    public BearerTokenAuthFilter(@NonNull AccountService accountService) {
         this.accountService = accountService;
     }
 
