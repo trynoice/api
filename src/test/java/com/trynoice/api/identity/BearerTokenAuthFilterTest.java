@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,9 +15,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -49,13 +50,18 @@ class BearerTokenAuthFilterTest {
         this.filter = new BearerTokenAuthFilter(this.accountService);
         SecurityContextHolder.clearContext();
 
-        Mockito.lenient()
-            .when(accountService.verifyBearerJWT(INVALID_JWT))
-            .thenReturn(null);
+        lenient().when(accountService.verifyBearerJWT(INVALID_JWT)).thenReturn(null);
+        lenient().when(accountService.verifyBearerJWT(VALID_JWT)).thenReturn(mock(Authentication.class));
+    }
 
-        Mockito.lenient()
-            .when(accountService.verifyBearerJWT(VALID_JWT))
-            .thenReturn(mock(Authentication.class));
+    @Test
+    void doFilterInternal_withExistingAuthentication() throws ServletException, IOException {
+        val authentication = mock(Authentication.class);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        lenient().when(request.getHeader(any())).thenReturn("bearer " + VALID_JWT);
+        filter.doFilterInternal(request, response, filterChain);
+        verify(filterChain, times(1)).doFilter(request, response);
+        assertEquals(authentication, SecurityContextHolder.getContext().getAuthentication());
     }
 
     @Test
@@ -63,11 +69,7 @@ class BearerTokenAuthFilterTest {
         when(request.getHeader(any())).thenReturn(null);
         filter.doFilterInternal(request, response, filterChain);
         verify(filterChain, times(1)).doFilter(request, response);
-
-        val context = SecurityContextHolder.getContext();
-        if (context != null) {
-            assertNull(context.getAuthentication());
-        }
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     @Test
@@ -75,11 +77,7 @@ class BearerTokenAuthFilterTest {
         when(request.getHeader(any())).thenReturn("bearer " + INVALID_JWT);
         filter.doFilterInternal(request, response, filterChain);
         verify(filterChain, times(1)).doFilter(request, response);
-
-        val context = SecurityContextHolder.getContext();
-        if (context != null) {
-            assertNull(context.getAuthentication());
-        }
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     @Test
@@ -87,9 +85,6 @@ class BearerTokenAuthFilterTest {
         when(request.getHeader(any())).thenReturn("bearer " + VALID_JWT);
         filter.doFilterInternal(request, response, filterChain);
         verify(filterChain, times(1)).doFilter(request, response);
-
-        val context = SecurityContextHolder.getContext();
-        assertNotNull(context);
-        assertNotNull(context.getAuthentication());
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
     }
 }

@@ -106,7 +106,7 @@ public class Application {
                 .anyRequest().permitAll();
 
             // add custom filter to set SecurityContext based on Authorization bearer JWT.
-            http.addFilterAfter(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
+            http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
         }
     }
 }
