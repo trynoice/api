@@ -1,7 +1,9 @@
 package com.trynoice.api.identity.models;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
 /**
@@ -9,11 +11,13 @@ import lombok.NonNull;
  */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AuthCredentials {
 
     @NonNull
-    private final String refreshToken;
+    private String refreshToken;
 
     @NonNull
-    private final String accessToken;
+    private String accessToken;
 }

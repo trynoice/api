@@ -125,7 +125,7 @@ class AccountController {
 
     @NonNull
     @GetMapping(value = "/credentials")
-    ResponseEntity<AuthCredentials> getCredentials(
+    ResponseEntity<AuthCredentials> issueCredentials(
         @NonNull @NotBlank @Valid @RequestHeader("X-Refresh-Token") String refreshToken,
         @NonNull @NotBlank @Size(max = 128) @Valid @RequestHeader("User-Agent") String userAgent
     ) {

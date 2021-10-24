@@ -10,6 +10,8 @@
     </list>
     <writeAnnotations>
       <writeAnnotation name="org.springframework.beans.factory.annotation.Autowired" />
+      <writeAnnotation name="org.springframework.boot.test.mock.mockito.MockBean" />
+      <writeAnnotation name="org.springframework.beans.factory.annotation.Value" />
     </writeAnnotations>
   </component>
   <component name="NullableNotNullManager">

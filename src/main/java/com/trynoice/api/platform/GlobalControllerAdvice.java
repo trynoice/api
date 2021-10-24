@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import javax.servlet.http.HttpServletResponse;
+import javax.validation.ConstraintViolationException;
 
 /**
  * Exception handlers for common, global handled and unhandled errors.
@@ -41,7 +42,7 @@ public class GlobalControllerAdvice {
         log.error("encountered an uncaught exception while processing the request", e);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class})
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     void handleInvalidRequestBody() {
     }
