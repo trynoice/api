@@ -17,16 +17,19 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.sql.Date;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Calendar;
+import java.time.ZoneId;
+import java.util.Objects;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -61,70 +64,117 @@ class AccountServiceTest {
 
     @Test
     void signUp_withExistingAccount() throws SignInTokenDispatchException {
-        val testEmail = "test-0@test.org";
-        val testName = "test-name-0";
-        val authUser = buildAuthUser(testEmail, testName);
+        val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(testEmail)).thenReturn(Optional.of(authUser));
+        when(authUserRepository.findActiveByEmail(authUser.getEmail()))
+            .thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
-        service.signUp(testEmail, testName);
+        service.signUp(authUser.getEmail(), authUser.getName());
 
         verify(authUserRepository, times(0)).save(any());
         val refreshTokenCaptor = ArgumentCaptor.forClass(String.class);
+        val destinationCaptor = ArgumentCaptor.forClass(String.class);
         verify(signInTokenDispatchStrategy, times(1))
-            .dispatch(refreshTokenCaptor.capture(), eq(testEmail));
+            .dispatch(refreshTokenCaptor.capture(), destinationCaptor.capture());
 
         assertValidJWT(refreshTokenCaptor.getValue());
+        assertEquals(authUser.getEmail(), destinationCaptor.getValue());
     }
 
     @Test
     void signUp_withNonExistingAccount() throws SignInTokenDispatchException {
-        val testEmail = "test-1@test.org";
-        val testName = "test-name-1";
-        val authUser = buildAuthUser(testEmail, testName);
+        val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(testEmail)).thenReturn(Optional.empty());
+        when(authUserRepository.findActiveByEmail(authUser.getEmail()))
+            .thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
-        service.signUp(testEmail, testName);
+        service.signUp(authUser.getEmail(), authUser.getName());
 
         verify(authUserRepository, times(1)).save(any());
         verify(refreshTokenRepository, times(1)).save(any());
         val refreshTokenCaptor = ArgumentCaptor.forClass(String.class);
+        val destinationCaptor = ArgumentCaptor.forClass(String.class);
         verify(signInTokenDispatchStrategy, times(1))
-            .dispatch(refreshTokenCaptor.capture(), eq(testEmail));
+            .dispatch(refreshTokenCaptor.capture(), destinationCaptor.capture());
 
         assertValidJWT(refreshTokenCaptor.getValue());
+        assertEquals(authUser.getEmail(), destinationCaptor.getValue());
     }
 
     @Test
     void signIn_withExistingAccount() throws AccountNotFoundException, SignInTokenDispatchException {
-        val testEmail = "test-2@test.org";
-        val authUser = buildAuthUser(testEmail, "test-name-2");
+        val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(testEmail)).thenReturn(Optional.of(authUser));
+        when(authUserRepository.findActiveByEmail(authUser.getEmail()))
+            .thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
-        service.signIn(testEmail);
+        service.signIn(authUser.getEmail());
 
         verify(refreshTokenRepository, times(1)).save(any());
         val refreshTokenCaptor = ArgumentCaptor.forClass(String.class);
+        val destinationCaptor = ArgumentCaptor.forClass(String.class);
         verify(signInTokenDispatchStrategy, times(1))
-            .dispatch(refreshTokenCaptor.capture(), eq(testEmail));
+            .dispatch(refreshTokenCaptor.capture(), destinationCaptor.capture());
 
         assertValidJWT(refreshTokenCaptor.getValue());
+        assertEquals(authUser.getEmail(), destinationCaptor.getValue());
     }
 
     @Test
     void signIn_withNonExistingAccount() {
-        val testEmail = "test-3@test.org";
+        val testEmail = "test@test.org";
         when(authUserRepository.findActiveByEmail(testEmail)).thenReturn(Optional.empty());
 
         assertThrows(AccountNotFoundException.class, () -> service.signIn(testEmail));
         verify(refreshTokenRepository, times(0)).save(any());
         verifyNoInteractions(signInTokenDispatchStrategy);
+    }
+
+    @Test
+    void signOut_withInvalidJWT() {
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut("invalid-jwt"));
+    }
+
+    @Test
+    void signOut_withExpiredJWT() {
+        val refreshToken = buildRefreshToken(buildAuthUser());
+        val expiresAt = LocalDateTime.now().minus(Duration.ofHours(1));
+        val token = signRefreshToken(refreshToken, expiresAt, null);
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(token));
+    }
+
+    @Test
+    void signOut_withUsedJWT() {
+        val refreshToken = buildRefreshToken(buildAuthUser());
+        val expiresAt = LocalDateTime.now().plus(Duration.ofHours(1));
+        val token = signRefreshToken(refreshToken, expiresAt, refreshToken.getVersion() - 1);
+
+        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
+            .thenReturn(Optional.of(refreshToken));
+
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(token));
+    }
+
+    @Test
+    void signOut_withValidJWT() {
+        val refreshToken = buildRefreshToken(buildAuthUser());
+        val expiresAt = LocalDateTime.now().plus(Duration.ofHours(1));
+        val token = signRefreshToken(refreshToken, expiresAt, null);
+
+        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
+            .thenReturn(Optional.of(refreshToken));
+
+        // error without block: java: incompatible types: inference variable T has incompatible bounds
+        //noinspection CodeBlock2Expr
+        assertDoesNotThrow(() -> {
+            service.signOut(token);
+        });
+
+        verify(refreshTokenRepository, times(1)).delete(refreshToken);
     }
 
     @Test
@@ -135,11 +185,9 @@ class AccountServiceTest {
 
     @Test
     void issueAuthCredentials_withExpiredJWT() {
-        val expiresAt = Calendar.getInstance();
-        expiresAt.add(Calendar.HOUR, -1);
-        val token = JWT.create()
-            .withExpiresAt(expiresAt.getTime())
-            .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
+        val refreshToken = buildRefreshToken(buildAuthUser());
+        val expiresAt = LocalDateTime.now().minus(Duration.ofHours(1));
+        val token = signRefreshToken(refreshToken, expiresAt, null);
 
         assertThrows(RefreshTokenVerificationException.class, () ->
             service.issueAuthCredentials(token, "test-user-agent"));
@@ -147,16 +195,9 @@ class AccountServiceTest {
 
     @Test
     void issueAuthCredentials_withUsedJWT() {
-        val refreshToken = buildRefreshToken(
-            buildAuthUser("test-4@test.org", "test-name-4"));
-
-        val expiresAt = Calendar.getInstance();
-        expiresAt.add(Calendar.HOUR, 1);
-        val token = JWT.create()
-            .withJWTId("" + refreshToken.getId())
-            .withClaim(AccountService.REFRESH_TOKEN_ORDINAL_CLAIM, refreshToken.getVersion() - 1)
-            .withExpiresAt(expiresAt.getTime())
-            .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
+        val refreshToken = buildRefreshToken(buildAuthUser());
+        val expiresAt = LocalDateTime.now().plus(Duration.ofHours(1));
+        val token = signRefreshToken(refreshToken, expiresAt, refreshToken.getVersion() - 1);
 
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
@@ -167,16 +208,9 @@ class AccountServiceTest {
 
     @Test
     void issueAuthCredentials_withValidJWT() throws RefreshTokenVerificationException {
-        val refreshToken = buildRefreshToken(
-            buildAuthUser("test-5@test.org", "test-name-5"));
-
-        val expiresAt = Calendar.getInstance();
-        expiresAt.add(Calendar.HOUR, 1);
-        val token = JWT.create()
-            .withJWTId("" + refreshToken.getId())
-            .withClaim(AccountService.REFRESH_TOKEN_ORDINAL_CLAIM, refreshToken.getVersion())
-            .withExpiresAt(expiresAt.getTime())
-            .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
+        val refreshToken = buildRefreshToken(buildAuthUser());
+        val expiresAt = LocalDateTime.now().plus(Duration.ofHours(1));
+        val token = signRefreshToken(refreshToken, expiresAt, null);
 
         when(refreshTokenRepository.save(refreshToken))
             .thenReturn(refreshToken);
@@ -209,12 +243,12 @@ class AccountServiceTest {
     }
 
     @NonNull
-    private AuthUser buildAuthUser(@NonNull String email, @NonNull String name) {
+    private AuthUser buildAuthUser() {
         // mock since basic entity non-null fields can not be set explicitly.
         val authUser = mock(AuthUser.class);
         lenient().when(authUser.getId()).thenReturn(1);
-        lenient().when(authUser.getEmail()).thenReturn(email);
-        lenient().when(authUser.getName()).thenReturn(name);
+        lenient().when(authUser.getEmail()).thenReturn("test@test.org");
+        lenient().when(authUser.getName()).thenReturn("test-name");
         return authUser;
     }
 
@@ -228,6 +262,21 @@ class AccountServiceTest {
         lenient().when(refreshToken.getUserAgent()).thenReturn("test-user-agent");
         lenient().when(refreshToken.getExpiresAt()).thenReturn(LocalDateTime.now().plus(Duration.ofHours(1)));
         return refreshToken;
+    }
+
+    @NonNull
+    private String signRefreshToken(
+        @NonNull RefreshToken refreshToken,
+        @NonNull LocalDateTime expiresAt,
+        Long jwtVersion
+    ) {
+        return JWT.create()
+            .withJWTId("" + refreshToken.getId())
+            .withClaim(
+                AccountService.REFRESH_TOKEN_ORDINAL_CLAIM,
+                Objects.requireNonNullElse(jwtVersion, refreshToken.getVersion()))
+            .withExpiresAt(Date.from(expiresAt.atZone(ZoneId.systemDefault()).toInstant()))
+            .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
     }
 
     private void assertValidJWT(@NonNull String token) {

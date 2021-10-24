@@ -166,6 +166,28 @@ class AccountControllerTest {
                 .verify(token));
     }
 
+    @ParameterizedTest(name = "{displayName} - tokenType={0} responseStatus={1}")
+    @MethodSource("signOutTestCases")
+    void signOut(String tokenType, int expectedResponseStatus) throws Exception {
+        // create signed refresh-tokens as expected by various test cases.
+        val token = createRefreshToken(tokenType);
+        mockMvc.perform(
+                get("/v1/accounts/signOut")
+                    .header("X-Refresh-Token", token))
+            .andExpect(status().is(expectedResponseStatus));
+    }
+
+    static Stream<Arguments> signOutTestCases() {
+        return Stream.of(
+            // tokenType, responseStatus
+            arguments("", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments("invalid-token", HttpStatus.UNAUTHORIZED.value()),
+            arguments("expired-token", HttpStatus.UNAUTHORIZED.value()),
+            arguments("reused-token", HttpStatus.UNAUTHORIZED.value()),
+            arguments("valid-token", HttpStatus.OK.value())
+        );
+    }
+
     @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
     @MethodSource("issueCredentialsTestCases")
     void issueCredentials(String tokenType, String userAgent, int expectedResponseStatus) throws Exception {

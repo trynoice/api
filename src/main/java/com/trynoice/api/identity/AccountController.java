@@ -107,6 +107,36 @@ class AccountController {
 
     /**
      * <p>
+     * Revokes a valid refresh token. If the refresh token is invalid, expired or re-used, it
+     * returns HTTP 401.</p>
+     *
+     * @param refreshToken it must be a non-blank string.
+     */
+    @Operation(summary = "Revokes a valid refresh token")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "401", description = "refresh token is invalid, expired or re-used"),
+        @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
+        @ApiResponse(responseCode = "500", description = "internal server error"),
+    })
+
+    @NonNull
+    @GetMapping(value = "/signOut")
+    ResponseEntity<Void> signOut(
+        @NonNull @NotBlank @Valid @RequestHeader("X-Refresh-Token") String refreshToken
+    ) {
+        try {
+            accountService.signOut(refreshToken);
+            return ResponseEntity.ok(null);
+        } catch (RefreshTokenVerificationException e) {
+            log.trace("failed to revoke refresh token", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    /**
+     * <p>
      * Issues fresh credentials (refresh and access tokens) in exchange for a valid refresh token.
      * If the refresh token is invalid, expired or re-used, it returns HTTP 401.</p>
      *
