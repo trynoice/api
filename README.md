@@ -38,6 +38,21 @@ development environment by overriding them in `application-dev.properties` (whic
 the `dev` spring profile). It is ignored by Git and a sample file for the `dev` profile available
 [here](src/main/resources/application-dev.properties.sample).
 
+### Integration Tests
+
+[`application-test.properties`](src/integrationTest/resources/application-test.properties) contain
+configuration critical for running integration tests. Both, the ["Integration Tests" IntelliJ run
+configuration](.idea/runConfigurations/Integration_Tests.xml) and the `integrationTest` Gradle task,
+enable `test` profile by default to load this configuration before running integration tests.
+
+The `test` profile configures the application to use the [PostgreSQL
+module](https://www.testcontainers.org/modules/databases/postgres/) of
+[Testcontainers](https://www.testcontainers.org). It requires access to an active Docker daemon. It
+creates one PostgreSQL container per test class and one database per test. One should note that a
+[`ParameterizedTest`](https://junit.org/junit5/docs/current/user-guide/#writing-tests-parameterized-tests)
+set is considered a single test, i.e. all cases in a parameterized test will share the same
+database.
+
 ## Production Configuration
 
 As a convention, all production configuration must be accepted through environment variables. To
