@@ -21,9 +21,9 @@ import java.sql.Date;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Objects;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNullElse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -274,7 +274,7 @@ class AccountServiceTest {
             .withJWTId("" + refreshToken.getId())
             .withClaim(
                 AccountService.REFRESH_TOKEN_ORDINAL_CLAIM,
-                Objects.requireNonNullElse(jwtVersion, refreshToken.getVersion()))
+                requireNonNullElse(jwtVersion, refreshToken.getVersion()))
             .withExpiresAt(Date.from(expiresAt.atZone(ZoneId.systemDefault()).toInstant()))
             .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
     }
