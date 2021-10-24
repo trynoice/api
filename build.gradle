@@ -46,6 +46,7 @@ task integrationTest(type: Test) {
     classpath = sourceSets.integrationTest.runtimeClasspath
     testClassesDirs = sourceSets.integrationTest.output.classesDirs
     useJUnitPlatform()
+    systemProperty "spring.profiles.active", "test"
 }
 
 check.dependsOn integrationTest
