@@ -46,14 +46,23 @@ public class BearerTokenAuthFilter extends OncePerRequestFilter {
         @NonNull HttpServletResponse response,
         @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-        val header = request.getHeader("authorization");
-        if (header != null && header.toLowerCase().startsWith("bearer ")) {
-            val context = SecurityContextHolder.createEmptyContext();
-            val authentication = accountService.verifyBearerJWT(header.substring(7));
-            context.setAuthentication(authentication);
-            SecurityContextHolder.setContext(context);
+        verifyAuthorizationHeader(request);
+        filterChain.doFilter(request, response);
+    }
+
+    private void verifyAuthorizationHeader(@NonNull HttpServletRequest request) {
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            return; // a previous filter may have performed authentication.
         }
 
-        filterChain.doFilter(request, response);
+        val header = request.getHeader("authorization");
+        if (header == null || !header.toLowerCase().startsWith("bearer ")) {
+            return;
+        }
+
+        val context = SecurityContextHolder.createEmptyContext();
+        val authentication = accountService.verifyBearerJWT(header.substring(7));
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
     }
 }
