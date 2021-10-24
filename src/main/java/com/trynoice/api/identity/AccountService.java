@@ -115,11 +115,22 @@ class AccountService {
     }
 
     /**
+     * Revokes a valid refresh token.
+     *
+     * @param refreshToken refresh token provided by the client
+     * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
+     */
+    void signOut(@NonNull String refreshToken) throws RefreshTokenVerificationException {
+        val token = verifyRefreshJWT(refreshToken);
+        refreshTokenRepository.delete(token);
+    }
+
+    /**
      * Verifies if the given refresh token is valid and then returns a fresh set of auth
      * credentials.
      *
-     * @param refreshToken refresh token provided the user
-     * @param userAgent    user-agent that user used to make this request
+     * @param refreshToken refresh token provided by the client
+     * @param userAgent    user-agent that the client used to make this request
      * @return fresh {@link AuthCredentials}
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
@@ -129,24 +140,7 @@ class AccountService {
         @NonNull String refreshToken,
         @NonNull String userAgent
     ) throws RefreshTokenVerificationException {
-        final long tokenId, tokenVersion;
-        try {
-            val decodedToken = jwtVerifier.verify(refreshToken);
-            tokenId = Long.parseLong(decodedToken.getId());
-            tokenVersion = decodedToken.getClaim(REFRESH_TOKEN_ORDINAL_CLAIM).asLong();
-        } catch (JWTVerificationException e) {
-            throw new RefreshTokenVerificationException("refresh token verification failed", e);
-        }
-
-        var token = refreshTokenRepository.findActiveById(tokenId)
-            .orElseThrow(() -> new RefreshTokenVerificationException("refresh token doesn't exist in database"));
-
-        // if token version is different, it implies that an old refresh token is being re-used.
-        // delete token on re-use to effectively sign out both the legitimate user and the attacker.
-        if (tokenVersion != token.getVersion()) {
-            refreshTokenRepository.delete(token);
-            throw new RefreshTokenVerificationException("refresh token version mismatch");
-        }
+        var token = verifyRefreshJWT(refreshToken);
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
         if (token.getVersion() == 0) {
@@ -155,6 +149,9 @@ class AccountService {
 
         token.setExpiresAt(LocalDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
         token = refreshTokenRepository.save(token);
+
+        // update last active timestamp for user. Uses pre-update hook on the AuthUser entity.
+        authUserRepository.save(token.getOwner());
 
         val accessTokenExpiry = LocalDateTime.now().plus(authConfig.getAccessTokenExpiry());
         val signedAccessToken = JWT.create()
@@ -166,6 +163,30 @@ class AccountService {
             .refreshToken(createSignedRefreshTokenString(token))
             .accessToken(signedAccessToken)
             .build();
+    }
+
+    @NonNull
+    private RefreshToken verifyRefreshJWT(@NonNull String jwt) throws RefreshTokenVerificationException {
+        final long jwtId, jwtVersion;
+        try {
+            val decodedToken = jwtVerifier.verify(jwt);
+            jwtId = Long.parseLong(decodedToken.getId());
+            jwtVersion = decodedToken.getClaim(REFRESH_TOKEN_ORDINAL_CLAIM).asLong();
+        } catch (JWTVerificationException e) {
+            throw new RefreshTokenVerificationException("refresh token verification failed", e);
+        }
+
+        val token = refreshTokenRepository.findActiveById(jwtId)
+            .orElseThrow(() -> new RefreshTokenVerificationException("refresh token doesn't exist in database"));
+
+        // if token version is different, it implies that an old refresh token is being re-used.
+        // delete token on re-use to effectively sign out both the legitimate user and the attacker.
+        if (jwtVersion != token.getVersion()) {
+            refreshTokenRepository.delete(token);
+            throw new RefreshTokenVerificationException("refresh token version mismatch");
+        }
+
+        return token;
     }
 
     /**
