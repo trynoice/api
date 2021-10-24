@@ -33,10 +33,10 @@ import java.sql.Date;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static java.util.Objects.requireNonNullElse;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -254,7 +254,7 @@ class AccountControllerTest {
 
         return JWT.create()
             .withJWTId("" + refreshToken.getId())
-            .withClaim(AccountService.REFRESH_TOKEN_ORDINAL_CLAIM, Objects.requireNonNullElse(jwtVersion, refreshToken.getVersion()))
+            .withClaim(AccountService.REFRESH_TOKEN_ORDINAL_CLAIM, requireNonNullElse(jwtVersion, refreshToken.getVersion()))
             .withExpiresAt(Date.from(expiresAt.atZone(ZoneId.systemDefault()).toInstant()))
             .sign(Algorithm.HMAC256(hmacSecret));
     }
