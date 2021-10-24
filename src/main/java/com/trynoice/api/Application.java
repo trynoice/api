@@ -1,6 +1,6 @@
 package com.trynoice.api;
 
-import com.trynoice.api.identity.AuthBearerJWTReadFilter;
+import com.trynoice.api.identity.BearerTokenAuthFilter;
 import com.trynoice.api.identity.SignInTokenDispatchStrategy;
 import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.platform.GlobalControllerAdvice;
@@ -71,15 +71,15 @@ public class Application {
     @Configuration
     static class WebSecurityConfiguration extends WebSecurityConfigurerAdapter {
 
-        private final AuthBearerJWTReadFilter authBearerJWTReadFilter;
+        private final BearerTokenAuthFilter bearerTokenAuthFilter;
         private final GlobalControllerAdvice globalControllerAdvice;
 
         @Autowired
         public WebSecurityConfiguration(
-            @NonNull AuthBearerJWTReadFilter authBearerJWTReadFilter,
+            @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
             @NonNull GlobalControllerAdvice globalControllerAdvice
         ) {
-            this.authBearerJWTReadFilter = authBearerJWTReadFilter;
+            this.bearerTokenAuthFilter = bearerTokenAuthFilter;
             this.globalControllerAdvice = globalControllerAdvice;
         }
 
@@ -106,7 +106,7 @@ public class Application {
                 .anyRequest().permitAll();
 
             // add custom filter to set SecurityContext based on Authorization bearer JWT.
-            http.addFilterAfter(authBearerJWTReadFilter, AnonymousAuthenticationFilter.class);
+            http.addFilterAfter(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
         }
     }
 }

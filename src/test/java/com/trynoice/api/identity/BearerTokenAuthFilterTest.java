@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class AuthBearerJWTReadFilterTest {
+class BearerTokenAuthFilterTest {
 
     private static final String INVALID_JWT = "invalid-token";
     private static final String VALID_JWT = "valid-token";
@@ -42,11 +42,11 @@ class AuthBearerJWTReadFilterTest {
     @Mock
     private AccountService accountService;
 
-    private AuthBearerJWTReadFilter filter;
+    private BearerTokenAuthFilter filter;
 
     @BeforeEach
     void setUp() {
-        this.filter = new AuthBearerJWTReadFilter(this.accountService);
+        this.filter = new BearerTokenAuthFilter(this.accountService);
         SecurityContextHolder.clearContext();
 
         Mockito.lenient()
