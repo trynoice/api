@@ -224,9 +224,9 @@ class AccountServiceTest {
     }
 
     @Test
-    void verifyBearerJWT() {
+    void verifyAccessToken() {
         val invalidToken = "invalid-token";
-        assertNull(service.verifyBearerJWT(invalidToken));
+        assertNull(service.verifyAccessToken(invalidToken));
 
         val principalId = 0;
         val validToken = JWT.create()
@@ -236,7 +236,7 @@ class AccountServiceTest {
         when(authUserRepository.findActiveById(principalId))
             .thenReturn(Optional.of(mock(AuthUser.class)));
 
-        val auth = service.verifyBearerJWT(validToken);
+        val auth = service.verifyAccessToken(validToken);
         assertNotNull(auth);
         assertNotNull(auth.getPrincipal());
         verify(authUserRepository, times(1)).findActiveById(principalId);

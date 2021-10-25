@@ -35,4 +35,7 @@ public class AuthConfiguration {
      */
     @NotNull
     private Duration signInTokenExpiry;
+
+    @NotBlank
+    private String cookieDomain;
 }

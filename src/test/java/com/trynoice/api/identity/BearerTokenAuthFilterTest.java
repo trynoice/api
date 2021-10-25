@@ -1,6 +1,7 @@
 package com.trynoice.api.identity;
 
 import lombok.val;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,8 +51,13 @@ class BearerTokenAuthFilterTest {
         this.filter = new BearerTokenAuthFilter(this.accountService);
         SecurityContextHolder.clearContext();
 
-        lenient().when(accountService.verifyBearerJWT(INVALID_JWT)).thenReturn(null);
-        lenient().when(accountService.verifyBearerJWT(VALID_JWT)).thenReturn(mock(Authentication.class));
+        lenient().when(accountService.verifyAccessToken(INVALID_JWT)).thenReturn(null);
+        lenient().when(accountService.verifyAccessToken(VALID_JWT)).thenReturn(mock(Authentication.class));
+    }
+
+    @AfterEach
+    void verifyFilterChainInvocation() throws ServletException, IOException {
+        verify(filterChain, times(1)).doFilter(request, response);
     }
 
     @Test
@@ -60,7 +66,6 @@ class BearerTokenAuthFilterTest {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         lenient().when(request.getHeader(any())).thenReturn("bearer " + VALID_JWT);
         filter.doFilterInternal(request, response, filterChain);
-        verify(filterChain, times(1)).doFilter(request, response);
         assertEquals(authentication, SecurityContextHolder.getContext().getAuthentication());
     }
 
@@ -68,7 +73,6 @@ class BearerTokenAuthFilterTest {
     void doFilterInternal_withoutAuthorizationHeader() throws ServletException, IOException {
         when(request.getHeader(any())).thenReturn(null);
         filter.doFilterInternal(request, response, filterChain);
-        verify(filterChain, times(1)).doFilter(request, response);
         assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
@@ -76,7 +80,6 @@ class BearerTokenAuthFilterTest {
     void doFilterInternal_withInvalidJWT() throws ServletException, IOException {
         when(request.getHeader(any())).thenReturn("bearer " + INVALID_JWT);
         filter.doFilterInternal(request, response, filterChain);
-        verify(filterChain, times(1)).doFilter(request, response);
         assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
@@ -84,7 +87,6 @@ class BearerTokenAuthFilterTest {
     void doFilterInternal_withValidJWT() throws ServletException, IOException {
         when(request.getHeader(any())).thenReturn("bearer " + VALID_JWT);
         filter.doFilterInternal(request, response, filterChain);
-        verify(filterChain, times(1)).doFilter(request, response);
         assertNotNull(SecurityContextHolder.getContext().getAuthentication());
     }
 }
