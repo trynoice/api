@@ -1,11 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Unit Tests" type="JUnit" factoryName="JUnit">
-    <module name="api.test" />
-    <extension name="coverage" track_test_folders="true" />
-    <option name="PACKAGE_NAME" value="" />
+  <configuration default="true" type="JUnit" factoryName="JUnit">
     <option name="MAIN_CLASS_NAME" value="" />
     <option name="METHOD_NAME" value="" />
-    <option name="TEST_OBJECT" value="package" />
+    <option name="TEST_OBJECT" value="class" />
     <envs>
       <env name="SPRING_PROFILES_ACTIVE" value="test" />
     </envs>

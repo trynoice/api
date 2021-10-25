@@ -1,10 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="API" type="Application" factoryName="Application">
+  <configuration default="true" type="Application" factoryName="Application">
     <envs>
       <env name="SPRING_PROFILES_ACTIVE" value="dev" />
     </envs>
-    <option name="MAIN_CLASS_NAME" value="com.trynoice.api.Application" />
-    <module name="api.main" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>
