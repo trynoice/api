@@ -108,7 +108,7 @@ public class CookieAuthFilter extends OncePerRequestFilter {
     }
 
     private AuthCredentials issueCredentials(String refreshToken, String userAgent) {
-        if (refreshToken == null || userAgent == null) {
+        if (refreshToken == null) {
             return null;
         }
 

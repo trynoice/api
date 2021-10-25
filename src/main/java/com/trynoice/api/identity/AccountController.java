@@ -143,7 +143,7 @@ class AccountController {
      * If the refresh token is invalid, expired or re-used, it returns HTTP 401.</p>
      *
      * @param refreshToken it must be a non-blank string.
-     * @param userAgent    it must be non-blank string of at most 128 characters.
+     * @param userAgent    it can a string of at most 128 characters.
      * @return fresh credentials (refresh and access tokens)
      */
     @Operation(summary = "Issue new credentials using a valid refresh token")
@@ -159,7 +159,7 @@ class AccountController {
     @GetMapping(value = "/credentials")
     ResponseEntity<AuthCredentials> issueCredentials(
         @NonNull @NotBlank @Valid @RequestHeader("X-Refresh-Token") String refreshToken,
-        @NonNull @NotBlank @Size(max = 128) @Valid @RequestHeader("User-Agent") String userAgent
+        @Size(max = 128) @Valid @RequestHeader("User-Agent") String userAgent
     ) {
         try {
             val credentials = accountService.issueAuthCredentials(refreshToken, userAgent);
