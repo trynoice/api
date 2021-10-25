@@ -1,12 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Integration Tests" type="JUnit" factoryName="JUnit">
     <module name="api.integrationTest" />
-    <extension name="coverage">
-      <pattern>
-        <option name="PATTERN" value="com.trynoice.api.*" />
-        <option name="ENABLED" value="true" />
-      </pattern>
-    </extension>
+    <extension name="coverage" track_test_folders="true" />
     <option name="PACKAGE_NAME" value="" />
     <option name="MAIN_CLASS_NAME" value="" />
     <option name="METHOD_NAME" value="" />
