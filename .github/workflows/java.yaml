@@ -5,6 +5,9 @@ on:
       - main
     tags:
       - "**"
+    paths-ignore:
+      - ".idea/**"
+      - "**.md"
   pull_request:
     branches:
       - main
