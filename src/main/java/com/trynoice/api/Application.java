@@ -1,12 +1,14 @@
 package com.trynoice.api;
 
 import com.trynoice.api.identity.BearerTokenAuthFilter;
+import com.trynoice.api.identity.CookieAuthFilter;
 import com.trynoice.api.identity.SignInTokenDispatchStrategy;
 import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.platform.GlobalControllerAdvice;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,27 +61,36 @@ public class Application {
     @Bean
     OpenAPI openAPI() {
         return new OpenAPI()
-            .info(new Info().title("Noice API"))
+            .info(new Info().title("Noice API").version("v1"))
             .components(
                 new Components()
                     .addSecuritySchemes("bearer-token", new SecurityScheme()
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
-                        .bearerFormat("JWT")));
+                        .bearerFormat("JWT"))
+                    .addSecuritySchemes("refresh-token-cookie", new SecurityScheme()
+                        .type(SecurityScheme.Type.APIKEY)
+                        .in(SecurityScheme.In.COOKIE)
+                        .name(CookieAuthFilter.REFRESH_TOKEN_COOKIE)))
+            .addSecurityItem(new SecurityRequirement().addList("bearer-token"))
+            .addSecurityItem(new SecurityRequirement().addList("refresh-token-cookie"));
     }
 
     @Configuration
     static class WebSecurityConfiguration extends WebSecurityConfigurerAdapter {
 
         private final BearerTokenAuthFilter bearerTokenAuthFilter;
+        private final CookieAuthFilter cookieAuthFilter;
         private final GlobalControllerAdvice globalControllerAdvice;
 
         @Autowired
         public WebSecurityConfiguration(
             @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
+            @NonNull CookieAuthFilter cookieAuthFilter,
             @NonNull GlobalControllerAdvice globalControllerAdvice
         ) {
             this.bearerTokenAuthFilter = bearerTokenAuthFilter;
+            this.cookieAuthFilter = cookieAuthFilter;
             this.globalControllerAdvice = globalControllerAdvice;
         }
 
@@ -107,6 +118,7 @@ public class Application {
 
             // add custom filter to set SecurityContext based on Authorization bearer JWT.
             http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
+            http.addFilterBefore(cookieAuthFilter, AnonymousAuthenticationFilter.class);
         }
     }
 }

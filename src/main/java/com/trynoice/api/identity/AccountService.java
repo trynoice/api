@@ -197,7 +197,7 @@ class AccountService {
      * @return a non-null {@link Authentication} if the provided token is valid. {@code null} if the
      * token is invalid.
      */
-    Authentication verifyBearerJWT(@NonNull String token) {
+    Authentication verifyAccessToken(@NonNull String token) {
         try {
             val decodedToken = jwtVerifier.verify(token);
             return new BearerJWT(decodedToken);

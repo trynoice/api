@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -31,9 +32,10 @@ import javax.validation.constraints.Size;
 /**
  * REST controller for identity and auth related '{@code /v1/accounts}' routes.
  */
+@Validated
 @RestController
 @RequestMapping("/v1/accounts")
-@Validated
+@SecurityRequirements // disable open-api security schemes for the entire controller
 @Slf4j
 class AccountController {
 

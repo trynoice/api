@@ -18,7 +18,8 @@ import java.io.IOException;
  * A {@link OncePerRequestFilter OncePerRequest} security filter to validate <i>bearer</i> JSON web
  * token passed using the <i>Authorization</i> request header. </p>
  * <p>
- * If the Authorization header is invalid or not provided, the filter leaves the existing {@link
+ * If a previous filter set an authentication on the current security context or if the
+ * Authorization header is invalid or not provided, the filter leaves the existing {@link
  * org.springframework.security.core.context.SecurityContext SecurityContext} untouched. However, if
  * the authorization header is valid, the filter sets a new {@link
  * org.springframework.security.core.context.SecurityContext SecurityContext} on the {@link
@@ -46,22 +47,21 @@ public class BearerTokenAuthFilter extends OncePerRequestFilter {
         @NonNull HttpServletResponse response,
         @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-        verifyAuthorizationHeader(request);
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            verifyAuthorizationHeader(request);
+        }
+
         filterChain.doFilter(request, response);
     }
 
     private void verifyAuthorizationHeader(@NonNull HttpServletRequest request) {
-        if (SecurityContextHolder.getContext().getAuthentication() != null) {
-            return; // a previous filter may have performed authentication.
-        }
-
         val header = request.getHeader("authorization");
         if (header == null || !header.toLowerCase().startsWith("bearer ")) {
             return;
         }
 
+        val authentication = accountService.verifyAccessToken(header.substring(7));
         val context = SecurityContextHolder.createEmptyContext();
-        val authentication = accountService.verifyBearerJWT(header.substring(7));
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
     }

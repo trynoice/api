@@ -22,3 +22,4 @@ app.auth.hmac-secret=sin5ZCR7O5nrGwxLoOygGKp+NxVittYkbHhyWdVPHDlJHO+jPzRZ/b5/PhT
 app.auth.refresh-token-expiry=15d
 app.auth.access-token-expiry=6h
 app.auth.sign-in-token-dispatcher=console
+app.auth.cookie-domain=localhost
