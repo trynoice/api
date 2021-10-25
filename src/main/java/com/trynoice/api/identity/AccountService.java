@@ -31,9 +31,9 @@ import java.util.List;
  */
 @Service
 @Slf4j
-class AccountService {
+public class AccountService {
 
-    static final String REFRESH_TOKEN_ORDINAL_CLAIM = "ord";
+    public static final String REFRESH_TOKEN_ORDINAL_CLAIM = "ord";
 
     private final AuthUserRepository authUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -130,20 +130,17 @@ class AccountService {
      * credentials.
      *
      * @param refreshToken refresh token provided by the client
-     * @param userAgent    user-agent that the client used to make this request
+     * @param userAgent    user-agent that the client used to make this request. It can be {@code null}.
      * @return fresh {@link AuthCredentials}
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
     @Transactional
-    AuthCredentials issueAuthCredentials(
-        @NonNull String refreshToken,
-        @NonNull String userAgent
-    ) throws RefreshTokenVerificationException {
+    AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
-        if (token.getVersion() == 0) {
+        if (token.getVersion() == 0 && userAgent != null) {
             token.setUserAgent(userAgent);
         }
 

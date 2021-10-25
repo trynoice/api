@@ -109,7 +109,7 @@ class CookieAuthFilterTest {
     }
 
     @Test
-    void doFilterInternal_withInvalidAccessTokenAndRefreshToken() throws ServletException, IOException {
+    void doFilterInternal_withInvalidAccessTokenAndInvalidRefreshToken() throws ServletException, IOException {
         when(request.getCookies()).thenReturn(new Cookie[]{
             new Cookie(CookieAuthFilter.ACCESS_TOKEN_COOKIE, INVALID_JWT),
             new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, INVALID_JWT),
@@ -121,7 +121,6 @@ class CookieAuthFilterTest {
 
     @Test
     void doFilterInternal_withInvalidAccessTokenAndValidRefreshToken() throws ServletException, IOException {
-        when(request.getHeader("User-Agent")).thenReturn("test-user-agent");
         when(request.getCookies()).thenReturn(new Cookie[]{
             new Cookie(CookieAuthFilter.ACCESS_TOKEN_COOKIE, INVALID_JWT),
             new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, VALID_JWT),

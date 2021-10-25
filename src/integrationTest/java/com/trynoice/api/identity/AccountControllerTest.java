@@ -1,15 +1,10 @@
 package com.trynoice.api.identity;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthCredentials;
-import com.trynoice.api.identity.models.AuthUser;
-import com.trynoice.api.identity.models.RefreshToken;
 import com.trynoice.api.identity.models.SignInRequest;
 import com.trynoice.api.identity.models.SignUpRequest;
-import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,16 +23,12 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
-import java.sql.Date;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.UUID;
 import java.util.stream.Stream;
 
-import static java.util.Objects.requireNonNullElse;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static com.trynoice.api.testing.AuthTestUtils.JwtType;
+import static com.trynoice.api.testing.AuthTestUtils.assertValidJWT;
+import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
+import static com.trynoice.api.testing.AuthTestUtils.createRefreshToken;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -92,7 +83,7 @@ class AccountControllerTest {
             .dispatch(tokenCaptor.capture(), eq(email));
 
         if (expectedResponseStatus == HttpStatus.CREATED.value()) {
-            assertValidJWT(tokenCaptor.getValue());
+            assertValidJWT(hmacSecret, tokenCaptor.getValue());
         }
     }
 
@@ -113,22 +104,12 @@ class AccountControllerTest {
     @MethodSource("signInTestCases")
     void signIn(String email, int expectedResponseStatus, boolean isExpectingSignInTokenDispatch) throws Exception {
         // create auth user for test-cases that expect it.
-        if (email != null && email.startsWith("existing-")) {
-            entityManager.persist(
-                AuthUser.builder()
-                    .email(email)
-                    .name("test-name")
-                    .build());
+        if ("existing".equals(email)) {
+            val authUser = createAuthUser(entityManager);
+            email = authUser.getEmail();
         }
 
-        doNothing()
-            .when(signInTokenDispatchStrategy)
-            .dispatch(any(), any());
-
-        doThrow(new SignInTokenDispatchException("test-error", null))
-            .when(signInTokenDispatchStrategy)
-            .dispatch(any(), eq("existing-1@test.org"));
-
+        doNothing().when(signInTokenDispatchStrategy).dispatch(any(), any());
         mockMvc.perform(
                 post("/v1/accounts/signIn")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -140,7 +121,7 @@ class AccountControllerTest {
             .dispatch(tokenCaptor.capture(), eq(email));
 
         if (expectedResponseStatus == HttpStatus.CREATED.value()) {
-            assertValidJWT(tokenCaptor.getValue());
+            assertValidJWT(hmacSecret, tokenCaptor.getValue());
         }
     }
 
@@ -151,24 +132,16 @@ class AccountControllerTest {
             arguments("", HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
             arguments("not-an-email", HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
             arguments("non-existing@test.org", HttpStatus.NOT_FOUND.value(), false),
-            arguments("existing-0@test.org", HttpStatus.CREATED.value(), true),
-            arguments("existing-1@test.org", HttpStatus.INTERNAL_SERVER_ERROR.value(), true)
+            arguments("existing", HttpStatus.CREATED.value(), true)
         );
-    }
-
-    private void assertValidJWT(String token) {
-        assertNotNull(token);
-        assertDoesNotThrow(() ->
-            JWT.require(Algorithm.HMAC256(hmacSecret))
-                .build()
-                .verify(token));
     }
 
     @ParameterizedTest(name = "{displayName} - tokenType={0} responseStatus={1}")
     @MethodSource("signOutTestCases")
-    void signOut(String tokenType, int expectedResponseStatus) throws Exception {
+    void signOut(JwtType tokenType, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
-        val token = createRefreshToken(tokenType);
+        val authUser = createAuthUser(entityManager);
+        val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
         mockMvc.perform(
                 get("/v1/accounts/signOut")
                     .header("X-Refresh-Token", token))
@@ -178,19 +151,20 @@ class AccountControllerTest {
     static Stream<Arguments> signOutTestCases() {
         return Stream.of(
             // tokenType, responseStatus
-            arguments("", HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments("invalid-token", HttpStatus.UNAUTHORIZED.value()),
-            arguments("expired-token", HttpStatus.UNAUTHORIZED.value()),
-            arguments("reused-token", HttpStatus.UNAUTHORIZED.value()),
-            arguments("valid-token", HttpStatus.OK.value())
+            arguments(JwtType.EMPTY, HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(JwtType.INVALID, HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.EXPIRED, HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.REUSED, HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.VALID, HttpStatus.OK.value())
         );
     }
 
     @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
     @MethodSource("issueCredentialsTestCases")
-    void issueCredentials(String tokenType, String userAgent, int expectedResponseStatus) throws Exception {
+    void issueCredentials(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
-        val token = createRefreshToken(tokenType);
+        val authUser = createAuthUser(entityManager);
+        val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
         val result = mockMvc.perform(
                 get("/v1/accounts/credentials")
                     .header("X-Refresh-Token", token)
@@ -202,58 +176,20 @@ class AccountControllerTest {
             val authCredentials = objectMapper.readValue(
                 result.getResponse().getContentAsByteArray(), AuthCredentials.class);
 
-            assertValidJWT(authCredentials.getRefreshToken());
-            assertValidJWT(authCredentials.getAccessToken());
+            assertValidJWT(hmacSecret, authCredentials.getRefreshToken());
+            assertValidJWT(hmacSecret, authCredentials.getAccessToken());
         }
     }
 
     static Stream<Arguments> issueCredentialsTestCases() {
         return Stream.of(
             // tokenType, userAgent, expectedResponseStatus
-            arguments("", "test-user-agent", HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments("valid-token", "", HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments("invalid-token", "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
-            arguments("expired-token", "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
-            arguments("reused-token", "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
-            arguments("valid-token", "test-user-agent", HttpStatus.OK.value())
+            arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(JwtType.VALID, "", HttpStatus.OK.value()),
+            arguments(JwtType.INVALID, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.REUSED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.VALID, "test-user-agent", HttpStatus.OK.value())
         );
-    }
-
-    private String createRefreshToken(@NonNull String type) {
-        var expiresAt = LocalDateTime.now().plus(Duration.ofHours(1));
-        var jwtVersion = 0L;
-        switch (type) {
-            case "valid-token":
-                break;
-            case "expired-token":
-                expiresAt = LocalDateTime.now().minus(Duration.ofHours(1));
-                break;
-            case "reused-token":
-                jwtVersion = 10L;
-                break;
-            default: // by default return type as the token
-                return type;
-        }
-
-        val uuid = UUID.randomUUID().toString();
-        val authUser = AuthUser.builder()
-            .name(uuid)
-            .email(uuid + "@test.org")
-            .build();
-
-        val refreshToken = RefreshToken.builder()
-            .expiresAt(expiresAt)
-            .userAgent("")
-            .owner(authUser)
-            .build();
-
-        entityManager.persist(authUser);
-        entityManager.persist(refreshToken);
-
-        return JWT.create()
-            .withJWTId("" + refreshToken.getId())
-            .withClaim(AccountService.REFRESH_TOKEN_ORDINAL_CLAIM, requireNonNullElse(jwtVersion, refreshToken.getVersion()))
-            .withExpiresAt(Date.from(expiresAt.atZone(ZoneId.systemDefault()).toInstant()))
-            .sign(Algorithm.HMAC256(hmacSecret));
     }
 }
