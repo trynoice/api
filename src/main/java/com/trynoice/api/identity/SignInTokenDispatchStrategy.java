@@ -1,6 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
+import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import lombok.NonNull;
 import lombok.val;
 import software.amazon.awssdk.services.ses.SesClient;
@@ -10,6 +11,10 @@ import software.amazon.awssdk.services.ses.model.Destination;
 import software.amazon.awssdk.services.ses.model.Message;
 import software.amazon.awssdk.services.ses.model.SendEmailRequest;
 import software.amazon.awssdk.services.ses.model.SesException;
+
+import java.util.Map;
+
+import static org.apache.commons.text.StringSubstitutor.replace;
 
 /**
  * {@link SignInTokenDispatchStrategy} is an abstraction layer to control how sign-in tokens (or
@@ -48,15 +53,15 @@ public interface SignInTokenDispatchStrategy {
      */
     class Email implements SignInTokenDispatchStrategy {
 
-        private final String sourceEmail;
+        private final EmailSignInTokenDispatcherConfiguration config;
         private final SesClient sesClient;
 
-        public Email(String sourceEmail) {
-            this(sourceEmail, SesClient.create());
+        public Email(@NonNull EmailSignInTokenDispatcherConfiguration config) {
+            this(config, SesClient.create());
         }
 
-        Email(@NonNull String sourceEmail, @NonNull SesClient sesClient) {
-            this.sourceEmail = sourceEmail;
+        Email(@NonNull EmailSignInTokenDispatcherConfiguration config, @NonNull SesClient sesClient) {
+            this.config = config;
             this.sesClient = sesClient;
         }
 
@@ -64,20 +69,19 @@ public interface SignInTokenDispatchStrategy {
         public void dispatch(@NonNull String token, String destination) throws SignInTokenDispatchException {
             val dest = Destination.builder().toAddresses(destination).build();
             val body = Body.builder()
-                .text(
+                .html(
                     buildUtf8Content(
-                        // TODO: add a proper email template
-                        "You are one click away from signing into Noice. Please open the " +
-                            "following link using the Noice Android app or the browser to " +
-                            "complete the process.\n\n" + token))
+                        replace(config.getTemplate(), Map.of(
+                            "signInLink", replace(config.getLinkFmt(), Map.of("token", token)),
+                            "supportEmail", config.getSupportEmail()))))
                 .build();
 
             val request = SendEmailRequest.builder()
-                .source(sourceEmail)
+                .source(config.getFromEmail())
                 .destination(dest)
                 .message(
                     Message.builder()
-                        .subject(buildUtf8Content("Noice: Sign in"))
+                        .subject(buildUtf8Content(config.getSubject()))
                         .body(body)
                         .build())
                 .build();

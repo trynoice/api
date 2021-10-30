@@ -36,6 +36,22 @@ public class AuthConfiguration {
     @NotNull
     private Duration signInTokenExpiry;
 
+    /**
+     * Root domain for auth cookies.
+     */
     @NotBlank
     private String cookieDomain;
+
+    /**
+     * {@link com.trynoice.api.identity.SignInTokenDispatchStrategy SignInTokenDispatchStrategy} to
+     * use for dispatching sign-in tokens. It should always be set to {@link
+     * SignInTokenDispatcherType#EMAIL} in production environment.
+     */
+    @NotNull
+    private SignInTokenDispatcherType signInTokenDispatcherType;
+
+    public enum SignInTokenDispatcherType {
+        CONSOLE,
+        EMAIL
+    }
 }

@@ -21,5 +21,9 @@ springdoc.default-produces-media-type=application/json
 app.auth.hmac-secret=sin5ZCR7O5nrGwxLoOygGKp+NxVittYkbHhyWdVPHDlJHO+jPzRZ/b5/PhTURn9W1AyHDPORB/8jXgDMrgce7g
 app.auth.refresh-token-expiry=15d
 app.auth.access-token-expiry=6h
-app.auth.sign-in-token-dispatcher=console
 app.auth.cookie-domain=localhost
+app.auth.sign-in-token-expiry=1h
+app.auth.sign-in-token-dispatcher-type=console
+
+app.auth.sign-in-token-dispatcher.email.from-email=noreply@trynoice.com
+app.auth.sign-in-token-dispatcher.email.support-email=support@trynoice.com
