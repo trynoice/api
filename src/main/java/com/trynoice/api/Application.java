@@ -4,6 +4,7 @@ import com.trynoice.api.identity.BearerTokenAuthFilter;
 import com.trynoice.api.identity.CookieAuthFilter;
 import com.trynoice.api.identity.SignInTokenDispatchStrategy;
 import com.trynoice.api.identity.models.AuthConfiguration;
+import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import com.trynoice.api.platform.GlobalControllerAdvice;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -12,9 +13,9 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.Banner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -42,18 +43,29 @@ public class Application {
     }
 
     @NonNull
+    @Validated
+    @Bean
+    @ConfigurationProperties("app.auth.sign-in-token-dispatcher.email")
+    @ConditionalOnProperty(name = "app.auth.sign-in-token-dispatcher-type", havingValue = "email")
+    EmailSignInTokenDispatcherConfiguration emailSignInTokenDispatcherConfiguration() {
+        return new EmailSignInTokenDispatcherConfiguration();
+    }
+
+    @NonNull
     @Bean
     SignInTokenDispatchStrategy signInTokenDispatchStrategy(
-        @NonNull @Value("${app.auth.sign-in-token-dispatcher}") String strategy,
-        @NonNull @Value("${app.auth.sign-in-token-dispatcher.email.from}") String sourceEmail
+        @NonNull AuthConfiguration authConfig,
+        @Autowired(required = false) EmailSignInTokenDispatcherConfiguration emailSignInTokenDispatcherConfig
     ) {
-        switch (strategy) {
-            case "email":
-                return new SignInTokenDispatchStrategy.Email(sourceEmail);
-            case "console":
+        switch (authConfig.getSignInTokenDispatcherType()) {
+            case EMAIL:
+                assert emailSignInTokenDispatcherConfig != null;
+                return new SignInTokenDispatchStrategy.Email(emailSignInTokenDispatcherConfig);
+            case CONSOLE:
                 return new SignInTokenDispatchStrategy.Console();
             default:
-                throw new IllegalArgumentException("unsupported sign-in token dispatch strategy: " + strategy);
+                throw new IllegalArgumentException("unsupported sign-in token dispatch strategy: "
+                    + authConfiguration().getSignInTokenDispatcherType());
         }
     }
 

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width"/>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <title>Noice: Sign-in</title>
+</head>
+
+<body
+  style="
+    margin: 0;
+    padding: 16px;
+    background-color: #f1f1f1;
+    color: #1d1d26;
+    text-align: center;
+    font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica Neue',sans-serif
+  "
+>
+
+<div style="margin: 16px; padding: 32px; background-color: #fefefe">
+  <h2>You are one click away from signing in to Noice!</h2>
+
+  <div>
+    <a
+      href="${signInLink}"
+      target="_blank"
+      style="
+        display: inline-block;
+        margin: 16px auto 32px;
+        padding: 12px 32px;
+        border-radius: 8px;
+        background-color: #1eb980;
+        color: #fefefe;
+        text-decoration: none;
+        font-weight: bolder
+      "
+    >
+      One-click sign-in
+    </a>
+  </div>
+
+  <div
+    style="border-top: 1px solid #f1f1f1; padding-top: 16px; font-size: 0.9em;"
+  >
+    <p>Not able to click the button? Try the following link!</p>
+    <p style="color: #0074cc; text-decoration: underline">${signInLink}</p>
+  </div>
+
+</div>
+
+<div style="padding: 16px; background-color: #f1f1f1; color: #999999">
+
+  <p style="font-size: 0">
+    <a href="https://twitter.com/trynoice" target="_blank"
+       style="margin: 8px; text-decoration: none">
+      <img
+        alt="twitter"
+        style="height: 24px;"
+        src="https://cdn.trynoice.com/public/sign-in-email/twitter-29x24px.png"/>
+    </a>
+    <a href="https://instagram.com/trynoice" target="_blank"
+       style="margin: 8px; text-decoration: none">
+      <img
+        alt="instagram"
+        style="height: 24px;"
+        src="https://cdn.trynoice.com/public/sign-in-email/instagram-24x24px.png"/>
+    </a>
+  </p>
+
+  <a href="https://trynoice.com" target="_blank" style="display: block; margin: 32px auto 16px">
+    <img
+      alt="noice"
+      src="https://cdn.trynoice.com/public/sign-in-email/logo-280x80px.png"
+      style="display: block; margin: auto; min-width: 200px; max-width: 280px; width: 45%"/>
+  </a>
+
+  <p>
+    <small>Made with &hearts; in India</small>
+  </p>
+  <p>
+    <small>
+      If you did not request this email, please inform us at
+      <a href="mailto:${supportEmail}" style="color: #0074cc">${supportEmail}</a>.
+    </small>
+  </p>
+</div>
+</body>
+</html>

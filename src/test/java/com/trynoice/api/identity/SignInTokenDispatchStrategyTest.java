@@ -1,6 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
+import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -27,7 +28,8 @@ class SignInTokenDispatchStrategyTest {
     @Nested
     class EmailTest {
 
-        private static final String TEST_SOURCE_EMAIL = "admin@service.org";
+        @Mock
+        private EmailSignInTokenDispatcherConfiguration config;
 
         @Mock
         private SesClient sesClient;
@@ -36,7 +38,13 @@ class SignInTokenDispatchStrategyTest {
 
         @BeforeEach
         void setUp() {
-            emailStrategy = new SignInTokenDispatchStrategy.Email(TEST_SOURCE_EMAIL, sesClient);
+            when(config.getFromEmail()).thenReturn("test-from-email");
+            when(config.getSubject()).thenReturn("test-subject");
+            when(config.getTemplate()).thenReturn("test-template");
+            when(config.getLinkFmt()).thenReturn("test-link-fmt");
+            when(config.getSupportEmail()).thenReturn("test-support-email");
+
+            emailStrategy = new SignInTokenDispatchStrategy.Email(config, sesClient);
         }
 
         @Test
@@ -57,8 +65,8 @@ class SignInTokenDispatchStrategyTest {
 
         @Test
         void dispatch_withoutUpstreamError() throws SignInTokenDispatchException {
+            val destination = "test-destination";
             val token = "test-token";
-            val destination = "destination";
 
             // when upstream service behaves normally
             when(sesClient.sendEmail((SendEmailRequest) any()))
@@ -68,7 +76,7 @@ class SignInTokenDispatchStrategyTest {
 
             val requestCaptor = ArgumentCaptor.forClass(SendEmailRequest.class);
             verify(sesClient, times(1)).sendEmail(requestCaptor.capture());
-            assertEquals(TEST_SOURCE_EMAIL, requestCaptor.getValue().source());
+            assertEquals(config.getFromEmail(), requestCaptor.getValue().source());
             assertEquals(destination, requestCaptor.getValue().destination().toAddresses().get(0));
         }
     }
