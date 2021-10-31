@@ -29,6 +29,7 @@ import static com.trynoice.api.testing.AuthTestUtils.JwtType;
 import static com.trynoice.api.testing.AuthTestUtils.assertValidJWT;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createRefreshToken;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -178,6 +179,9 @@ class AccountControllerTest {
 
             assertValidJWT(hmacSecret, authCredentials.getRefreshToken());
             assertValidJWT(hmacSecret, authCredentials.getAccessToken());
+
+            entityManager.refresh(authUser);
+            assertEquals((short) 0, authUser.getSignInAttempts());
         }
     }
 
@@ -190,6 +194,38 @@ class AccountControllerTest {
             arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.REUSED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.VALID, "test-user-agent", HttpStatus.OK.value())
+        );
+    }
+
+    @ParameterizedTest(name = "{displayName} - signInAttempts={0} responseStatus={1}")
+    @MethodSource("emailBlacklistingTestCases")
+    void emailBlacklisting(int signInAttempts, int expectedResponseStatus) throws Exception {
+        val user = createAuthUser(entityManager);
+        user.setSignInAttempts((short) signInAttempts);
+        entityManager.persist(user);
+
+        // perform sign-up
+        mockMvc.perform(
+                post("/v1/accounts/signUp")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(new SignUpRequest(user.getEmail(), user.getName()))))
+            .andExpect(status().is(expectedResponseStatus));
+
+        // perform sign-in
+        mockMvc.perform(
+                post("/v1/accounts/signIn")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(new SignInRequest(user.getEmail()))))
+            .andExpect(status().is(expectedResponseStatus));
+    }
+
+    static Stream<Arguments> emailBlacklistingTestCases() {
+        return Stream.of(
+            // signInAttempts, responseStatus
+            arguments(0, HttpStatus.CREATED.value()),
+            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER / 2, HttpStatus.CREATED.value()),
+            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER, HttpStatus.FORBIDDEN.value()),
+            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER * 2, HttpStatus.FORBIDDEN.value())
         );
     }
 }

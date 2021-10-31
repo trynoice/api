@@ -8,6 +8,7 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
+import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.AuthUser;
@@ -34,6 +35,7 @@ import java.util.List;
 public class AccountService {
 
     public static final String REFRESH_TOKEN_ORDINAL_CLAIM = "ord";
+    static final short MAX_SIGN_IN_ATTEMPTS_PER_USER = 5;
 
     private final AuthUserRepository authUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -63,10 +65,11 @@ public class AccountService {
      *
      * @param email email of the account's user
      * @param name  name of the account's user
-     * @throws SignInTokenDispatchException if email cannot be sent (due to upstream service error).
+     * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
+     * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
     @Transactional
-    void signUp(@NonNull String email, @NonNull String name) throws SignInTokenDispatchException {
+    void signUp(@NonNull String email, @NonNull String name) throws TooManySignInAttemptsException {
         val user = authUserRepository.findActiveByEmail(email)
             .orElseGet(() -> authUserRepository.save(
                 AuthUser.builder()
@@ -82,10 +85,12 @@ public class AccountService {
      * Checks if an account with the given email exists and then sends a sign-in link to the email.
      *
      * @param email email of the account's user
-     * @throws AccountNotFoundException     if an account with the given email doesn't exist.
-     * @throws SignInTokenDispatchException if email cannot be sent (due to upstream service error).
+     * @throws AccountNotFoundException       if an account with the given email doesn't exist.
+     * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
+     * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
-    void signIn(@NonNull String email) throws AccountNotFoundException, SignInTokenDispatchException {
+    @Transactional
+    void signIn(@NonNull String email) throws AccountNotFoundException, TooManySignInAttemptsException {
         val user = authUserRepository.findActiveByEmail(email)
             .orElseThrow(() -> new AccountNotFoundException("email", email));
 
@@ -95,14 +100,19 @@ public class AccountService {
 
     @NonNull
     @Transactional
-    private String createSignInToken(@NonNull AuthUser authUser) {
-        val refreshToken = refreshTokenRepository.save(
-            RefreshToken.builder()
-                .owner(authUser)
-                .expiresAt(LocalDateTime.now().plus(authConfig.getSignInTokenExpiry()))
-                .build());
+    private String createSignInToken(@NonNull AuthUser authUser) throws TooManySignInAttemptsException {
+        if (authUser.getSignInAttempts() >= MAX_SIGN_IN_ATTEMPTS_PER_USER) {
+            throw new TooManySignInAttemptsException(authUser.getEmail());
+        }
 
-        return createSignedRefreshTokenString(refreshToken);
+        authUser.incrementSignInAttempts();
+        authUserRepository.save(authUser);
+        return createSignedRefreshTokenString(
+            refreshTokenRepository.save(
+                RefreshToken.builder()
+                    .owner(authUser)
+                    .expiresAt(LocalDateTime.now().plus(authConfig.getSignInTokenExpiry()))
+                    .build()));
     }
 
     @NonNull
@@ -147,7 +157,9 @@ public class AccountService {
         token.setExpiresAt(LocalDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
         token = refreshTokenRepository.save(token);
 
-        // update last active timestamp for user. Uses pre-update hook on the AuthUser entity.
+        // reset sign in attempts and update last active timestamp for the auth user. Last active
+        // timestamp uses pre-update hook on the AuthUser entity.
+        token.getOwner().resetSignInAttempts();
         authUserRepository.save(token.getOwner());
 
         val accessTokenExpiry = LocalDateTime.now().plus(authConfig.getAccessTokenExpiry());

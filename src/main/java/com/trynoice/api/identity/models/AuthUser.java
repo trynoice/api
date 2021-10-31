@@ -41,6 +41,10 @@ public class AuthUser extends BasicEntity<Integer> {
     @Setter(AccessLevel.NONE)
     private LocalDateTime lastActiveAt = LocalDateTime.now();
 
+    @NonNull
+    @Builder.Default
+    private Short signInAttempts = 0;
+
     @ToString.Exclude
     @OneToMany(mappedBy = "owner", fetch = FetchType.LAZY)
     private List<RefreshToken> refreshTokens;
@@ -49,5 +53,13 @@ public class AuthUser extends BasicEntity<Integer> {
     @PreUpdate
     void setLastActiveAt() {
         this.lastActiveAt = LocalDateTime.now();
+    }
+
+    public void incrementSignInAttempts() {
+        this.signInAttempts++;
+    }
+
+    public void resetSignInAttempts() {
+        this.signInAttempts = 0;
     }
 }

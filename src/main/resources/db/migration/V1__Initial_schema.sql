@@ -14,7 +14,8 @@ CREATE TABLE auth_user (
   version bigint NOT NULL,
   email varchar(64) NOT NULL,
   name varchar(64) NOT NULL,
-  last_active_at timestamp with time zone NOT NULL
+  last_active_at timestamp with time zone NOT NULL,
+  sign_in_attempts smallint NOT NULL
 );
 
 CREATE UNIQUE INDEX auth_user__email__unqiue_idx ON auth_user (email)
