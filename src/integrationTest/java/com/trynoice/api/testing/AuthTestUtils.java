@@ -36,7 +36,7 @@ public class AuthTestUtils {
         val uuid = UUID.randomUUID().toString();
         val authUser = AuthUser.builder()
             .name(uuid)
-            .email(uuid + "@test")
+            .email(uuid + "@api.test")
             .build();
 
         entityManager.persist(authUser);

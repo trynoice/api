@@ -2,7 +2,7 @@ package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
-import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
+import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.SignInRequest;
 import com.trynoice.api.identity.models.SignUpRequest;
@@ -54,6 +54,10 @@ class AccountController {
      * <p>
      * The sign-in link contains a short-lived refresh token and thus, it must be exchanged for
      * proper auth credentials using the '{@code /credentials}' endpoint before its expiry.</p>
+     * <p>
+     * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
+     * All further attempts using this email address will result in HTTP 403. At this point, the
+     * clients may advise their user to contact the support.</p>
      *
      * @param request The following validation checks are applied on the request body. <ul> <li>
      *                {@code email}: it must be a non-blank well-formed email of at most 64
@@ -64,15 +68,21 @@ class AccountController {
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
         @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
         @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
 
     @NonNull
     @PostMapping("/signUp")
-    ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpRequest request) throws SignInTokenDispatchException {
-        accountService.signUp(request.getEmail(), request.getName());
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+    ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpRequest request) {
+        try {
+            accountService.signUp(request.getEmail(), request.getName());
+            return ResponseEntity.status(HttpStatus.CREATED).build();
+        } catch (TooManySignInAttemptsException e) {
+            log.trace("sign-in request failed", e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
     }
 
     /**
@@ -82,6 +92,10 @@ class AccountController {
      * <p>
      * The sign-in link contains a short-lived refresh token and thus, it must be exchanged for
      * proper auth credentials using the '{@code /credentials}' endpoint before its expiry.</p>
+     * <p>
+     * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
+     * All further attempts using this email address will result in HTTP 403. At this point, the
+     * clients may advise their user to contact the support.</p>
      *
      * @param request The following validation checks are applied on the request body. <ul> <li>
      *                `email` : it must be a non-blank well-formed email address. </li> </ul>
@@ -90,6 +104,7 @@ class AccountController {
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
         @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
         @ApiResponse(responseCode = "404", description = "account does not exist"),
         @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
@@ -97,13 +112,16 @@ class AccountController {
 
     @NonNull
     @PostMapping("/signIn")
-    ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInRequest request) throws SignInTokenDispatchException {
+    ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInRequest request) {
         try {
             accountService.signIn(request.getEmail());
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (AccountNotFoundException e) {
             log.trace("sign-in request failed", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (TooManySignInAttemptsException e) {
+            log.trace("sign-in request failed", e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
     }
 

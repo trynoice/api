@@ -4,7 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
-import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
+import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthUser;
 import com.trynoice.api.identity.models.RefreshToken;
@@ -63,16 +63,15 @@ class AccountServiceTest {
     }
 
     @Test
-    void signUp_withExistingAccount() throws SignInTokenDispatchException {
+    void signUp_withExistingAccount() throws TooManySignInAttemptsException {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(authUser.getEmail()))
-            .thenReturn(Optional.of(authUser));
+        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
         service.signUp(authUser.getEmail(), authUser.getName());
 
-        verify(authUserRepository, times(0)).save(any());
+        verify(authUserRepository, times(1)).save(any());
         val refreshTokenCaptor = ArgumentCaptor.forClass(String.class);
         val destinationCaptor = ArgumentCaptor.forClass(String.class);
         verify(signInTokenDispatchStrategy, times(1))
@@ -83,17 +82,16 @@ class AccountServiceTest {
     }
 
     @Test
-    void signUp_withNonExistingAccount() throws SignInTokenDispatchException {
+    void signUp_withNonExistingAccount() throws TooManySignInAttemptsException {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(authUser.getEmail()))
-            .thenReturn(Optional.empty());
+        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
         service.signUp(authUser.getEmail(), authUser.getName());
 
-        verify(authUserRepository, times(1)).save(any());
+        verify(authUserRepository, times(2)).save(any());
         verify(refreshTokenRepository, times(1)).save(any());
         val refreshTokenCaptor = ArgumentCaptor.forClass(String.class);
         val destinationCaptor = ArgumentCaptor.forClass(String.class);
@@ -105,12 +103,22 @@ class AccountServiceTest {
     }
 
     @Test
-    void signIn_withExistingAccount() throws AccountNotFoundException, SignInTokenDispatchException {
+    void signUp_withBlacklistedEmail() {
+        val authUser = buildAuthUser();
+        when(authUser.getSignInAttempts()).thenReturn(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER);
+        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.empty());
+        when(authUserRepository.save(any())).thenReturn(authUser);
+
+        assertThrows(TooManySignInAttemptsException.class, () ->
+            service.signUp(authUser.getEmail(), authUser.getName()));
+    }
+
+    @Test
+    void signIn_withExistingAccount() throws AccountNotFoundException, TooManySignInAttemptsException {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(authUser.getEmail()))
-            .thenReturn(Optional.of(authUser));
+        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
         service.signIn(authUser.getEmail());
 
@@ -132,6 +140,14 @@ class AccountServiceTest {
         assertThrows(AccountNotFoundException.class, () -> service.signIn(testEmail));
         verify(refreshTokenRepository, times(0)).save(any());
         verifyNoInteractions(signInTokenDispatchStrategy);
+    }
+
+    @Test
+    void signIn_withBlacklistedEmail() {
+        val authUser = buildAuthUser();
+        when(authUser.getSignInAttempts()).thenReturn(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER);
+        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
+        assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(authUser.getEmail()));
     }
 
     @Test
@@ -221,6 +237,10 @@ class AccountServiceTest {
         verify(refreshTokenRepository, times(1)).save(refreshToken);
         assertValidJWT(credentials.getRefreshToken());
         assertValidJWT(credentials.getAccessToken());
+
+        // must reset signInAttempts.
+        verify(refreshToken.getOwner(), times(1)).resetSignInAttempts();
+        verify(authUserRepository, times(1)).save(refreshToken.getOwner());
     }
 
     @Test
