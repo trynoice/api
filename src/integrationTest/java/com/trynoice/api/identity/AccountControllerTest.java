@@ -22,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import javax.persistence.EntityManager;
+import javax.servlet.http.Cookie;
 import javax.transaction.Transactional;
 import java.util.stream.Stream;
 
@@ -139,7 +140,7 @@ class AccountControllerTest {
 
     @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
     @MethodSource("signOutTestCases")
-    void signOut(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
+    void signOut_withHeader(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
         val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
@@ -147,6 +148,19 @@ class AccountControllerTest {
                 get("/v1/accounts/signOut")
                     .header(AccountController.USER_AGENT_HEADER, userAgent)
                     .header(AccountController.REFRESH_TOKEN_HEADER, token))
+            .andExpect(status().is(expectedResponseStatus));
+    }
+
+    @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
+    @MethodSource("signOutTestCases")
+    void signOut_withCookie(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
+        // create signed refresh-tokens as expected by various test cases.
+        val authUser = createAuthUser(entityManager);
+        val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
+        mockMvc.perform(
+                get("/v1/accounts/signOut")
+                    .header(AccountController.USER_AGENT_HEADER, userAgent)
+                    .cookie(new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, token)))
             .andExpect(status().is(expectedResponseStatus));
     }
 

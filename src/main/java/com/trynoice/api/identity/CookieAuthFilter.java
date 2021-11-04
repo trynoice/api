@@ -6,10 +6,8 @@ import com.trynoice.api.identity.models.AuthCredentials;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
@@ -35,7 +33,6 @@ import static java.util.Objects.requireNonNullElse;
  * refresh token is found, the filter uses it to issue new auth credentials (access + refresh
  * tokens) and adds as new cookies to the {@link HttpServletResponse}. </p>
  */
-@Component
 @Slf4j
 public class CookieAuthFilter extends OncePerRequestFilter {
 
@@ -45,7 +42,6 @@ public class CookieAuthFilter extends OncePerRequestFilter {
     private final AuthConfiguration authConfig;
     private final AccountService accountService;
 
-    @Autowired
     public CookieAuthFilter(@NonNull AuthConfiguration authConfig, @NonNull AccountService accountService) {
         this.authConfig = authConfig;
         this.accountService = accountService;

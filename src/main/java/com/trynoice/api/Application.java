@@ -1,5 +1,6 @@
 package com.trynoice.api;
 
+import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.BearerTokenAuthFilter;
 import com.trynoice.api.identity.CookieAuthFilter;
 import com.trynoice.api.identity.SignInTokenDispatchStrategy;
@@ -98,12 +99,12 @@ public class Application {
 
         @Autowired
         public WebSecurityConfiguration(
-            @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
-            @NonNull CookieAuthFilter cookieAuthFilter,
+            @NonNull AuthConfiguration authConfig,
+            @NonNull AccountService accountService,
             @NonNull GlobalControllerAdvice globalControllerAdvice
         ) {
-            this.bearerTokenAuthFilter = bearerTokenAuthFilter;
-            this.cookieAuthFilter = cookieAuthFilter;
+            this.bearerTokenAuthFilter = new BearerTokenAuthFilter(accountService);
+            this.cookieAuthFilter = new CookieAuthFilter(authConfig, accountService);
             this.globalControllerAdvice = globalControllerAdvice;
         }
 
