@@ -59,15 +59,17 @@ As a convention, all production configuration must be accepted through environme
 enable such behaviour, use [`application.properties`](src/main/resources/application.properties) to
 inject environment variables in Spring configuration.
 
-| Name                            | Description                              |  Default  |
-| ------------------------------- | ---------------------------------------- | :-------: |
-| `PGDB_HOST`                     | PostgreSQL server host                   | localhost |
-| `PGDB_PORT`                     | PostgreSQL server port                   |   5432    |
-| `PGDB_NAME`                     | PostgreSQL database name                 |  develop  |
-| `PGDB_USER`                     | PostgreSQL user name                     |   admin   |
-| `PGDB_PASSWORD`                 | PostgreSQL user password                 | password  |
-| `AUTH_HMAC_SECRET`              | HMAC secret for signing JWTs             |     -     |
-| `AUTH_REFRESH_TOKEN_EXPIRY`     | Duration for the expiry of refresh token |    7d     |
-| `AUTH_ACCESS_TOKEN_EXPIRY`      | Duration for the expiry of access token  |    30m    |
-| `AUTH_SIGN_IN_TOKEN_EXPIRY`     | Duration for the expiry of sign-in token |    15m    |
-| `AUTH_SIGN_IN_TOKEN_FROM_EMAIL` | `from` email for sending sign-in tokens  |     -     |
+| Name                               | Description                                  |  Default  |
+| ---------------------------------- | -------------------------------------------- | :-------: |
+| `PGDB_HOST`                        | PostgreSQL server host                       | localhost |
+| `PGDB_PORT`                        | PostgreSQL server port                       |   5432    |
+| `PGDB_NAME`                        | PostgreSQL database name                     |  develop  |
+| `PGDB_USER`                        | PostgreSQL user name                         |   admin   |
+| `PGDB_PASSWORD`                    | PostgreSQL user password                     | password  |
+| `APP_DOMAIN`                       | App domain for cookies and CORS policy       |     -     |
+| `AUTH_HMAC_SECRET`                 | HMAC secret for signing JWTs                 |     -     |
+| `AUTH_REFRESH_TOKEN_EXPIRY`        | Duration for the expiry of refresh token     |    7d     |
+| `AUTH_ACCESS_TOKEN_EXPIRY`         | Duration for the expiry of access token      |    30m    |
+| `AUTH_SIGN_IN_TOKEN_EXPIRY`        | Duration for the expiry of sign-in token     |    15m    |
+| `AUTH_SIGN_IN_TOKEN_FROM_EMAIL`    | `from` email for sending sign-in tokens      |     -     |
+| `AUTH_SIGN_IN_TOKEN_SUPPORT_EMAIL` | Support address to include in sign-in emails |     -     |

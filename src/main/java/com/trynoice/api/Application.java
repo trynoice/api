@@ -14,6 +14,7 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.Banner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -26,6 +27,8 @@ import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @SpringBootApplication
 public class Application {
@@ -69,6 +72,19 @@ public class Application {
                 throw new IllegalArgumentException("unsupported sign-in token dispatch strategy: "
                     + authConfiguration().getSignInTokenDispatcherType());
         }
+    }
+
+    @NonNull
+    @Bean
+    WebMvcConfigurer webMvcConfigurer(@Value("${app.cors.allowed-origins}") String[] allowedOrigins) {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(@NonNull CorsRegistry registry) {
+                registry.addMapping("/**")
+                    .allowedOriginPatterns(allowedOrigins)
+                    .allowedMethods("GET", "POST", "PUT", "DELETE");
+            }
+        };
     }
 
     @NonNull
