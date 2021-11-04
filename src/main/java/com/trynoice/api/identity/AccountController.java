@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,6 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
+
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * REST controller for identity and auth related '{@code /v1/accounts}' routes.
@@ -41,6 +44,8 @@ class AccountController {
 
     static final String REFRESH_TOKEN_HEADER = "X-Refresh-Token";
     static final String USER_AGENT_HEADER = "User-Agent";
+
+    private static final String REFRESH_TOKEN_COOKIE = CookieAuthFilter.REFRESH_TOKEN_COOKIE;
 
     private final AccountService accountService;
 
@@ -132,8 +137,11 @@ class AccountController {
      * <p>
      * Revokes a valid refresh token. If the refresh token is invalid, expired or re-used, it
      * returns HTTP 401.</p>
+     * <p>
+     * <b>Refresh token must be provided</b>, either as a header or a cookie.</p>
      *
-     * @param refreshToken it must be a non-blank string.
+     * @param refreshTokenHeader if present, it must be a non-blank string.
+     * @param refreshTokenCookie if present, it must be a non-blank string.
      */
     @Operation(summary = "Revokes a valid refresh token")
     @ApiResponses({
@@ -147,10 +155,16 @@ class AccountController {
     @NonNull
     @GetMapping(value = "/signOut")
     ResponseEntity<Void> signOut(
-        @NonNull @NotBlank @Valid @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
+        @Size(min = 1) @Valid @RequestHeader(value = REFRESH_TOKEN_HEADER, required = false) String refreshTokenHeader,
+        @Size(min = 1) @Valid @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie,
         @NonNull @NotBlank @Valid @RequestHeader(USER_AGENT_HEADER) String userAgent
     ) {
+        if (refreshTokenHeader == null && refreshTokenCookie == null) {
+            return ResponseEntity.unprocessableEntity().build();
+        }
+
         try {
+            val refreshToken = requireNonNullElse(refreshTokenCookie, refreshTokenHeader);
             accountService.signOut(refreshToken, userAgent);
             return ResponseEntity.ok(null);
         } catch (RefreshTokenVerificationException e) {
