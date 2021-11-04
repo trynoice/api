@@ -39,6 +39,9 @@ import javax.validation.constraints.Size;
 @Slf4j
 class AccountController {
 
+    static final String REFRESH_TOKEN_HEADER = "X-Refresh-Token";
+    static final String USER_AGENT_HEADER = "User-Agent";
+
     private final AccountService accountService;
 
     @Autowired
@@ -144,10 +147,11 @@ class AccountController {
     @NonNull
     @GetMapping(value = "/signOut")
     ResponseEntity<Void> signOut(
-        @NonNull @NotBlank @Valid @RequestHeader("X-Refresh-Token") String refreshToken
+        @NonNull @NotBlank @Valid @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
+        @NonNull @NotBlank @Valid @RequestHeader(USER_AGENT_HEADER) String userAgent
     ) {
         try {
-            accountService.signOut(refreshToken);
+            accountService.signOut(refreshToken, userAgent);
             return ResponseEntity.ok(null);
         } catch (RefreshTokenVerificationException e) {
             log.trace("failed to revoke refresh token", e);
@@ -176,8 +180,8 @@ class AccountController {
     @NonNull
     @GetMapping(value = "/credentials")
     ResponseEntity<AuthCredentials> issueCredentials(
-        @NonNull @NotBlank @Valid @RequestHeader("X-Refresh-Token") String refreshToken,
-        @Size(max = 128) @Valid @RequestHeader("User-Agent") String userAgent
+        @NonNull @NotBlank @Valid @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
+        @NonNull @NotBlank @Size(max = 128) @Valid @RequestHeader(USER_AGENT_HEADER) String userAgent
     ) {
         try {
             val credentials = accountService.issueAuthCredentials(refreshToken, userAgent);

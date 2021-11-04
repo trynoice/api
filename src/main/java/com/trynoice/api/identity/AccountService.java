@@ -130,8 +130,8 @@ public class AccountService {
      * @param refreshToken refresh token provided by the client
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
-    void signOut(@NonNull String refreshToken) throws RefreshTokenVerificationException {
-        val token = verifyRefreshJWT(refreshToken);
+    void signOut(@NonNull String refreshToken, @NonNull String userAgent) throws RefreshTokenVerificationException {
+        val token = verifyRefreshJWT(refreshToken, userAgent);
         refreshTokenRepository.delete(token);
     }
 
@@ -146,11 +146,14 @@ public class AccountService {
      */
     @NonNull
     @Transactional
-    AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
-        var token = verifyRefreshJWT(refreshToken);
+    AuthCredentials issueAuthCredentials(
+        @NonNull String refreshToken,
+        @NonNull String userAgent
+    ) throws RefreshTokenVerificationException {
+        var token = verifyRefreshJWT(refreshToken, userAgent);
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
-        if (token.getVersion() == 0 && userAgent != null) {
+        if (token.getVersion() == 0) {
             token.setUserAgent(userAgent);
         }
 
@@ -175,7 +178,10 @@ public class AccountService {
     }
 
     @NonNull
-    private RefreshToken verifyRefreshJWT(@NonNull String jwt) throws RefreshTokenVerificationException {
+    private RefreshToken verifyRefreshJWT(
+        @NonNull String jwt,
+        @NonNull String userAgent
+    ) throws RefreshTokenVerificationException {
         final long jwtId, jwtVersion;
         try {
             val decodedToken = jwtVerifier.verify(jwt);
@@ -193,6 +199,11 @@ public class AccountService {
         if (jwtVersion != token.getVersion()) {
             refreshTokenRepository.delete(token);
             throw new RefreshTokenVerificationException("refresh token version mismatch");
+        }
+
+        // version == 0 -> sign-in tokens -> not bound to a user agent.
+        if (token.getVersion() > 0 && !token.getUserAgent().equals(userAgent)) {
+            throw new RefreshTokenVerificationException("user-agent mismatch");
         }
 
         return token;

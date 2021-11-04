@@ -20,6 +20,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Duration;
 
+import static java.util.Objects.requireNonNullElse;
+
 /**
  * <p>
  * {@link CookieAuthFilter} is a {@link OncePerRequestFilter OncePerRequest} security filter to
@@ -84,10 +86,13 @@ public class CookieAuthFilter extends OncePerRequestFilter {
         }
 
         if (authentication == null) {
-            val userAgent = request.getHeader("User-Agent");
+            val userAgent = requireNonNullElse(request.getHeader(AccountController.USER_AGENT_HEADER), "");
             val credentials = issueCredentials(refreshToken, userAgent);
             if (credentials != null) {
+                // to maintain consistency.
                 authentication = accountService.verifyAccessToken(credentials.getAccessToken());
+
+                // rotate credential cookies for the client.
                 response.addCookie(
                     createCookie(
                         REFRESH_TOKEN_COOKIE,
