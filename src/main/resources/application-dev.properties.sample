@@ -18,6 +18,9 @@ springdoc.swagger-ui.enabled=true
 springdoc.swagger-ui.path=/api-docs.html
 springdoc.default-produces-media-type=application/json
 
+
+app.cors.allowed-origins=https://trynoice.com,https://*.trynoice.com
+
 app.auth.hmac-secret=sin5ZCR7O5nrGwxLoOygGKp+NxVittYkbHhyWdVPHDlJHO+jPzRZ/b5/PhTURn9W1AyHDPORB/8jXgDMrgce7g
 app.auth.refresh-token-expiry=15d
 app.auth.access-token-expiry=6h
