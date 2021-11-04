@@ -21,6 +21,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.validation.annotation.Validated;
@@ -107,6 +108,17 @@ public class Application {
         }
 
         @Override
+        public void configure(WebSecurity web) {
+            // exclude URLs from the Spring security filter chain.
+            web.ignoring().antMatchers(
+                "/v1/accounts/signUp",
+                "/v1/accounts/signIn",
+                "/v1/accounts/signOut",
+                "/v1/accounts/credentials"
+            );
+        }
+
+        @Override
         protected void configure(HttpSecurity http) throws Exception {
             // disable default filters.
             http.csrf().disable()
@@ -124,7 +136,6 @@ public class Application {
 
             // use request filter to use SecurityContext for authorizing requests.
             http.authorizeRequests()
-                .antMatchers("/v1/accounts/**").permitAll()
                 .antMatchers("/v1/**").fullyAuthenticated()
                 .anyRequest().permitAll();
 
