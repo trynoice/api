@@ -156,8 +156,7 @@ class AccountController {
     @GetMapping(value = "/signOut")
     ResponseEntity<Void> signOut(
         @Size(min = 1) @Valid @RequestHeader(value = REFRESH_TOKEN_HEADER, required = false) String refreshTokenHeader,
-        @Size(min = 1) @Valid @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie,
-        @NonNull @NotBlank @Valid @RequestHeader(USER_AGENT_HEADER) String userAgent
+        @Size(min = 1) @Valid @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie
     ) {
         if (refreshTokenHeader == null && refreshTokenCookie == null) {
             return ResponseEntity.unprocessableEntity().build();
@@ -165,7 +164,7 @@ class AccountController {
 
         try {
             val refreshToken = requireNonNullElse(refreshTokenCookie, refreshTokenHeader);
-            accountService.signOut(refreshToken, userAgent);
+            accountService.signOut(refreshToken);
             return ResponseEntity.ok(null);
         } catch (RefreshTokenVerificationException e) {
             log.trace("failed to revoke refresh token", e);
@@ -195,7 +194,7 @@ class AccountController {
     @GetMapping(value = "/credentials")
     ResponseEntity<AuthCredentials> issueCredentials(
         @NonNull @NotBlank @Valid @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
-        @NonNull @NotBlank @Size(max = 128) @Valid @RequestHeader(USER_AGENT_HEADER) String userAgent
+        @Size(min = 1, max = 128) @Valid @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
     ) {
         try {
             val credentials = accountService.issueAuthCredentials(refreshToken, userAgent);
