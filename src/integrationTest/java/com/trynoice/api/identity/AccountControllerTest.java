@@ -137,26 +137,28 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - tokenType={0} responseStatus={1}")
+    @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
     @MethodSource("signOutTestCases")
-    void signOut(JwtType tokenType, int expectedResponseStatus) throws Exception {
+    void signOut(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
         val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
         mockMvc.perform(
                 get("/v1/accounts/signOut")
-                    .header("X-Refresh-Token", token))
+                    .header(AccountController.USER_AGENT_HEADER, userAgent)
+                    .header(AccountController.REFRESH_TOKEN_HEADER, token))
             .andExpect(status().is(expectedResponseStatus));
     }
 
     static Stream<Arguments> signOutTestCases() {
         return Stream.of(
-            // tokenType, responseStatus
-            arguments(JwtType.EMPTY, HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments(JwtType.INVALID, HttpStatus.UNAUTHORIZED.value()),
-            arguments(JwtType.EXPIRED, HttpStatus.UNAUTHORIZED.value()),
-            arguments(JwtType.REUSED, HttpStatus.UNAUTHORIZED.value()),
-            arguments(JwtType.VALID, HttpStatus.OK.value())
+            // tokenType, userAgent, expectedResponseStatus
+            arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(JwtType.VALID, "", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(JwtType.INVALID, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.REUSED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.VALID, "test-user-agent", HttpStatus.OK.value())
         );
     }
 
@@ -168,8 +170,8 @@ class AccountControllerTest {
         val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
         val result = mockMvc.perform(
                 get("/v1/accounts/credentials")
-                    .header("X-Refresh-Token", token)
-                    .header("User-Agent", userAgent))
+                    .header(AccountController.REFRESH_TOKEN_HEADER, token)
+                    .header(AccountController.USER_AGENT_HEADER, userAgent))
             .andExpect(status().is(expectedResponseStatus))
             .andReturn();
 
@@ -189,7 +191,7 @@ class AccountControllerTest {
         return Stream.of(
             // tokenType, userAgent, expectedResponseStatus
             arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments(JwtType.VALID, "", HttpStatus.OK.value()),
+            arguments(JwtType.VALID, "", HttpStatus.UNPROCESSABLE_ENTITY.value()),
             arguments(JwtType.INVALID, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.REUSED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
