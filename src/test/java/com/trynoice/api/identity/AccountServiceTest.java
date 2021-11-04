@@ -152,7 +152,7 @@ class AccountServiceTest {
 
     @Test
     void signOut_withInvalidJWT() {
-        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut("invalid-jwt", ""));
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut("invalid-jwt"));
     }
 
     @Test
@@ -160,7 +160,7 @@ class AccountServiceTest {
         val refreshToken = buildRefreshToken(buildAuthUser());
         val expiresAt = LocalDateTime.now().minus(Duration.ofHours(1));
         val token = signRefreshToken(refreshToken, expiresAt, null);
-        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(token, refreshToken.getUserAgent()));
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(token));
     }
 
     @Test
@@ -172,7 +172,7 @@ class AccountServiceTest {
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
 
-        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(token, refreshToken.getUserAgent()));
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(token));
     }
 
     @Test
@@ -187,7 +187,7 @@ class AccountServiceTest {
         // error without block: java: incompatible types: inference variable T has incompatible bounds
         //noinspection CodeBlock2Expr
         assertDoesNotThrow(() -> {
-            service.signOut(token, refreshToken.getUserAgent());
+            service.signOut(token);
         });
 
         verify(refreshTokenRepository, times(1)).delete(refreshToken);

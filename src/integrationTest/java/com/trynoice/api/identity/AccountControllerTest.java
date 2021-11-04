@@ -168,7 +168,7 @@ class AccountControllerTest {
         return Stream.of(
             // tokenType, userAgent, expectedResponseStatus
             arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments(JwtType.VALID, "", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(JwtType.VALID, "", HttpStatus.OK.value()),
             arguments(JwtType.INVALID, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.REUSED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
