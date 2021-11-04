@@ -83,18 +83,6 @@ public class CookieAuthFilterTest {
         return Stream.of(
             // refresh token type, access token type, path, response status, isExpectingNewCookies
 
-            // /v1/accounts/* routes are publicly accessible, using refresh token auth where needed.
-            arguments(JwtType.NULL, JwtType.NULL, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-            arguments(JwtType.EMPTY, JwtType.EMPTY, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-            arguments(JwtType.INVALID, JwtType.INVALID, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-            arguments(JwtType.INVALID, JwtType.VALID, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-            arguments(JwtType.VALID, JwtType.INVALID, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), true),
-            arguments(JwtType.EXPIRED, JwtType.EXPIRED, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-            arguments(JwtType.EXPIRED, JwtType.VALID, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-            arguments(JwtType.VALID, JwtType.EXPIRED, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), true),
-            arguments(JwtType.REUSED, JwtType.EXPIRED, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-            arguments(JwtType.VALID, JwtType.VALID, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value(), false),
-
             // /v1/* routes require authentication.
             arguments(JwtType.NULL, JwtType.NULL, "/v1/non-existing", HttpStatus.UNAUTHORIZED.value(), false),
             arguments(JwtType.EMPTY, JwtType.EMPTY, "/v1/non-existing", HttpStatus.UNAUTHORIZED.value(), false),

@@ -53,13 +53,6 @@ public class BearerTokenAuthFilterTest {
         return Stream.of(
             // access token type, path, response status
 
-            // /v1/accounts/* routes are publicly accessible, using refresh token auth where needed.
-            arguments(JwtType.NULL, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value()),
-            arguments(JwtType.EMPTY, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value()),
-            arguments(JwtType.INVALID, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value()),
-            arguments(JwtType.EXPIRED, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value()),
-            arguments(JwtType.VALID, "/v1/accounts/non-existing", HttpStatus.NOT_FOUND.value()),
-
             // /v1/* routes require authentication.
             arguments(JwtType.NULL, "/v1/non-existing", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.EMPTY, "/v1/non-existing", HttpStatus.UNAUTHORIZED.value()),
