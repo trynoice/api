@@ -31,11 +31,11 @@ To run from the terminal, use the Gradle wrapper.
 
 ### Development Configuration
 
-On running API server through the `bootRun` Gradle task or the [API IntelliJ run
-configuration](.idea/runConfigurations/API.xml), `dev` Spring profile automatically activated. You
-can customise [`application.properties`](src/main/resources/application.properties) for your
-development environment by overriding them in `application-dev.properties` (which is loaded only for
-the `dev` spring profile). It is ignored by Git and a sample file for the `dev` profile available
+Both the `bootRun` Gradle task and the [**API** IntelliJ run
+configuration](.idea/runConfigurations/API.xml), activate the `dev` Spring profile. To customise
+[`application.properties`](src/main/resources/application.properties) for your development
+environment, override properties in `application-dev.properties` (loaded when the `dev` Spring
+profile is active). `application-dev.properties` is ignored by Git and a sample file is available
 [here](src/main/resources/application-dev.properties.sample).
 
 ### Integration Tests
