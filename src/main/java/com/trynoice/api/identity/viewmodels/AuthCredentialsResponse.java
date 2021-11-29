@@ -1,4 +1,4 @@
-package com.trynoice.api.identity.models;
+package com.trynoice.api.identity.viewmodels;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +13,7 @@ import lombok.NonNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthCredentials {
+public class AuthCredentialsResponse {
 
     @NonNull
     private String refreshToken;

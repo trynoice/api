@@ -2,9 +2,9 @@ package com.trynoice.api.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
-import com.trynoice.api.identity.models.AuthCredentials;
-import com.trynoice.api.identity.models.SignInRequest;
-import com.trynoice.api.identity.models.SignUpRequest;
+import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
+import com.trynoice.api.identity.viewmodels.SignInRequest;
+import com.trynoice.api.identity.viewmodels.SignUpRequest;
 import lombok.val;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -191,7 +191,7 @@ class AccountControllerTest {
 
         if (expectedResponseStatus == HttpStatus.OK.value()) {
             val authCredentials = objectMapper.readValue(
-                result.getResponse().getContentAsByteArray(), AuthCredentials.class);
+                result.getResponse().getContentAsByteArray(), AuthCredentialsResponse.class);
 
             assertValidJWT(hmacSecret, authCredentials.getRefreshToken());
             assertValidJWT(hmacSecret, authCredentials.getAccessToken());

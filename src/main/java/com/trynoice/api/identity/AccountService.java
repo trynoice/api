@@ -10,9 +10,9 @@ import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthConfiguration;
-import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.AuthUser;
 import com.trynoice.api.identity.models.RefreshToken;
+import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -143,12 +143,12 @@ public class AccountService {
      *
      * @param refreshToken refresh token provided by the client
      * @param userAgent    user-agent that the client used to make this request. It can be {@code null}.
-     * @return fresh {@link AuthCredentials}
+     * @return fresh {@link AuthCredentialsResponse}
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
     @Transactional
-    AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
+    AuthCredentialsResponse issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
@@ -170,7 +170,7 @@ public class AccountService {
             .withExpiresAt(Date.from(accessTokenExpiry.atZone(ZoneId.systemDefault()).toInstant()))
             .sign(jwtAlgorithm);
 
-        return AuthCredentials.builder()
+        return AuthCredentialsResponse.builder()
             .refreshToken(createSignedRefreshTokenString(token))
             .accessToken(signedAccessToken)
             .build();
