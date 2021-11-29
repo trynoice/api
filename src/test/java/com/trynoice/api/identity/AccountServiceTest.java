@@ -248,7 +248,7 @@ class AccountServiceTest {
         val invalidToken = "invalid-token";
         assertNull(service.verifyAccessToken(invalidToken));
 
-        val principalId = 0;
+        val principalId = 0L;
         val validToken = JWT.create()
             .withSubject("" + principalId)
             .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
@@ -266,7 +266,7 @@ class AccountServiceTest {
     private AuthUser buildAuthUser() {
         // mock since basic entity non-null fields can not be set explicitly.
         val authUser = mock(AuthUser.class);
-        lenient().when(authUser.getId()).thenReturn(1);
+        lenient().when(authUser.getId()).thenReturn(1L);
         lenient().when(authUser.getEmail()).thenReturn("test@test.org");
         lenient().when(authUser.getName()).thenReturn("test-name");
         return authUser;

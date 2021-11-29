@@ -27,6 +27,8 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 
+import static java.lang.Long.parseLong;
+
 /**
  * {@link AccountService} implements operations related to account management and auth.
  */
@@ -179,7 +181,7 @@ public class AccountService {
         final long jwtId, jwtVersion;
         try {
             val decodedToken = jwtVerifier.verify(jwt);
-            jwtId = Long.parseLong(decodedToken.getId());
+            jwtId = parseLong(decodedToken.getId());
             jwtVersion = decodedToken.getClaim(REFRESH_TOKEN_ORDINAL_CLAIM).asLong();
         } catch (JWTVerificationException e) {
             throw new RefreshTokenVerificationException("refresh token verification failed", e);
@@ -220,15 +222,15 @@ public class AccountService {
     private class BearerJWT extends AbstractAuthenticationToken {
 
         private final DecodedJWT token;
-        private final Integer principalId;
+        private final Long principalId;
 
         private BearerJWT(@NonNull DecodedJWT token) {
             super(List.of());
             this.token = token;
 
-            Integer principalId;
+            Long principalId;
             try {
-                principalId = Integer.parseInt(token.getSubject());
+                principalId = parseLong(token.getSubject());
             } catch (NumberFormatException e) {
                 log.debug("failed to parse jwt subject", e);
                 principalId = null;
