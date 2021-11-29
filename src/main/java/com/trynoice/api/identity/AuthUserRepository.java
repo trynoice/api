@@ -13,7 +13,7 @@ import java.util.Optional;
  * com.trynoice.api.platform.BasicEntity BasicEntity}.
  */
 @Repository
-public interface AuthUserRepository extends BasicEntityCrudRepository<AuthUser, Integer> {
+public interface AuthUserRepository extends BasicEntityCrudRepository<AuthUser, Long> {
 
     /**
      * Finds an "active" auth user using their email.

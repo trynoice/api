@@ -28,7 +28,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class AuthUser extends BasicEntity<Integer> {
+public class AuthUser extends BasicEntity<Long> {
 
     @NonNull
     private String email;

@@ -8,7 +8,7 @@
 -- );
 --
 CREATE TABLE auth_user (
-  id serial NOT NULL PRIMARY KEY,
+  id bigserial NOT NULL PRIMARY KEY,
   created_at timestamp with time zone NOT NULL,
   deleted_at timestamp with time zone,
   version bigint NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE refresh_token (
   created_at timestamp with time zone NOT NULL,
   deleted_at timestamp with time zone,
   version bigint NOT NULL,
-  owner_id integer NOT NULL,
+  owner_id bigint NOT NULL,
   user_agent varchar(128) NOT NULL,
   expires_at timestamp with time zone NOT NULL
 );
