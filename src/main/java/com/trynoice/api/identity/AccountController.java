@@ -3,9 +3,9 @@ package com.trynoice.api.identity;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.models.AuthCredentials;
-import com.trynoice.api.identity.models.SignInRequest;
-import com.trynoice.api.identity.models.SignUpRequest;
+import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
+import com.trynoice.api.identity.viewmodels.SignInRequest;
+import com.trynoice.api.identity.viewmodels.SignUpRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -192,7 +192,7 @@ class AccountController {
 
     @NonNull
     @GetMapping(value = "/credentials")
-    ResponseEntity<AuthCredentials> issueCredentials(
+    ResponseEntity<AuthCredentialsResponse> issueCredentials(
         @NonNull @NotBlank @Valid @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
         @Size(min = 1, max = 128) @Valid @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
     ) {
