@@ -35,3 +35,25 @@ CREATE TABLE refresh_token (
 CREATE INDEX refresh_token__owner_id__idx ON refresh_token USING btree (owner_id)
 WHERE
   deleted_at IS NULL;
+
+CREATE TABLE subscription_plan (
+  id smallserial NOT NULL PRIMARY KEY,
+  created_at timestamp with time zone NOT NULL,
+  deleted_at timestamp with time zone,
+  version bigint NOT NULL,
+  provider varchar(16) NOT NULL,
+  provider_plan_id varchar(24) NOT NULL,
+  billing_period_months smallint NOT NULL,
+  price_in_indian_paise integer NOT NULL
+);
+
+INSERT INTO subscription_plan (created_at, version, provider, provider_plan_id, billing_period_months, price_in_indian_paise)
+  VALUES
+    (now(), 0, 'GOOGLE_PLAY', 'monthly', 1, 22500),
+    (now(), 0, 'GOOGLE_PLAY', 'quarterly', 3, 60000),
+    (now(), 0, 'GOOGLE_PLAY', 'bi_yearly', 6, 105000),
+    (now(), 0, 'GOOGLE_PLAY', 'yearly', 12, 180000),
+    (now(), 0, 'RAZORPAY', 'plan_ILxUCisS6ymQar', 1, 22500),
+    (now(), 0, 'RAZORPAY', 'plan_ILxWVmuQacec2v', 3, 60000),
+    (now(), 0, 'RAZORPAY', 'plan_ILxXABT6rb5ZoB', 6, 105000),
+    (now(), 0, 'RAZORPAY', 'plan_ILxXWYi1duEa4I', 12, 180000);
