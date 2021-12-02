@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
 /**
- * A data transfer object to send auth credentials back to the clients via HTTP responses.
+ * A data transfer object to send auth credentials back to the controller.
  */
 @Data
 @Builder
