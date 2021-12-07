@@ -22,17 +22,20 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import javax.persistence.EntityManager;
 import javax.servlet.http.Cookie;
 import javax.transaction.Transactional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.JwtType;
 import static com.trynoice.api.testing.AuthTestUtils.assertValidJWT;
-import static com.trynoice.api.testing.AuthTestUtils.createAccessToken;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createRefreshToken;
+import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
+import static com.trynoice.api.testing.AuthTestUtils.createSignedRefreshJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,6 +44,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -146,7 +150,7 @@ class AccountControllerTest {
     void signOut_withHeader(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
-        val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
+        val token = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
         mockMvc.perform(
                 get("/v1/accounts/signOut")
                     .header(AccountController.USER_AGENT_HEADER, userAgent)
@@ -159,7 +163,7 @@ class AccountControllerTest {
     void signOut_withCookie(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
-        val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
+        val token = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
         mockMvc.perform(
                 get("/v1/accounts/signOut")
                     .header(AccountController.USER_AGENT_HEADER, userAgent)
@@ -184,7 +188,7 @@ class AccountControllerTest {
     void issueCredentials(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
-        val token = createRefreshToken(entityManager, hmacSecret, authUser, tokenType);
+        val token = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
         val result = mockMvc.perform(
                 get("/v1/accounts/credentials")
                     .header(AccountController.REFRESH_TOKEN_HEADER, token)
@@ -252,10 +256,34 @@ class AccountControllerTest {
     }
 
     @Test
+    void revokeRefreshToken() throws Exception {
+        val authUser = createAuthUser(entityManager);
+        val refreshToken = createRefreshToken(entityManager, authUser);
+        val accessToken = createSignedAccessJwt(hmacSecret, authUser, JwtType.VALID);
+
+        final Function<Long, MockHttpServletRequestBuilder> requestBuilder =
+            id -> delete("/v1/accounts/refreshTokens/" + id)
+                .header("Authorization", "Bearer " + accessToken);
+
+        // non-existing refresh token id
+        mockMvc.perform(requestBuilder.apply(99999999L))
+            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
+
+        // existing and owned refresh token id
+        mockMvc.perform(requestBuilder.apply(refreshToken.getId()))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        // existing but not owned refresh token id
+        val anotherRefreshToken = createRefreshToken(entityManager, createAuthUser(entityManager));
+        mockMvc.perform(requestBuilder.apply(anotherRefreshToken.getId()))
+            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
+    }
+
+    @Test
     void getProfile() throws Exception {
         val authUser = createAuthUser(entityManager);
-        createRefreshToken(entityManager, hmacSecret, authUser, JwtType.VALID);
-        val accessToken = createAccessToken(hmacSecret, authUser, JwtType.VALID);
+        createRefreshToken(entityManager, authUser);
+        val accessToken = createSignedAccessJwt(hmacSecret, authUser, JwtType.VALID);
         val result = mockMvc.perform(
                 get("/v1/accounts/profile")
                     .header("Authorization", "bearer " + accessToken))

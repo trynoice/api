@@ -19,8 +19,8 @@ import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.util.stream.Stream;
 
-import static com.trynoice.api.testing.AuthTestUtils.createAccessToken;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
+import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -48,7 +48,7 @@ public class SubscriptionControllerTest {
 
     @BeforeEach
     void setUp() {
-        accessToken = createAccessToken(hmacSecret, createAuthUser(entityManager), AuthTestUtils.JwtType.VALID);
+        accessToken = createSignedAccessJwt(hmacSecret, createAuthUser(entityManager), AuthTestUtils.JwtType.VALID);
     }
 
     @ParameterizedTest(name = "{displayName} - provider={0} responseStatus={1}")

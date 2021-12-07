@@ -16,8 +16,8 @@ import javax.persistence.EntityManager;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.JwtType;
-import static com.trynoice.api.testing.AuthTestUtils.createAccessToken;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
+import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -40,7 +40,7 @@ public class BearerTokenAuthFilterTest {
     @MethodSource("authTestCases")
     void auth(JwtType tokenType, String requestPath, int responseStatus) throws Exception {
         val authUser = createAuthUser(entityManager);
-        val token = createAccessToken(hmacSecret, authUser, tokenType);
+        val token = createSignedAccessJwt(hmacSecret, authUser, tokenType);
         val requestBuilder = get(requestPath);
         if (token != null) {
             requestBuilder.header("Authorization", "bearer " + token);

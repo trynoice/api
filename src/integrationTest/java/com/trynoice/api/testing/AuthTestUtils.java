@@ -41,6 +41,25 @@ public class AuthTestUtils {
     }
 
     /**
+     * Creates a new {@link RefreshToken} in the database with its expiry set to one hour from now.
+     *
+     * @param entityManager to persist the {@link RefreshToken} entity to the database.
+     * @param owner         owner of the newly created {@link RefreshToken} entity.
+     * @return the newly create {@link RefreshToken}.
+     */
+    @NonNull
+    public static RefreshToken createRefreshToken(@NonNull EntityManager entityManager, @NonNull AuthUser owner) {
+        val refreshToken = RefreshToken.builder()
+            .expiresAt(LocalDateTime.now().plus(Duration.ofHours(1)))
+            .userAgent("")
+            .owner(owner)
+            .build();
+
+        entityManager.persist(refreshToken);
+        return refreshToken;
+    }
+
+    /**
      * Creates a fresh {@link RefreshToken} for the provided {@link AuthUser} and returns it as a
      * String. The returned string is a signed JWT string if {@link JwtType} is {@link JwtType#VALID
      * VALID}, {@link JwtType#EXPIRED EXPIRED} and {@link JwtType#REUSED REUSED}.
@@ -51,7 +70,7 @@ public class AuthTestUtils {
      * @param type          controls the behaviour of the signed JWT.
      * @return a {@code nullable} {@link String}
      */
-    public static String createRefreshToken(
+    public static String createSignedRefreshJwt(
         @NonNull EntityManager entityManager,
         @NonNull String hmacSecret,
         @NonNull AuthUser owner,
@@ -92,7 +111,7 @@ public class AuthTestUtils {
      * @param type       controls the behaviour of the signed JWT.
      * @return a {@code nullable} {@link String}.
      */
-    public static String createAccessToken(
+    public static String createSignedAccessJwt(
         @NonNull String hmacSecret,
         @NonNull AuthUser authUser,
         @NonNull JwtType type

@@ -19,9 +19,9 @@ import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.JwtType;
 import static com.trynoice.api.testing.AuthTestUtils.assertValidJWT;
-import static com.trynoice.api.testing.AuthTestUtils.createAccessToken;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
-import static com.trynoice.api.testing.AuthTestUtils.createRefreshToken;
+import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
+import static com.trynoice.api.testing.AuthTestUtils.createSignedRefreshJwt;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -52,8 +52,8 @@ public class CookieAuthFilterTest {
         boolean isExpectingNewCookies
     ) throws Exception {
         val authUser = createAuthUser(entityManager);
-        var refreshToken = createRefreshToken(entityManager, hmacSecret, authUser, refreshTokenType);
-        var accessToken = createAccessToken(hmacSecret, authUser, accessTokenType);
+        var refreshToken = createSignedRefreshJwt(entityManager, hmacSecret, authUser, refreshTokenType);
+        var accessToken = createSignedAccessJwt(hmacSecret, authUser, accessTokenType);
         val requestBuilder = get(requestPath);
         if (refreshToken != null) {
             requestBuilder.cookie(new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, refreshToken));
