@@ -29,7 +29,8 @@ CREATE TABLE refresh_token (
   version bigint NOT NULL,
   owner_id bigint NOT NULL,
   user_agent varchar(128) NOT NULL,
-  expires_at timestamp with time zone NOT NULL
+  expires_at timestamp with time zone NOT NULL,
+  last_used_at timestamp with time zone NOT NULL
 );
 
 CREATE INDEX refresh_token__owner_id__idx ON refresh_token USING btree (owner_id)

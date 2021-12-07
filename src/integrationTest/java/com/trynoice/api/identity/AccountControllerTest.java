@@ -3,9 +3,11 @@ package com.trynoice.api.identity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
+import com.trynoice.api.identity.viewmodels.ProfileResponse;
 import com.trynoice.api.identity.viewmodels.SignInRequest;
 import com.trynoice.api.identity.viewmodels.SignUpRequest;
 import lombok.val;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -28,6 +30,7 @@ import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.JwtType;
 import static com.trynoice.api.testing.AuthTestUtils.assertValidJWT;
+import static com.trynoice.api.testing.AuthTestUtils.createAccessToken;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createRefreshToken;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -227,6 +230,9 @@ class AccountControllerTest {
                     .content(objectMapper.writeValueAsBytes(new SignUpRequest(user.getEmail(), user.getName()))))
             .andExpect(status().is(expectedResponseStatus));
 
+        user.setSignInAttempts((short) signInAttempts);
+        entityManager.persist(user);
+
         // perform sign-in
         mockMvc.perform(
                 post("/v1/accounts/signIn")
@@ -243,5 +249,23 @@ class AccountControllerTest {
             arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER, HttpStatus.FORBIDDEN.value()),
             arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER * 2, HttpStatus.FORBIDDEN.value())
         );
+    }
+
+    @Test
+    void getProfile() throws Exception {
+        val authUser = createAuthUser(entityManager);
+        createRefreshToken(entityManager, hmacSecret, authUser, JwtType.VALID);
+        val accessToken = createAccessToken(hmacSecret, authUser, JwtType.VALID);
+        val result = mockMvc.perform(
+                get("/v1/accounts/profile")
+                    .header("Authorization", "bearer " + accessToken))
+            .andExpect(status().is(HttpStatus.OK.value()))
+            .andReturn();
+
+        val profile = objectMapper.readValue(result.getResponse().getContentAsByteArray(), ProfileResponse.class);
+        assertEquals(authUser.getId(), profile.getAccountId());
+        assertEquals(authUser.getName(), profile.getName());
+        assertEquals(authUser.getEmail(), profile.getEmail());
+        assertEquals(1, profile.getActiveSessions().size());
     }
 }
