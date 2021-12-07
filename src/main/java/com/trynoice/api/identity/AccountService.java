@@ -13,12 +13,14 @@ import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthUser;
 import com.trynoice.api.identity.models.RefreshToken;
 import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
+import com.trynoice.api.identity.viewmodels.ProfileResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,8 +28,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
+import static java.util.Objects.requireNonNull;
 
 /**
  * {@link AccountService} implements operations related to account management and auth.
@@ -36,7 +40,6 @@ import static java.lang.Long.parseLong;
 @Slf4j
 public class AccountService {
 
-    public static final String REFRESH_TOKEN_ORDINAL_CLAIM = "ord";
     static final short MAX_SIGN_IN_ATTEMPTS_PER_USER = 5;
 
     private final AuthUserRepository authUserRepository;
@@ -94,7 +97,10 @@ public class AccountService {
     @Transactional
     void signIn(@NonNull String email) throws AccountNotFoundException, TooManySignInAttemptsException {
         val user = authUserRepository.findActiveByEmail(email)
-            .orElseThrow(() -> new AccountNotFoundException("email", email));
+            .orElseThrow(() -> {
+                val msg = String.format("account with email '%s' doesn't exist", email);
+                return new AccountNotFoundException(msg);
+            });
 
         val refreshToken = createSignInToken(user);
         signInTokenDispatchStrategy.dispatch(refreshToken, email);
@@ -109,21 +115,12 @@ public class AccountService {
 
         authUser.incrementSignInAttempts();
         authUserRepository.save(authUser);
-        return createSignedRefreshTokenString(
-            refreshTokenRepository.save(
+        return refreshTokenRepository.save(
                 RefreshToken.builder()
                     .owner(authUser)
                     .expiresAt(LocalDateTime.now().plus(authConfig.getSignInTokenExpiry()))
-                    .build()));
-    }
-
-    @NonNull
-    private String createSignedRefreshTokenString(@NonNull RefreshToken token) {
-        return JWT.create()
-            .withJWTId("" + token.getId())
-            .withClaim(REFRESH_TOKEN_ORDINAL_CLAIM, token.getVersion())
-            .withExpiresAt(Date.from(token.getExpiresAt().atZone(ZoneId.systemDefault()).toInstant()))
-            .sign(jwtAlgorithm);
+                    .build())
+            .getJwt(jwtAlgorithm);
     }
 
     /**
@@ -171,7 +168,7 @@ public class AccountService {
             .sign(jwtAlgorithm);
 
         return AuthCredentialsResponse.builder()
-            .refreshToken(createSignedRefreshTokenString(token))
+            .refreshToken(token.getJwt(jwtAlgorithm))
             .accessToken(signedAccessToken)
             .build();
     }
@@ -182,7 +179,7 @@ public class AccountService {
         try {
             val decodedToken = jwtVerifier.verify(jwt);
             jwtId = parseLong(decodedToken.getId());
-            jwtVersion = decodedToken.getClaim(REFRESH_TOKEN_ORDINAL_CLAIM).asLong();
+            jwtVersion = decodedToken.getClaim(RefreshToken.ORD_JWT_CLAIM).asLong();
         } catch (JWTVerificationException e) {
             throw new RefreshTokenVerificationException("refresh token verification failed", e);
         }
@@ -198,6 +195,31 @@ public class AccountService {
         }
 
         return token;
+    }
+
+    /**
+     * Returns an externalised view of an account's data, containing fields that are accessible by
+     * account owners.
+     *
+     * @return a non-null {@link ProfileResponse}.
+     */
+    @NonNull
+    ProfileResponse getProfile(@NonNull AuthUser authUser) {
+        return ProfileResponse.builder()
+            .accountId(authUser.getId())
+            .name(authUser.getName())
+            .email(authUser.getEmail())
+            .activeSessions(
+                refreshTokenRepository.findAllActiveByOwner(authUser)
+                    .stream()
+                    .map((token) -> ProfileResponse.ActiveSessionInfo.builder()
+                        .refreshTokenId(token.getId())
+                        .userAgent(token.getUserAgent())
+                        .createdAt(token.getCreatedAt())
+                        .lastUsedAt(token.getLastUsedAt())
+                        .build())
+                    .collect(Collectors.toUnmodifiableList()))
+            .build();
     }
 
     /**
@@ -228,15 +250,11 @@ public class AccountService {
             super(List.of());
             this.token = token;
 
-            Long principalId;
             try {
-                principalId = parseLong(token.getSubject());
+                this.principalId = parseLong(token.getSubject());
             } catch (NumberFormatException e) {
-                log.debug("failed to parse jwt subject", e);
-                principalId = null;
+                throw new BearerJwtAuthenticationException("failed to parse jwt subject", e);
             }
-
-            this.principalId = principalId;
         }
 
         @Override
@@ -246,16 +264,24 @@ public class AccountService {
 
         @Override
         public Object getPrincipal() {
-            if (principalId == null) {
-                return null;
-            }
-
-            return authUserRepository.findActiveById(principalId).orElse(null);
+            return authUserRepository.findActiveById(requireNonNull(principalId))
+                .orElseThrow(() -> new BearerJwtAuthenticationException("account doesn't exist; it may have been closed!"));
         }
 
         @Override
         public boolean isAuthenticated() {
             return token != null && principalId != null;
+        }
+    }
+
+    private static class BearerJwtAuthenticationException extends AuthenticationException {
+
+        private BearerJwtAuthenticationException(String msg, Throwable cause) {
+            super(msg, cause);
+        }
+
+        private BearerJwtAuthenticationException(String msg) {
+            super(msg);
         }
     }
 }

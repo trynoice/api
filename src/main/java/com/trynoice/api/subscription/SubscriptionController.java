@@ -58,7 +58,6 @@ class SubscriptionController {
         @ApiResponse(responseCode = "422", description = "request parameters have validation errors", content = @Content),
         @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
-
     @NonNull
     @GetMapping("/plans")
     ResponseEntity<List<SubscriptionPlanResponse>> getPlans(@RequestParam(value = "provider", required = false) String provider) {

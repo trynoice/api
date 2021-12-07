@@ -66,7 +66,6 @@ public class BasicEntity<ID extends Serializable> {
     @NonNull
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Setter(AccessLevel.NONE)
     private ID id;
 
     /**
@@ -74,7 +73,6 @@ public class BasicEntity<ID extends Serializable> {
      */
     @NonNull
     @Column(updatable = false)
-    @Setter(AccessLevel.NONE)
     private LocalDateTime createdAt;
 
     /**
@@ -88,7 +86,6 @@ public class BasicEntity<ID extends Serializable> {
      */
     @NonNull
     @Version
-    @Setter(AccessLevel.NONE)
     private Long version;
 
     @PrePersist

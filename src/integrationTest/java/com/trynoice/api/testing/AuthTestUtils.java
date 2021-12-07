@@ -2,17 +2,14 @@ package com.trynoice.api.testing;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.models.AuthUser;
 import com.trynoice.api.identity.models.RefreshToken;
 import lombok.NonNull;
 import lombok.val;
 
 import javax.persistence.EntityManager;
-import java.sql.Date;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.UUID;
 
@@ -80,19 +77,15 @@ public class AuthTestUtils {
             .build();
 
         entityManager.persist(refreshToken);
-        val jwtVersion = refreshToken.getVersion() - (type == JwtType.REUSED ? 1 : 0);
-        return JWT.create()
-            .withJWTId("" + refreshToken.getId())
-            .withClaim(AccountService.REFRESH_TOKEN_ORDINAL_CLAIM, jwtVersion)
-            .withExpiresAt(Date.from(expiresAt.atZone(ZoneId.systemDefault()).toInstant()))
-            .sign(Algorithm.HMAC256(hmacSecret));
+        refreshToken.setVersion(refreshToken.getVersion() - (type == JwtType.REUSED ? 1 : 0));
+        return refreshToken.getJwt(Algorithm.HMAC256(hmacSecret));
     }
 
     /**
      * Creates a fresh access token for the given {@link AuthUser} and returns it as a string. The
      * returned string is a signed JWT string if {@link JwtType} is {@link JwtType#VALID VALID} or
      * {@link JwtType#EXPIRED EXPIRED}. <b>The behaviour for {@link JwtType#REUSED} is
-     * undefined.</b>
+     * undefined. Please note that it doesn't create a refresh token.</b>
      *
      * @param hmacSecret secret to sign the JWT.
      * @param authUser   subject of the access token.

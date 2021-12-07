@@ -3,7 +3,9 @@ package com.trynoice.api.identity;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
+import com.trynoice.api.identity.models.AuthUser;
 import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
+import com.trynoice.api.identity.viewmodels.ProfileResponse;
 import com.trynoice.api.identity.viewmodels.SignInRequest;
 import com.trynoice.api.identity.viewmodels.SignUpRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +19,7 @@ import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,7 +41,6 @@ import static java.util.Objects.requireNonNullElse;
 @Validated
 @RestController
 @RequestMapping("/v1/accounts")
-@SecurityRequirements // disable open-api security schemes for the entire controller
 @Slf4j
 class AccountController {
 
@@ -73,6 +75,7 @@ class AccountController {
      *                64 characters.</li> </ul>
      */
     @Operation(summary = "Create a new account")
+    @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
         @ApiResponse(responseCode = "400", description = "failed to read request"),
@@ -80,7 +83,6 @@ class AccountController {
         @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
-
     @NonNull
     @PostMapping("/signUp")
     ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpRequest request) {
@@ -109,6 +111,7 @@ class AccountController {
      *                `email` : it must be a non-blank well-formed email address. </li> </ul>
      */
     @Operation(summary = "Sign-in to an existing account")
+    @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
         @ApiResponse(responseCode = "400", description = "failed to read request"),
@@ -117,7 +120,6 @@ class AccountController {
         @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
-
     @NonNull
     @PostMapping("/signIn")
     ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInRequest request) {
@@ -144,6 +146,7 @@ class AccountController {
      * @param refreshTokenCookie if present, it must be a non-blank string.
      */
     @Operation(summary = "Revokes a valid refresh token")
+    @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
         @ApiResponse(responseCode = "400", description = "failed to read request"),
@@ -151,7 +154,6 @@ class AccountController {
         @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
-
     @NonNull
     @GetMapping(value = "/signOut")
     ResponseEntity<Void> signOut(
@@ -182,6 +184,7 @@ class AccountController {
      * @return fresh credentials (refresh and access tokens)
      */
     @Operation(summary = "Issue new credentials using a valid refresh token")
+    @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
         @ApiResponse(responseCode = "400", description = "failed to read request", content = @Content),
@@ -189,7 +192,6 @@ class AccountController {
         @ApiResponse(responseCode = "422", description = "request parameters have validation errors", content = @Content),
         @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
-
     @NonNull
     @GetMapping(value = "/credentials")
     ResponseEntity<AuthCredentialsResponse> issueCredentials(
@@ -203,5 +205,21 @@ class AccountController {
             log.trace("failed to issue fresh auth credentials", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
+
+    /**
+     * @return profile of the authenticated user.
+     */
+    @Operation(summary = "Get profile of the auth user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "failed to read request", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @GetMapping(value = "/profile")
+    ResponseEntity<ProfileResponse> getProfile(@NonNull @AuthenticationPrincipal AuthUser principal) {
+        return ResponseEntity.ok(accountService.getProfile(principal));
     }
 }

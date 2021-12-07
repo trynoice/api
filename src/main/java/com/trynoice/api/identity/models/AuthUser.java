@@ -9,15 +9,11 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
-import lombok.ToString;
 
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.OneToMany;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * A data access object that maps to the {@code auth_user} table in the database.
@@ -44,10 +40,6 @@ public class AuthUser extends BasicEntity<Long> {
     @NonNull
     @Builder.Default
     private Short signInAttempts = 0;
-
-    @ToString.Exclude
-    @OneToMany(mappedBy = "owner", fetch = FetchType.LAZY)
-    private List<RefreshToken> refreshTokens;
 
     @PrePersist
     @PreUpdate
