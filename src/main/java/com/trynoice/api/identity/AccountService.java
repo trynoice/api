@@ -6,6 +6,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
+import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
@@ -195,6 +196,29 @@ public class AccountService {
         }
 
         return token;
+    }
+
+    /**
+     * Deletes the refresh token with given {@code tokenId} if the given 'tokenOwner' actually owns
+     * it.
+     *
+     * @param tokenOwner expected owner of the token with {@code tokenId}.
+     * @param tokenId    id of the refresh token to revoke.
+     * @throws RefreshTokenRevokeException if such a token doesn't exist.
+     */
+    void revokeRefreshToken(@NonNull AuthUser tokenOwner, @NonNull Long tokenId) throws RefreshTokenRevokeException {
+        val refreshToken = refreshTokenRepository.findActiveById(tokenId)
+            .orElseThrow(() -> {
+                val errMsg = String.format("refresh token with id '%d' doesn't exist", tokenId);
+                return new RefreshTokenRevokeException(errMsg);
+            });
+
+        if (!tokenOwner.getId().equals(refreshToken.getOwner().getId())) {
+            val errMsg = "given 'tokenOwner' doesn't own a refresh token with the given id";
+            throw new RefreshTokenRevokeException(errMsg);
+        }
+
+        refreshTokenRepository.delete(refreshToken);
     }
 
     /**

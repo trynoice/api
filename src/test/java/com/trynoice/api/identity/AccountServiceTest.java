@@ -3,6 +3,7 @@ package com.trynoice.api.identity;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
+import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthConfiguration;
@@ -245,22 +246,22 @@ class AccountServiceTest {
     }
 
     @Test
-    void verifyAccessToken() {
-        val invalidToken = "invalid-token";
-        assertNull(service.verifyAccessToken(invalidToken));
+    void revokeRefreshToken() {
+        val authUser = buildAuthUser();
+        val refreshToken = buildRefreshToken(authUser);
+        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
+            .thenReturn(Optional.of(refreshToken));
 
-        val principalId = 0L;
-        val validToken = JWT.create()
-            .withSubject("" + principalId)
-            .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
+        //noinspection CodeBlock2Expr
+        assertDoesNotThrow(() -> {
+            service.revokeRefreshToken(authUser, refreshToken.getId());
+        });
 
-        when(authUserRepository.findActiveById(principalId))
-            .thenReturn(Optional.of(mock(AuthUser.class)));
-
-        val auth = service.verifyAccessToken(validToken);
-        assertNotNull(auth);
-        assertNotNull(auth.getPrincipal());
-        verify(authUserRepository, times(1)).findActiveById(principalId);
+        val anotherAuthUser = buildAuthUser();
+        anotherAuthUser.setId(2L);
+        assertThrows(
+            RefreshTokenRevokeException.class,
+            () -> service.revokeRefreshToken(anotherAuthUser, refreshToken.getId()));
     }
 
     @Test
@@ -281,6 +282,25 @@ class AccountServiceTest {
             assertEquals(refreshTokens.get(i).getLastUsedAt(), activeSessions.get(i).getLastUsedAt());
             assertEquals(refreshTokens.get(i).getUserAgent(), activeSessions.get(i).getUserAgent());
         }
+    }
+
+    @Test
+    void verifyAccessToken() {
+        val invalidToken = "invalid-token";
+        assertNull(service.verifyAccessToken(invalidToken));
+
+        val principalId = 0L;
+        val validToken = JWT.create()
+            .withSubject("" + principalId)
+            .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
+
+        when(authUserRepository.findActiveById(principalId))
+            .thenReturn(Optional.of(mock(AuthUser.class)));
+
+        val auth = service.verifyAccessToken(validToken);
+        assertNotNull(auth);
+        assertNotNull(auth.getPrincipal());
+        verify(authUserRepository, times(1)).findActiveById(principalId);
     }
 
     @NonNull
