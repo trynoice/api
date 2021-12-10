@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A JPA {@link Repository} declaration for database interactions of {@link SubscriptionPlan} {@link
@@ -18,10 +19,21 @@ interface SubscriptionPlanRepository extends BasicEntityCrudRepository<Subscript
     /**
      * Find all subscription plans offered by the given provider.
      *
-     * @param provider must be a non-null {@link SubscriptionPlan.Provider}
-     * @return a non-null list of available plans
+     * @param provider it must be a non-null {@link SubscriptionPlan.Provider}.
+     * @return a non-null list of available plans.
      */
     @NonNull
     @Query("select e from SubscriptionPlan e where e.provider = ?1 and" + WHERE_ACTIVE_CLAUSE)
     List<SubscriptionPlan> findAllActiveByProvider(@NonNull SubscriptionPlan.Provider provider);
+
+    /**
+     * Find a subscription plan by its provider plan id.
+     *
+     * @param provider it must be a non-null {@link SubscriptionPlan.Provider}.
+     * @param planId   plan id assigned by the provider. It must be a non-null string.
+     * @return a non-empty optional if such a subscription plan exists in the repository.
+     */
+    @NonNull
+    @Query("select e from SubscriptionPlan e where e.provider = ?1 and e.providerPlanId = ?2 and" + WHERE_ACTIVE_CLAUSE)
+    Optional<SubscriptionPlan> findActiveByProviderPlanId(@NonNull SubscriptionPlan.Provider provider, @NonNull String planId);
 }

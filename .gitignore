@@ -116,3 +116,6 @@ gradle-app.setting
 
 # # Work around https://youtrack.jetbrains.com/issue/IDEA-116898
 # gradle/wrapper/gradle-wrapper.properties
+
+# google service account key used for accessing Android publisher APIs during development
+android-publisher-api-key.json

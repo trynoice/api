@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="EntryPointsManager">
-    <list size="5">
+    <list size="6">
       <item index="0" class="java.lang.String" itemvalue="javax.persistence.PrePersist" />
-      <item index="1" class="java.lang.String" itemvalue="org.springframework.context.annotation.Bean" />
-      <item index="2" class="java.lang.String" itemvalue="org.springframework.context.annotation.Configuration" />
-      <item index="3" class="java.lang.String" itemvalue="org.springframework.web.bind.annotation.ExceptionHandler" />
-      <item index="4" class="java.lang.String" itemvalue="org.springframework.web.bind.annotation.RequestMapping" />
+      <item index="1" class="java.lang.String" itemvalue="org.springframework.beans.factory.annotation.Autowired" />
+      <item index="2" class="java.lang.String" itemvalue="org.springframework.context.annotation.Bean" />
+      <item index="3" class="java.lang.String" itemvalue="org.springframework.context.annotation.Configuration" />
+      <item index="4" class="java.lang.String" itemvalue="org.springframework.web.bind.annotation.ExceptionHandler" />
+      <item index="5" class="java.lang.String" itemvalue="org.springframework.web.bind.annotation.RequestMapping" />
     </list>
     <writeAnnotations>
       <writeAnnotation name="org.springframework.beans.factory.annotation.Autowired" />
