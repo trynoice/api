@@ -7,10 +7,10 @@ import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.AuthUserRepository;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.models.Subscription;
+import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
-import com.trynoice.api.subscription.models.SubscriptionPlan;
-import com.trynoice.api.subscription.viewmodels.SubscriptionPlanResponse;
+import com.trynoice.api.subscription.entities.SubscriptionPlan;
+import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import lombok.NonNull;
 import lombok.val;
 import org.postgresql.util.Base64;
@@ -68,11 +68,11 @@ class SubscriptionService {
      * subscription plans.</p>
      *
      * @param provider {@code null} or a valid {@link SubscriptionPlan.Provider}.
-     * @return a non-null list of {@link SubscriptionPlanResponse}.
+     * @return a non-null list of {@link SubscriptionPlanView}.
      * @throws UnsupportedSubscriptionPlanProviderException if an invalid {@code provider} is given.
      */
     @NonNull
-    List<SubscriptionPlanResponse> getPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
+    List<SubscriptionPlanView> getPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
         final List<SubscriptionPlan> plans;
         if (provider != null) {
             final SubscriptionPlan.Provider p;
@@ -88,7 +88,7 @@ class SubscriptionService {
         }
 
         return plans.stream()
-            .map(m -> SubscriptionPlanResponse.builder()
+            .map(m -> SubscriptionPlanView.builder()
                 .id(m.getId())
                 .provider(m.getProvider().name())
                 .providerPlanId(m.getProviderPlanId())

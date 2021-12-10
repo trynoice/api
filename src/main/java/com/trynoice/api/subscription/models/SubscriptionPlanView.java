@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.viewmodels;
+package com.trynoice.api.subscription.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +13,7 @@ import lombok.NonNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubscriptionPlanResponse {
+public class SubscriptionPlanView {
 
     @NonNull
     private Short id;

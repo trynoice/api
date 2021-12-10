@@ -3,7 +3,7 @@ package com.trynoice.api.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.viewmodels.SubscriptionPlanResponse;
+import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -64,7 +64,7 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping("/plans")
-    ResponseEntity<List<SubscriptionPlanResponse>> getPlans(@RequestParam(value = "provider", required = false) String provider) {
+    ResponseEntity<List<SubscriptionPlanView>> getPlans(@RequestParam(value = "provider", required = false) String provider) {
         try {
             return ResponseEntity.ok(subscriptionService.getPlans(provider));
         } catch (UnsupportedSubscriptionPlanProviderException e) {

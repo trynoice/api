@@ -1,14 +1,14 @@
 package com.trynoice.api.identity;
 
+import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.models.AuthUser;
-import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
-import com.trynoice.api.identity.viewmodels.ProfileResponse;
-import com.trynoice.api.identity.viewmodels.SignInRequest;
-import com.trynoice.api.identity.viewmodels.SignUpRequest;
+import com.trynoice.api.identity.models.AuthCredentials;
+import com.trynoice.api.identity.models.Profile;
+import com.trynoice.api.identity.models.SignInParams;
+import com.trynoice.api.identity.models.SignUpParams;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -74,7 +74,7 @@ class AccountController {
      * All further attempts using this email address will result in HTTP 403. At this point, the
      * clients may advise their user to contact the support.</p>
      *
-     * @param request The following validation checks are applied on the request body. <ul> <li>
+     * @param params The following validation checks are applied on the request body. <ul> <li>
      *                {@code email}: it must be a non-blank well-formed email of at most 64
      *                characters.</li> <li> {@code name}: it must be a non-blank string of at most
      *                64 characters.</li> </ul>
@@ -90,9 +90,9 @@ class AccountController {
     })
     @NonNull
     @PostMapping("/signUp")
-    ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpRequest request) {
+    ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpParams params) {
         try {
-            accountService.signUp(request.getEmail(), request.getName());
+            accountService.signUp(params);
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (TooManySignInAttemptsException e) {
             log.trace("sign-in request failed", e);
@@ -112,7 +112,7 @@ class AccountController {
      * All further attempts using this email address will result in HTTP 403. At this point, the
      * clients may advise their user to contact the support.</p>
      *
-     * @param request The following validation checks are applied on the request body. <ul> <li>
+     * @param params The following validation checks are applied on the request body. <ul> <li>
      *                `email` : it must be a non-blank well-formed email address. </li> </ul>
      */
     @Operation(summary = "Sign-in to an existing account")
@@ -127,9 +127,9 @@ class AccountController {
     })
     @NonNull
     @PostMapping("/signIn")
-    ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInRequest request) {
+    ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInParams params) {
         try {
-            accountService.signIn(request.getEmail());
+            accountService.signIn(params);
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (AccountNotFoundException e) {
             log.trace("sign-in request failed", e);
@@ -199,7 +199,7 @@ class AccountController {
     })
     @NonNull
     @GetMapping(value = "/credentials")
-    ResponseEntity<AuthCredentialsResponse> issueCredentials(
+    ResponseEntity<AuthCredentials> issueCredentials(
         @NonNull @NotBlank @Valid @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
         @Size(min = 1, max = 128) @Valid @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
     ) {
@@ -255,7 +255,7 @@ class AccountController {
     })
     @NonNull
     @GetMapping(value = "/profile")
-    ResponseEntity<ProfileResponse> getProfile(@NonNull @AuthenticationPrincipal AuthUser principal) {
+    ResponseEntity<Profile> getProfile(@NonNull @AuthenticationPrincipal AuthUser principal) {
         return ResponseEntity.ok(accountService.getProfile(principal));
     }
 }

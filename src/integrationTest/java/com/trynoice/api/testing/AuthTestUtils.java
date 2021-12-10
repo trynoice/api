@@ -2,8 +2,8 @@ package com.trynoice.api.testing;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.trynoice.api.identity.models.AuthUser;
-import com.trynoice.api.identity.models.RefreshToken;
+import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.identity.entities.RefreshToken;
 import lombok.NonNull;
 import lombok.val;
 

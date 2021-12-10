@@ -1,4 +1,4 @@
-package com.trynoice.api.identity.viewmodels;
+package com.trynoice.api.identity.models;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
@@ -17,7 +17,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProfileResponse {
+public class Profile {
 
     @NonNull
     private Long accountId;

@@ -2,13 +2,15 @@ package com.trynoice.api.identity;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthConfiguration;
-import com.trynoice.api.identity.models.AuthUser;
-import com.trynoice.api.identity.models.RefreshToken;
+import com.trynoice.api.identity.models.SignInParams;
+import com.trynoice.api.identity.models.SignUpParams;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,7 +71,7 @@ class AccountServiceTest {
 
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
-        service.signUp(authUser.getEmail(), authUser.getName());
+        service.signUp(new SignUpParams(authUser.getEmail(), authUser.getName()));
 
         verify(authUserRepository, times(1)).save(any());
         val refreshTokenCaptor = ArgumentCaptor.forClass(String.class);
@@ -89,7 +91,7 @@ class AccountServiceTest {
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
-        service.signUp(authUser.getEmail(), authUser.getName());
+        service.signUp(new SignUpParams(authUser.getEmail(), authUser.getName()));
 
         verify(authUserRepository, times(2)).save(any());
         verify(refreshTokenRepository, times(1)).save(any());
@@ -110,7 +112,7 @@ class AccountServiceTest {
         when(authUserRepository.save(any())).thenReturn(authUser);
 
         assertThrows(TooManySignInAttemptsException.class, () ->
-            service.signUp(authUser.getEmail(), authUser.getName()));
+            service.signUp(new SignUpParams(authUser.getEmail(), authUser.getName())));
     }
 
     @Test
@@ -120,7 +122,7 @@ class AccountServiceTest {
 
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
-        service.signIn(authUser.getEmail());
+        service.signIn(new SignInParams(authUser.getEmail()));
 
         verify(refreshTokenRepository, times(1)).save(any());
         val refreshTokenCaptor = ArgumentCaptor.forClass(String.class);
@@ -137,7 +139,7 @@ class AccountServiceTest {
         val testEmail = "test@test.org";
         when(authUserRepository.findActiveByEmail(testEmail)).thenReturn(Optional.empty());
 
-        assertThrows(AccountNotFoundException.class, () -> service.signIn(testEmail));
+        assertThrows(AccountNotFoundException.class, () -> service.signIn(new SignInParams(testEmail)));
         verify(refreshTokenRepository, times(0)).save(any());
         verifyNoInteractions(signInTokenDispatchStrategy);
     }
@@ -147,7 +149,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         authUser.setSignInAttempts(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER);
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
-        assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(authUser.getEmail()));
+        assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(new SignInParams(authUser.getEmail())));
     }
 
     @Test

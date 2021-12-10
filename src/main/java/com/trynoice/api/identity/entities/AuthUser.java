@@ -1,4 +1,4 @@
-package com.trynoice.api.identity.models;
+package com.trynoice.api.identity.entities;
 
 import com.trynoice.api.platform.BasicEntity;
 import lombok.AccessLevel;

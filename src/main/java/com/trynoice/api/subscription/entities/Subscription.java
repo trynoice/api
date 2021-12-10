@@ -1,7 +1,7 @@
-package com.trynoice.api.subscription.models;
+package com.trynoice.api.subscription.entities;
 
 
-import com.trynoice.api.identity.models.AuthUser;
+import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.BasicEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.models;
+package com.trynoice.api.subscription.entities;
 
 import com.trynoice.api.platform.BasicEntity;
 import lombok.AllArgsConstructor;

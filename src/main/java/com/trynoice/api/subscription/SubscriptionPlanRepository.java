@@ -1,7 +1,7 @@
 package com.trynoice.api.subscription;
 
 import com.trynoice.api.platform.BasicEntityCrudRepository;
-import com.trynoice.api.subscription.models.SubscriptionPlan;
+import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
