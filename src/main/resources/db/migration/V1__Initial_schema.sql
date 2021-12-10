@@ -43,7 +43,7 @@ CREATE TABLE subscription_plan (
   deleted_at timestamp with time zone,
   version bigint NOT NULL,
   provider varchar(16) NOT NULL,
-  provider_plan_id varchar(24) NOT NULL,
+  provider_plan_id varchar(32) NOT NULL,
   billing_period_months smallint NOT NULL,
   price_in_indian_paise integer NOT NULL
 );
@@ -54,10 +54,10 @@ INSERT INTO subscription_plan (created_at, version, provider, provider_plan_id, 
     (now(), 0, 'GOOGLE_PLAY', 'quarterly', 3, 60000),
     (now(), 0, 'GOOGLE_PLAY', 'bi_yearly', 6, 105000),
     (now(), 0, 'GOOGLE_PLAY', 'yearly', 12, 180000),
-    (now(), 0, 'RAZORPAY', 'plan_ILxUCisS6ymQar', 1, 22500),
-    (now(), 0, 'RAZORPAY', 'plan_ILxWVmuQacec2v', 3, 60000),
-    (now(), 0, 'RAZORPAY', 'plan_ILxXABT6rb5ZoB', 6, 105000),
-    (now(), 0, 'RAZORPAY', 'plan_ILxXWYi1duEa4I', 12, 180000);
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORTL7UKS05', 1, 22500),
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jOR5Utj2H24', 3, 60000),
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORPUdnVRBx', 6, 105000),
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORenAfLOCj', 12, 180000);
 
 CREATE TABLE subscription (
   id bigserial NOT NULL PRIMARY KEY,

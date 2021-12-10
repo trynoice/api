@@ -108,7 +108,7 @@ public class SubscriptionControllerTest {
         return Stream.of(
             arguments(null, HttpStatus.OK.value()),
             arguments("GOOGLE_PLAY", HttpStatus.OK.value()),
-            arguments("RAZORPAY", HttpStatus.OK.value()),
+            arguments("STRIPE", HttpStatus.OK.value()),
             arguments("UNSUPPORTED_PROVIDER", HttpStatus.UNPROCESSABLE_ENTITY.value())
         );
     }

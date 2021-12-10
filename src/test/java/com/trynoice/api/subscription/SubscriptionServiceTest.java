@@ -38,7 +38,7 @@ public class SubscriptionServiceTest {
     @Mock
     private AndroidPublisherApi androidPublisherApi;
 
-    private SubscriptionPlan googlePlayPlan, razorpayPlan;
+    private SubscriptionPlan googlePlayPlan, stripePlan;
     private SubscriptionService service;
 
     @BeforeEach
@@ -51,26 +51,26 @@ public class SubscriptionServiceTest {
             .build();
 
         googlePlayPlan.setId((short) 1);
-        razorpayPlan = SubscriptionPlan.builder()
-            .provider(SubscriptionPlan.Provider.RAZORPAY)
-            .providerPlanId("razorpay_plan_id")
+        stripePlan = SubscriptionPlan.builder()
+            .provider(SubscriptionPlan.Provider.STRIPE)
+            .providerPlanId("stripe_plan_id")
             .billingPeriodMonths((short) 1)
             .priceInIndianPaise(10000)
             .build();
 
-        razorpayPlan.setId((short) 2);
+        stripePlan.setId((short) 2);
 
         lenient()
             .when(subscriptionPlanRepository.findAllActive())
-            .thenReturn(List.of(googlePlayPlan, razorpayPlan));
+            .thenReturn(List.of(googlePlayPlan, stripePlan));
 
         lenient()
             .when(subscriptionPlanRepository.findAllActiveByProvider(SubscriptionPlan.Provider.GOOGLE_PLAY))
             .thenReturn(List.of(googlePlayPlan));
 
         lenient()
-            .when(subscriptionPlanRepository.findAllActiveByProvider(SubscriptionPlan.Provider.RAZORPAY))
-            .thenReturn(List.of(razorpayPlan));
+            .when(subscriptionPlanRepository.findAllActiveByProvider(SubscriptionPlan.Provider.STRIPE))
+            .thenReturn(List.of(stripePlan));
 
         service = new SubscriptionService(
             subscriptionConfiguration,
@@ -84,9 +84,9 @@ public class SubscriptionServiceTest {
     @Test
     void getPlans_withSupportedProviders() throws UnsupportedSubscriptionPlanProviderException {
         val testCases = new HashMap<SubscriptionPlan.Provider, List<SubscriptionPlan>>();
-        testCases.put(null, List.of(googlePlayPlan, razorpayPlan));
+        testCases.put(null, List.of(googlePlayPlan, stripePlan));
         testCases.put(SubscriptionPlan.Provider.GOOGLE_PLAY, List.of(googlePlayPlan));
-        testCases.put(SubscriptionPlan.Provider.RAZORPAY, List.of(razorpayPlan));
+        testCases.put(SubscriptionPlan.Provider.STRIPE, List.of(stripePlan));
 
         for (val entry : testCases.entrySet()) {
             val provider = entry.getKey();
