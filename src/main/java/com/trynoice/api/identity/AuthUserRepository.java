@@ -1,6 +1,6 @@
 package com.trynoice.api.identity;
 
-import com.trynoice.api.identity.models.AuthUser;
+import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.BasicEntityCrudRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;

@@ -2,10 +2,10 @@ package com.trynoice.api.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
-import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
-import com.trynoice.api.identity.viewmodels.ProfileResponse;
-import com.trynoice.api.identity.viewmodels.SignInRequest;
-import com.trynoice.api.identity.viewmodels.SignUpRequest;
+import com.trynoice.api.identity.models.AuthCredentials;
+import com.trynoice.api.identity.models.Profile;
+import com.trynoice.api.identity.models.SignInParams;
+import com.trynoice.api.identity.models.SignUpParams;
 import lombok.val;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -81,7 +81,7 @@ class AccountControllerTest {
         mockMvc.perform(
                 post("/v1/accounts/signUp")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsBytes(new SignUpRequest(email, name))))
+                    .content(objectMapper.writeValueAsBytes(new SignUpParams(email, name))))
             .andExpect(status().is(expectedResponseStatus));
 
         val tokenCaptor = ArgumentCaptor.forClass(String.class);
@@ -119,7 +119,7 @@ class AccountControllerTest {
         mockMvc.perform(
                 post("/v1/accounts/signIn")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsBytes(new SignInRequest(email))))
+                    .content(objectMapper.writeValueAsBytes(new SignInParams(email))))
             .andExpect(status().is(expectedResponseStatus));
 
         val tokenCaptor = ArgumentCaptor.forClass(String.class);
@@ -195,7 +195,7 @@ class AccountControllerTest {
 
         if (expectedResponseStatus == HttpStatus.OK.value()) {
             val authCredentials = objectMapper.readValue(
-                result.getResponse().getContentAsByteArray(), AuthCredentialsResponse.class);
+                result.getResponse().getContentAsByteArray(), AuthCredentials.class);
 
             assertValidJWT(hmacSecret, authCredentials.getRefreshToken());
             assertValidJWT(hmacSecret, authCredentials.getAccessToken());
@@ -228,7 +228,7 @@ class AccountControllerTest {
         mockMvc.perform(
                 post("/v1/accounts/signUp")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsBytes(new SignUpRequest(user.getEmail(), user.getName()))))
+                    .content(objectMapper.writeValueAsBytes(new SignUpParams(user.getEmail(), user.getName()))))
             .andExpect(status().is(expectedResponseStatus));
 
         user.setSignInAttempts((short) signInAttempts);
@@ -238,7 +238,7 @@ class AccountControllerTest {
         mockMvc.perform(
                 post("/v1/accounts/signIn")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsBytes(new SignInRequest(user.getEmail()))))
+                    .content(objectMapper.writeValueAsBytes(new SignInParams(user.getEmail()))))
             .andExpect(status().is(expectedResponseStatus));
     }
 
@@ -287,7 +287,7 @@ class AccountControllerTest {
             .andExpect(status().is(HttpStatus.OK.value()))
             .andReturn();
 
-        val profile = objectMapper.readValue(result.getResponse().getContentAsByteArray(), ProfileResponse.class);
+        val profile = objectMapper.readValue(result.getResponse().getContentAsByteArray(), Profile.class);
         assertEquals(authUser.getId(), profile.getAccountId());
         assertEquals(authUser.getName(), profile.getName());
         assertEquals(authUser.getEmail(), profile.getEmail());

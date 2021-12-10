@@ -5,16 +5,18 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthConfiguration;
-import com.trynoice.api.identity.models.AuthUser;
-import com.trynoice.api.identity.models.RefreshToken;
-import com.trynoice.api.identity.viewmodels.AuthCredentialsResponse;
-import com.trynoice.api.identity.viewmodels.ProfileResponse;
+import com.trynoice.api.identity.models.AuthCredentials;
+import com.trynoice.api.identity.models.Profile;
+import com.trynoice.api.identity.models.SignInParams;
+import com.trynoice.api.identity.models.SignUpParams;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -69,42 +71,41 @@ public class AccountService {
      * Creates a new user account with the provided email and name if one didn't already exist and
      * then sends a sign-in link to the accounts email.
      *
-     * @param email email of the account's user
-     * @param name  name of the account's user
+     * @param params sign-up parameters
      * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
      * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
     @Transactional
-    void signUp(@NonNull String email, @NonNull String name) throws TooManySignInAttemptsException {
-        val user = authUserRepository.findActiveByEmail(email)
+    void signUp(@NonNull SignUpParams params) throws TooManySignInAttemptsException {
+        val user = authUserRepository.findActiveByEmail(params.getEmail())
             .orElseGet(() -> authUserRepository.save(
                 AuthUser.builder()
-                    .email(email)
-                    .name(name)
+                    .email(params.getEmail())
+                    .name(params.getName())
                     .build()));
 
         val refreshToken = createSignInToken(user);
-        signInTokenDispatchStrategy.dispatch(refreshToken, email);
+        signInTokenDispatchStrategy.dispatch(refreshToken, params.getEmail());
     }
 
     /**
      * Checks if an account with the given email exists and then sends a sign-in link to the email.
      *
-     * @param email email of the account's user
+     * @param params sign-in parameters
      * @throws AccountNotFoundException       if an account with the given email doesn't exist.
      * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
      * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
     @Transactional
-    void signIn(@NonNull String email) throws AccountNotFoundException, TooManySignInAttemptsException {
-        val user = authUserRepository.findActiveByEmail(email)
+    void signIn(@NonNull SignInParams params) throws AccountNotFoundException, TooManySignInAttemptsException {
+        val user = authUserRepository.findActiveByEmail(params.getEmail())
             .orElseThrow(() -> {
-                val msg = String.format("account with email '%s' doesn't exist", email);
+                val msg = String.format("account with email '%s' doesn't exist", params.getEmail());
                 return new AccountNotFoundException(msg);
             });
 
         val refreshToken = createSignInToken(user);
-        signInTokenDispatchStrategy.dispatch(refreshToken, email);
+        signInTokenDispatchStrategy.dispatch(refreshToken, params.getEmail());
     }
 
     @NonNull
@@ -141,12 +142,12 @@ public class AccountService {
      *
      * @param refreshToken refresh token provided by the client
      * @param userAgent    user-agent that the client used to make this request. It can be {@code null}.
-     * @return fresh {@link AuthCredentialsResponse}
+     * @return fresh {@link AuthCredentials}
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
     @Transactional
-    AuthCredentialsResponse issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
+    AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
@@ -168,7 +169,7 @@ public class AccountService {
             .withExpiresAt(Date.from(accessTokenExpiry.atZone(ZoneId.systemDefault()).toInstant()))
             .sign(jwtAlgorithm);
 
-        return AuthCredentialsResponse.builder()
+        return AuthCredentials.builder()
             .refreshToken(token.getJwt(jwtAlgorithm))
             .accessToken(signedAccessToken)
             .build();
@@ -225,18 +226,18 @@ public class AccountService {
      * Returns an externalised view of an account's data, containing fields that are accessible by
      * account owners.
      *
-     * @return a non-null {@link ProfileResponse}.
+     * @return a non-null {@link Profile}.
      */
     @NonNull
-    ProfileResponse getProfile(@NonNull AuthUser authUser) {
-        return ProfileResponse.builder()
+    Profile getProfile(@NonNull AuthUser authUser) {
+        return Profile.builder()
             .accountId(authUser.getId())
             .name(authUser.getName())
             .email(authUser.getEmail())
             .activeSessions(
                 refreshTokenRepository.findAllActiveByOwner(authUser)
                     .stream()
-                    .map((token) -> ProfileResponse.ActiveSessionInfo.builder()
+                    .map((token) -> Profile.ActiveSessionInfo.builder()
                         .refreshTokenId(token.getId())
                         .userAgent(token.getUserAgent())
                         .createdAt(token.getCreatedAt())

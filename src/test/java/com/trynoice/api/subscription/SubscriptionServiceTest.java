@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.AuthUserRepository;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
-import com.trynoice.api.subscription.models.SubscriptionPlan;
+import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

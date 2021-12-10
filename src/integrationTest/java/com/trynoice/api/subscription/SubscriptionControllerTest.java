@@ -2,9 +2,9 @@ package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
-import com.trynoice.api.subscription.models.Subscription;
-import com.trynoice.api.subscription.models.SubscriptionPlan;
-import com.trynoice.api.subscription.viewmodels.SubscriptionPlanResponse;
+import com.trynoice.api.subscription.entities.Subscription;
+import com.trynoice.api.subscription.entities.SubscriptionPlan;
+import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.testing.AuthTestUtils;
 import lombok.NonNull;
 import lombok.val;
@@ -93,7 +93,7 @@ public class SubscriptionControllerTest {
         if (expectedResponseStatus == HttpStatus.OK.value()) {
             val plans = objectMapper.readValue(
                 result.getResponse().getContentAsByteArray(),
-                SubscriptionPlanResponse[].class);
+                SubscriptionPlanView[].class);
 
             assertNotEquals(0, plans.length);
             if (provider != null) {
