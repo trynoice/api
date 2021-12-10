@@ -1,5 +1,7 @@
 package com.trynoice.api;
 
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.BearerTokenAuthFilter;
 import com.trynoice.api.identity.CookieAuthFilter;
@@ -24,6 +26,8 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -89,8 +93,23 @@ public class Application {
 
     @NonNull
     @Bean
-    AndroidPublisherApi androidPublisherApi(@NonNull SubscriptionConfiguration config) throws IOException, GeneralSecurityException {
-        return new AndroidPublisherApi(config.getAndroidPublisherApiCredentials());
+    AndroidPublisherApi androidPublisherApi(
+        @NonNull Environment environment,
+        @NonNull SubscriptionConfiguration config
+    ) throws IOException, GeneralSecurityException {
+        GoogleCredentials credentials;
+        try {
+            credentials = config.getAndroidPublisherApiCredentials();
+        } catch (IOException e) {
+            // create dummy credentials when running tests since credentials file may not be available.
+            if (environment.acceptsProfiles(Profiles.of("!test"))) {
+                throw e;
+            }
+
+            credentials = GoogleCredentials.create(new AccessToken("dummy-token", null));
+        }
+
+        return new AndroidPublisherApi(credentials);
     }
 
     @NonNull
