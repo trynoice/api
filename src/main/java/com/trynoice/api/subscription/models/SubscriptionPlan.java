@@ -38,6 +38,6 @@ public class SubscriptionPlan extends BasicEntity<Short> {
 
     public enum Provider {
         GOOGLE_PLAY,
-        RAZORPAY
+        STRIPE
     }
 }
