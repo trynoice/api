@@ -1,5 +1,7 @@
 package com.trynoice.api.subscription;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.viewmodels.SubscriptionPlanResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,5 +71,44 @@ class SubscriptionController {
             log.trace("unsupported subscription plan provider: {}", provider);
             return ResponseEntity.unprocessableEntity().build();
         }
+    }
+
+    /**
+     * <p>
+     * On receiving an event, it processes the mutated subscription entity and reconciles the
+     * internal state of the app by re-requesting subscription entity from the Google Play API.</p>
+     *
+     * <p><b>See also:</b></p>
+     * <ul>
+     *     <li><a href="https://developer.android.com/google/play/billing/rtdn-reference#sub">Google
+     *     Play real-time developer notifications reference</a></li>
+     *     <li><a href="https://developer.android.com/google/play/billing/subscriptions">Google Play
+     *     subscription documentation</a></li>
+     *     <li><a href="https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions">
+     *     Android Publisher REST API reference</a></li>
+     * </ul>
+     *
+     * @param requestBody event payload (JSON).
+     */
+    @Operation(summary = "Webhook for listening to Google Play Billing subscription events")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "event successfully processed"),
+        @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "500", description = "internal server error"),
+    })
+    @NonNull
+    @PostMapping("/googlePlay/webhook")
+    ResponseEntity<Void> googlePlayWebhook(@RequestBody JsonNode requestBody) {
+        try {
+            subscriptionService.handleGooglePlayWebhookEvent(requestBody);
+        } catch (SubscriptionWebhookEventException e) {
+            log.info("failed to process the google play webhook event", e);
+        }
+
+        // always return 200 because if we return an HTTP error response code on not being able to
+        // correctly process the event payload, then Google Cloud Pub/Sub will retry its delivery.
+        // Since we couldn't correctly process the payload the first-time, it's highly unlikely that
+        // we'd be able to process it correctly on redelivery.
+        return ResponseEntity.ok(null);
     }
 }

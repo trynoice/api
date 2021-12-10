@@ -1,6 +1,8 @@
 package com.trynoice.api.subscription.models;
 
 import com.trynoice.api.platform.BasicEntity;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -15,12 +17,14 @@ import javax.persistence.Enumerated;
  */
 @Entity
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class SubscriptionPlan extends BasicEntity<Short> {
 
-    @Enumerated(EnumType.STRING)
     @NonNull
+    @Enumerated(EnumType.STRING)
     private Provider provider;
 
     @NonNull

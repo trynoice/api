@@ -7,6 +7,8 @@ import com.trynoice.api.identity.SignInTokenDispatchStrategy;
 import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import com.trynoice.api.platform.GlobalControllerAdvice;
+import com.trynoice.api.subscription.AndroidPublisherApi;
+import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -29,6 +31,9 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 
 @SpringBootApplication
 public class Application {
@@ -57,6 +62,14 @@ public class Application {
     }
 
     @NonNull
+    @Validated
+    @Bean
+    @ConfigurationProperties("app.subscriptions")
+    SubscriptionConfiguration subscriptionConfiguration() {
+        return new SubscriptionConfiguration();
+    }
+
+    @NonNull
     @Bean
     SignInTokenDispatchStrategy signInTokenDispatchStrategy(
         @NonNull AuthConfiguration authConfig,
@@ -72,6 +85,12 @@ public class Application {
                 throw new IllegalArgumentException("unsupported sign-in token dispatch strategy: "
                     + authConfiguration().getSignInTokenDispatcherType());
         }
+    }
+
+    @NonNull
+    @Bean
+    AndroidPublisherApi androidPublisherApi(@NonNull SubscriptionConfiguration config) throws IOException, GeneralSecurityException {
+        return new AndroidPublisherApi(config.getAndroidPublisherApiCredentials());
     }
 
     @NonNull
@@ -131,7 +150,8 @@ public class Application {
                 "/v1/accounts/signUp",
                 "/v1/accounts/signIn",
                 "/v1/accounts/signOut",
-                "/v1/accounts/credentials"
+                "/v1/accounts/credentials",
+                "/v1/subscriptions/googlePlay/webhook"
             );
         }
 

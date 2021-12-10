@@ -1,6 +1,9 @@
 package com.trynoice.api.subscription;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trynoice.api.identity.AuthUserRepository;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
+import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import com.trynoice.api.subscription.models.SubscriptionPlan;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,26 +24,41 @@ import static org.mockito.Mockito.lenient;
 public class SubscriptionServiceTest {
 
     @Mock
+    private SubscriptionConfiguration subscriptionConfiguration;
+
+    @Mock
     private SubscriptionPlanRepository subscriptionPlanRepository;
 
     @Mock
-    private SubscriptionPlan googlePlayPlan, razorpayPlan;
+    private SubscriptionRepository subscriptionRepository;
 
+    @Mock
+    private AuthUserRepository authUserRepository;
+
+    @Mock
+    private AndroidPublisherApi androidPublisherApi;
+
+    private SubscriptionPlan googlePlayPlan, razorpayPlan;
     private SubscriptionService service;
 
     @BeforeEach
     void setUp() {
-        lenient().when(googlePlayPlan.getId()).thenReturn((short) 1);
-        lenient().when(googlePlayPlan.getProvider()).thenReturn(SubscriptionPlan.Provider.GOOGLE_PLAY);
-        lenient().when(googlePlayPlan.getProviderPlanId()).thenReturn("google_play_plan_id");
-        lenient().when(googlePlayPlan.getBillingPeriodMonths()).thenReturn((short) 1);
-        lenient().when(googlePlayPlan.getPriceInIndianPaise()).thenReturn(10000);
+        googlePlayPlan = SubscriptionPlan.builder()
+            .provider(SubscriptionPlan.Provider.GOOGLE_PLAY)
+            .providerPlanId("google_plan_plan_id")
+            .billingPeriodMonths((short) 1)
+            .priceInIndianPaise(10000)
+            .build();
 
-        lenient().when(razorpayPlan.getId()).thenReturn((short) 2);
-        lenient().when(razorpayPlan.getProvider()).thenReturn(SubscriptionPlan.Provider.RAZORPAY);
-        lenient().when(razorpayPlan.getProviderPlanId()).thenReturn("razorpay_plan_id");
-        lenient().when(razorpayPlan.getBillingPeriodMonths()).thenReturn((short) 1);
-        lenient().when(razorpayPlan.getPriceInIndianPaise()).thenReturn(10000);
+        googlePlayPlan.setId((short) 1);
+        razorpayPlan = SubscriptionPlan.builder()
+            .provider(SubscriptionPlan.Provider.RAZORPAY)
+            .providerPlanId("razorpay_plan_id")
+            .billingPeriodMonths((short) 1)
+            .priceInIndianPaise(10000)
+            .build();
+
+        razorpayPlan.setId((short) 2);
 
         lenient()
             .when(subscriptionPlanRepository.findAllActive())
@@ -54,7 +72,13 @@ public class SubscriptionServiceTest {
             .when(subscriptionPlanRepository.findAllActiveByProvider(SubscriptionPlan.Provider.RAZORPAY))
             .thenReturn(List.of(razorpayPlan));
 
-        service = new SubscriptionService(subscriptionPlanRepository);
+        service = new SubscriptionService(
+            subscriptionConfiguration,
+            subscriptionPlanRepository,
+            subscriptionRepository,
+            authUserRepository,
+            new ObjectMapper(),
+            androidPublisherApi);
     }
 
     @Test
@@ -89,5 +113,11 @@ public class SubscriptionServiceTest {
         assertThrows(
             UnsupportedSubscriptionPlanProviderException.class,
             () -> service.getPlans("unsupported-provider"));
+    }
+
+    @Test
+    void handleGooglePlayWebhookEvent() {
+        // The unit test quickly becomes too complex due to all the mocking. The best case scenario
+        // here is to try covering as many cases in integration tests as possible.
     }
 }

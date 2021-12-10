@@ -58,3 +58,20 @@ INSERT INTO subscription_plan (created_at, version, provider, provider_plan_id, 
     (now(), 0, 'RAZORPAY', 'plan_ILxWVmuQacec2v', 3, 60000),
     (now(), 0, 'RAZORPAY', 'plan_ILxXABT6rb5ZoB', 6, 105000),
     (now(), 0, 'RAZORPAY', 'plan_ILxXWYi1duEa4I', 12, 180000);
+
+CREATE TABLE subscription (
+  id bigserial NOT NULL PRIMARY KEY,
+  created_at timestamp with time zone NOT NULL,
+  deleted_at timestamp with time zone,
+  version bigint NOT NULL,
+  owner_id bigint NOT NULL,
+  plan_id smallint NOT NULL,
+  provider_subscription_id varchar(64) NOT NULL,
+  status varchar(24) NOT NULL,
+  start_at timestamp with time zone NOT NULL,
+  end_at timestamp with time zone
+);
+
+CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)
+WHERE
+  deleted_at IS NULL;
