@@ -3,15 +3,21 @@ package com.trynoice.api.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
+import com.stripe.exception.StripeException;
 import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.AuthUserRepository;
+import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.subscription.entities.Subscription;
+import com.trynoice.api.subscription.entities.SubscriptionPlan;
+import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.entities.Subscription;
+import com.trynoice.api.subscription.models.CreateSubscriptionParams;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
-import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import lombok.NonNull;
+import lombok.SneakyThrows;
 import lombok.val;
 import org.postgresql.util.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +47,7 @@ class SubscriptionService {
     private final AuthUserRepository authUserRepository;
     private final ObjectMapper objectMapper;
     private final AndroidPublisherApi androidPublisherApi;
+    private final StripeApi stripeApi;
 
     @Autowired
     SubscriptionService(
@@ -49,7 +56,8 @@ class SubscriptionService {
         @NonNull SubscriptionRepository subscriptionRepository,
         @NonNull AuthUserRepository authUserRepository,
         @NonNull ObjectMapper objectMapper,
-        @NonNull AndroidPublisherApi androidPublisherApi
+        @NonNull AndroidPublisherApi androidPublisherApi,
+        @NonNull StripeApi stripeApi
     ) {
         this.subscriptionConfig = subscriptionConfig;
         this.subscriptionPlanRepository = subscriptionPlanRepository;
@@ -57,6 +65,7 @@ class SubscriptionService {
         this.authUserRepository = authUserRepository;
         this.objectMapper = objectMapper;
         this.androidPublisherApi = androidPublisherApi;
+        this.stripeApi = stripeApi;
     }
 
     /**
@@ -96,6 +105,35 @@ class SubscriptionService {
                 .priceInr(formatIndianPaiseToRupee(m.getPriceInIndianPaise()))
                 .build())
             .collect(Collectors.toUnmodifiableList());
+    }
+
+    @NonNull
+    @SneakyThrows(StripeException.class)
+    String createSubscription(
+        @NonNull AuthUser requester,
+        @NonNull CreateSubscriptionParams params
+    ) throws SubscriptionPlanNotFoundException, UnsupportedSubscriptionPlanProviderException, DuplicateSubscriptionException {
+        val plan = subscriptionPlanRepository.findActiveById(params.getPlanId())
+            .orElseThrow(SubscriptionPlanNotFoundException::new);
+
+        if (plan.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY) {
+            throw new UnsupportedSubscriptionPlanProviderException("can't create subscription on google play using rest api");
+        }
+
+        val activeSubscription = subscriptionRepository.findActiveByOwnerAndStatus(
+            requester, Subscription.Status.ACTIVE, Subscription.Status.PENDING);
+
+        if (activeSubscription.isPresent()) {
+            throw new DuplicateSubscriptionException();
+        }
+
+        return stripeApi.createCheckoutSession(
+                params.getSuccessUrl(),
+                params.getCancelUrl(),
+                plan.getProviderPlanId(),
+                requester.getId().toString(),
+                requester.getEmail())
+            .getUrl();
     }
 
     /**

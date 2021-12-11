@@ -2,9 +2,7 @@ package com.trynoice.api.subscription.models;
 
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
 import com.google.auth.oauth2.GoogleCredentials;
-import lombok.AccessLevel;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NonNull;
 
 import javax.validation.constraints.NotBlank;
@@ -21,8 +19,10 @@ public class SubscriptionConfiguration {
     private String androidApplicationId;
 
     @NotBlank
-    @Getter(AccessLevel.NONE)
     private String androidPublisherApiKeyPath;
+
+    @NotBlank
+    private String stripeApiKey;
 
     @NonNull
     public GoogleCredentials getAndroidPublisherApiCredentials() throws IOException {

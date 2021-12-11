@@ -1,10 +1,19 @@
 package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stripe.exception.ApiConnectionException;
+import com.stripe.exception.StripeException;
+import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.AuthUserRepository;
-import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.models.SubscriptionConfiguration;
+import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
+import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
+import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
+import com.trynoice.api.subscription.models.CreateSubscriptionParams;
+import com.trynoice.api.subscription.models.SubscriptionConfiguration;
+import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,11 +23,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class SubscriptionServiceTest {
@@ -37,6 +51,9 @@ public class SubscriptionServiceTest {
 
     @Mock
     private AndroidPublisherApi androidPublisherApi;
+
+    @Mock
+    private StripeApi stripeApi;
 
     private SubscriptionPlan googlePlayPlan, stripePlan;
     private SubscriptionService service;
@@ -78,7 +95,8 @@ public class SubscriptionServiceTest {
             subscriptionRepository,
             authUserRepository,
             new ObjectMapper(),
-            androidPublisherApi);
+            androidPublisherApi,
+            stripeApi);
     }
 
     @Test
@@ -116,8 +134,95 @@ public class SubscriptionServiceTest {
     }
 
     @Test
+    void createSubscription_withExistingActiveSubscription() {
+        val authUser = buildAuthUser();
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+            .thenReturn(Optional.of(mock(Subscription.class)));
+        when(subscriptionPlanRepository.findActiveById((short) 1))
+            .thenReturn(Optional.of(buildStripeSubscriptionPlan("provider-plan-id")));
+
+        val params = new CreateSubscriptionParams((short) 1, "success-url", "cancel-url");
+        assertThrows(DuplicateSubscriptionException.class, () -> service.createSubscription(authUser, params));
+    }
+
+    @Test
+    void createSubscription_withInvalidPlanId() {
+        val authUser = buildAuthUser();
+        val planId = (short) 1;
+        val params = new CreateSubscriptionParams(planId, "success-url", "cancel-url");
+        when(subscriptionPlanRepository.findActiveById(planId)).thenReturn(Optional.empty());
+        assertThrows(SubscriptionPlanNotFoundException.class, () -> service.createSubscription(authUser, params));
+    }
+
+    @Test
+    void createSubscription_withStripeApiError() throws Exception {
+        val authUser = buildAuthUser();
+        val stripePriceId = "stripe-price-id-1";
+        val planId = (short) 1;
+        val params = new CreateSubscriptionParams(planId, "success-url", "cancel-url");
+
+        when(subscriptionPlanRepository.findActiveById(planId))
+            .thenReturn(Optional.of(buildStripeSubscriptionPlan(stripePriceId)));
+
+        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any()))
+            .thenThrow(new ApiConnectionException("test-error"));
+
+        assertThrows(StripeException.class, () -> service.createSubscription(authUser, params));
+    }
+
+    @Test
+    void createSubscription_withValidParams() throws Exception {
+        val authUser = buildAuthUser();
+        val stripePriceId = "stripe-price-id-2";
+        val planId = (short) 1;
+        val params = new CreateSubscriptionParams(planId, "success-url", "cancel-url");
+
+        when(subscriptionPlanRepository.findActiveById(planId))
+            .thenReturn(Optional.of(buildStripeSubscriptionPlan(stripePriceId)));
+
+        val redirectUrl = "test-redirect-url";
+        val mockSession = mock(Session.class);
+        when(mockSession.getUrl()).thenReturn(redirectUrl);
+
+        when(
+            stripeApi.createCheckoutSession(
+                params.getSuccessUrl(),
+                params.getCancelUrl(),
+                stripePriceId,
+                authUser.getId().toString(),
+                authUser.getEmail()))
+            .thenReturn(mockSession);
+
+        assertEquals(redirectUrl, service.createSubscription(authUser, params));
+    }
+
+    @Test
     void handleGooglePlayWebhookEvent() {
         // The unit test quickly becomes too complex due to all the mocking. The best case scenario
         // here is to try covering as many cases in integration tests as possible.
+    }
+
+    @NonNull
+    private static AuthUser buildAuthUser() {
+        val authUser = AuthUser.builder()
+            .name("test-name")
+            .email("test-name@api.test")
+            .build();
+
+        authUser.setId(1L);
+        return authUser;
+    }
+
+    @NonNull
+    private static SubscriptionPlan buildStripeSubscriptionPlan(@NonNull String providerPlanId) {
+        val plan = SubscriptionPlan.builder()
+            .provider(SubscriptionPlan.Provider.STRIPE)
+            .providerPlanId(providerPlanId)
+            .billingPeriodMonths((short) 1)
+            .priceInIndianPaise(22500)
+            .build();
+
+        plan.setId((short) 1);
+        return plan;
     }
 }
