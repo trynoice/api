@@ -10,6 +10,7 @@ import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import com.trynoice.api.platform.GlobalControllerAdvice;
 import com.trynoice.api.subscription.AndroidPublisherApi;
+import com.trynoice.api.subscription.StripeApi;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -28,6 +29,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -114,6 +116,12 @@ public class Application {
 
     @NonNull
     @Bean
+    StripeApi stripeApi(@NonNull SubscriptionConfiguration config) {
+        return new StripeApi(config.getStripeApiKey());
+    }
+
+    @NonNull
+    @Bean
     WebMvcConfigurer webMvcConfigurer(@Value("${app.cors.allowed-origins}") String[] allowedOrigins) {
         return new WebMvcConfigurer() {
             @Override
@@ -165,13 +173,13 @@ public class Application {
         @Override
         public void configure(WebSecurity web) {
             // exclude URLs from the Spring security filter chain.
-            web.ignoring().antMatchers(
-                "/v1/accounts/signUp",
-                "/v1/accounts/signIn",
-                "/v1/accounts/signOut",
-                "/v1/accounts/credentials",
-                "/v1/subscriptions/googlePlay/webhook"
-            );
+            web.ignoring()
+                .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp")
+                .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn")
+                .mvcMatchers(HttpMethod.GET, "/v1/accounts/signOut")
+                .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials")
+                .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans")
+                .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook");
         }
 
         @Override
