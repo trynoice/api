@@ -43,11 +43,6 @@ public class GlobalControllerAdvice {
         log.error("encountered an uncaught exception while processing the request", e);
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class})
-    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
-    void handleInvalidRequestBody() {
-    }
-
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
     void handleHttpMediaTypeNotSupported() {
@@ -68,7 +63,12 @@ public class GlobalControllerAdvice {
     void handleUnauthorized() {
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MissingServletRequestParameterException.class})
+    @ExceptionHandler({
+        HttpMessageNotReadableException.class,
+        MissingServletRequestParameterException.class,
+        MethodArgumentNotValidException.class,
+        ConstraintViolationException.class
+    })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     void handleBadRequest() {
     }
