@@ -75,17 +75,16 @@ class AccountController {
      * clients may advise their user to contact the support.</p>
      *
      * @param params The following validation checks are applied on the request body. <ul> <li>
-     *                {@code email}: it must be a non-blank well-formed email of at most 64
-     *                characters.</li> <li> {@code name}: it must be a non-blank string of at most
-     *                64 characters.</li> </ul>
+     *               {@code email}: it must be a non-blank well-formed email of at most 64
+     *               characters.</li> <li> {@code name}: it must be a non-blank string of at most
+     *               64 characters.</li> </ul>
      */
     @Operation(summary = "Create a new account")
     @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
-        @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
-        @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -113,16 +112,15 @@ class AccountController {
      * clients may advise their user to contact the support.</p>
      *
      * @param params The following validation checks are applied on the request body. <ul> <li>
-     *                `email` : it must be a non-blank well-formed email address. </li> </ul>
+     *               `email` : it must be a non-blank well-formed email address. </li> </ul>
      */
     @Operation(summary = "Sign-in to an existing account")
     @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
-        @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
         @ApiResponse(responseCode = "404", description = "account does not exist"),
-        @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -154,9 +152,8 @@ class AccountController {
     @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
-        @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "401", description = "refresh token is invalid, expired or re-used"),
-        @ApiResponse(responseCode = "422", description = "request parameters have validation errors"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -166,7 +163,7 @@ class AccountController {
         @Size(min = 1) @Valid @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie
     ) {
         if (refreshTokenHeader == null && refreshTokenCookie == null) {
-            return ResponseEntity.unprocessableEntity().build();
+            return ResponseEntity.badRequest().build();
         }
 
         try {
@@ -192,9 +189,8 @@ class AccountController {
     @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
-        @ApiResponse(responseCode = "400", description = "failed to read request", content = @Content),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
         @ApiResponse(responseCode = "401", description = "refresh token is invalid, expired or re-used", content = @Content),
-        @ApiResponse(responseCode = "422", description = "request parameters have validation errors", content = @Content),
         @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
     @NonNull
@@ -222,10 +218,9 @@ class AccountController {
     @Operation(summary = "Issue new credentials using a valid refresh token")
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
-        @ApiResponse(responseCode = "400", description = "failed to read request", content = @Content),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
         @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
         @ApiResponse(responseCode = "404", description = "auth user doesn't own a refresh token with given id", content = @Content),
-        @ApiResponse(responseCode = "422", description = "request parameters have validation errors", content = @Content),
         @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
     @NonNull

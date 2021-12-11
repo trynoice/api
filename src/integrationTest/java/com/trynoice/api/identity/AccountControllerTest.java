@@ -96,10 +96,10 @@ class AccountControllerTest {
     static Stream<Arguments> signUpTestCases() {
         return Stream.of(
             // email, name, expectedResponseStatus, isExpectingSignInTokenDispatch
-            arguments(null, null, HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
-            arguments("", "test-name-1", HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
-            arguments("test-2@test.org", "", HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
-            arguments("not-an-email", "", HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
+            arguments(null, null, HttpStatus.BAD_REQUEST.value(), false),
+            arguments("", "test-name-1", HttpStatus.BAD_REQUEST.value(), false),
+            arguments("test-2@test.org", "", HttpStatus.BAD_REQUEST.value(), false),
+            arguments("not-an-email", "", HttpStatus.BAD_REQUEST.value(), false),
             arguments("test-4@test.org", "test-name-4", HttpStatus.CREATED.value(), true),
             arguments("test-4@test.org", "test-name-4", HttpStatus.CREATED.value(), true), // repeated input
             arguments("test-5@test.org", "test-name-5", HttpStatus.INTERNAL_SERVER_ERROR.value(), true)
@@ -134,9 +134,9 @@ class AccountControllerTest {
     static Stream<Arguments> signInTestCases() {
         return Stream.of(
             // email, expectedResponseStatus, isExpectingSignInTokenDispatch
-            arguments(null, HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
-            arguments("", HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
-            arguments("not-an-email", HttpStatus.UNPROCESSABLE_ENTITY.value(), false),
+            arguments(null, HttpStatus.BAD_REQUEST.value(), false),
+            arguments("", HttpStatus.BAD_REQUEST.value(), false),
+            arguments("not-an-email", HttpStatus.BAD_REQUEST.value(), false),
             arguments("non-existing@test.org", HttpStatus.NOT_FOUND.value(), false),
             arguments("existing", HttpStatus.CREATED.value(), true)
         );
@@ -171,7 +171,7 @@ class AccountControllerTest {
     static Stream<Arguments> signOutTestCases() {
         return Stream.of(
             // tokenType, userAgent, expectedResponseStatus
-            arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.BAD_REQUEST.value()),
             arguments(JwtType.VALID, "", HttpStatus.OK.value()),
             arguments(JwtType.INVALID, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
@@ -208,8 +208,8 @@ class AccountControllerTest {
     static Stream<Arguments> issueCredentialsTestCases() {
         return Stream.of(
             // tokenType, userAgent, expectedResponseStatus
-            arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments(JwtType.VALID, "", HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.BAD_REQUEST.value()),
+            arguments(JwtType.VALID, "", HttpStatus.BAD_REQUEST.value()),
             arguments(JwtType.INVALID, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
             arguments(JwtType.REUSED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),

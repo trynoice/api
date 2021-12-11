@@ -57,9 +57,9 @@ class SubscriptionController {
     @Operation(summary = "List available plans")
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
-        @ApiResponse(responseCode = "400", description = "failed to read request", content = @Content),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
         @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
-        @ApiResponse(responseCode = "422", description = "request parameters have validation errors", content = @Content),
+        @ApiResponse(responseCode = "422", description = "the requested provider is not supported", content = @Content),
         @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
     @NonNull
@@ -93,7 +93,7 @@ class SubscriptionController {
     @Operation(summary = "Webhook for listening to Google Play Billing subscription events")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "event successfully processed"),
-        @ApiResponse(responseCode = "400", description = "failed to read request"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
