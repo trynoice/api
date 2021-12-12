@@ -33,8 +33,11 @@ import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
+import static java.util.Objects.requireNonNullElse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -155,6 +158,7 @@ public class SubscriptionControllerTest {
     @MethodSource("handleGooglePlayWebhookEventTestCases")
     void handleGooglePlayWebhookEvent(
         @NonNull SubscriptionPurchase purchase,
+        @NonNull Subscription.Status existingStatus,
         @NonNull Subscription.Status expectedStatus,
         boolean shouldAcknowledgePurchase
     ) throws Exception {
@@ -184,16 +188,20 @@ public class SubscriptionControllerTest {
         val authUser = createAuthUser(entityManager);
         purchase.setObfuscatedExternalAccountId(authUser.getId().toString());
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionId);
-        if (purchase.getLinkedPurchaseToken() != null) {
-            subscriptionRepository.save(
-                Subscription.builder()
-                    .plan(plan)
-                    .providerSubscriptionId(purchase.getLinkedPurchaseToken())
-                    .owner(authUser)
-                    .startAt(LocalDateTime.now())
-                    .status(Subscription.Status.ACTIVE)
-                    .build());
-        }
+
+        // if linked purchase token is given, it is used as existing subscription id. If linked
+        // purchase token is null, a random UUID is used as existing subscription id. This enables
+        // simulating both cases where an active subscription exists and an active linked
+        // subscription exists.
+        val existingSubscriptionId = requireNonNullElse(purchase.getLinkedPurchaseToken(), UUID.randomUUID().toString());
+        subscriptionRepository.save(
+            Subscription.builder()
+                .plan(plan)
+                .providerSubscriptionId(existingSubscriptionId)
+                .owner(authUser)
+                .startAt(LocalDateTime.now())
+                .status(existingStatus)
+                .build());
 
         when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionId), eq(purchaseToken)))
             .thenReturn(purchase);
@@ -203,29 +211,64 @@ public class SubscriptionControllerTest {
                 .content(eventPayload))
             .andExpect(status().is(HttpStatus.OK.value()));
 
-        val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(purchaseToken).orElseThrow();
-        assertEquals(authUser.getId(), subscription.getOwner().getId());
-        assertEquals(expectedStatus, subscription.getStatus());
+        val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(purchaseToken);
+        // new subscription should only exist if existing one is inactive or linked to current purchase.
+        if (existingStatus == Subscription.Status.INACTIVE || purchase.getLinkedPurchaseToken() != null) {
+            assertTrue(subscription.isPresent());
+            assertEquals(authUser.getId(), subscription.get().getOwner().getId());
+            assertEquals(expectedStatus, subscription.get().getStatus());
+        } else {
+            assertFalse(subscription.isPresent());
+        }
 
         verify(androidPublisherApi, times(shouldAcknowledgePurchase ? 1 : 0))
             .acknowledgePurchase(any(), eq(subscriptionId), eq(purchaseToken));
 
-        if (purchase.getLinkedPurchaseToken() != null) {
-            val linked = subscriptionRepository.findActiveByProviderSubscriptionId(purchase.getLinkedPurchaseToken()).orElseThrow();
-            assertEquals(Subscription.Status.INACTIVE, linked.getStatus());
-        }
+        val expectedExistingStatus = purchase.getLinkedPurchaseToken() == null ? existingStatus : Subscription.Status.INACTIVE;
+        val existingSubscription = subscriptionRepository.findActiveByProviderSubscriptionId(existingSubscriptionId).orElseThrow();
+        assertEquals(expectedExistingStatus, existingSubscription.getStatus());
     }
 
     static Stream<Arguments> handleGooglePlayWebhookEventTestCases() {
         val futureMillis = System.currentTimeMillis() + 60 * 60 * 1000L;
         val pastMillis = System.currentTimeMillis() - 60 * 60 * 1000L;
         return Stream.of(
-            // purchase, expected status, should acknowledge
-            arguments(buildSubscriptionPurchase(futureMillis, 1, 1, null), Subscription.Status.ACTIVE, false),
-            arguments(buildSubscriptionPurchase(futureMillis, 1, 0, UUID.randomUUID().toString()), Subscription.Status.ACTIVE, true),
-            arguments(buildSubscriptionPurchase(futureMillis, 0, 0, null), Subscription.Status.PENDING, true),
-            arguments(buildSubscriptionPurchase(pastMillis, 0, 1, null), Subscription.Status.INACTIVE, false),
-            arguments(buildSubscriptionPurchase(pastMillis, 1, 0, null), Subscription.Status.INACTIVE, true)
+            // purchase, existing subscription status, expected status, should acknowledge
+            arguments(
+                buildSubscriptionPurchase(futureMillis, 1, 1, null),
+                Subscription.Status.INACTIVE,
+                Subscription.Status.ACTIVE,
+                false),
+            arguments(
+                buildSubscriptionPurchase(futureMillis, 1, 0, null),
+                Subscription.Status.ACTIVE,
+                Subscription.Status.ACTIVE,
+                false),
+            arguments(
+                buildSubscriptionPurchase(futureMillis, 1, 0, UUID.randomUUID().toString()),
+                Subscription.Status.INACTIVE,
+                Subscription.Status.ACTIVE,
+                true),
+            arguments(
+                buildSubscriptionPurchase(futureMillis, 1, 0, UUID.randomUUID().toString()),
+                Subscription.Status.ACTIVE,
+                Subscription.Status.ACTIVE,
+                true),
+            arguments(
+                buildSubscriptionPurchase(futureMillis, 0, 0, null),
+                Subscription.Status.INACTIVE,
+                Subscription.Status.PENDING,
+                true),
+            arguments(
+                buildSubscriptionPurchase(pastMillis, 0, 1, null),
+                Subscription.Status.INACTIVE,
+                Subscription.Status.INACTIVE,
+                false),
+            arguments(
+                buildSubscriptionPurchase(pastMillis, 1, 0, null),
+                Subscription.Status.INACTIVE,
+                Subscription.Status.INACTIVE,
+                true)
         );
     }
 

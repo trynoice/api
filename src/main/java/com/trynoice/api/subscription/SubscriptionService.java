@@ -199,6 +199,24 @@ class SubscriptionService {
         val owner = authUserRepository.findActiveById(ownerId)
             .orElseThrow(() -> new SubscriptionWebhookEventException("owner account with id '" + ownerId + "' doesn't exist"));
 
+        // check if owner already has an active or pending subscription that isn't linked with this purchase.
+        val linkedPurchaseToken = purchase.getLinkedPurchaseToken();
+        val activeSubscription = subscriptionRepository.findActiveByOwnerAndStatus(
+            owner, Subscription.Status.ACTIVE, Subscription.Status.PENDING);
+
+        if (activeSubscription.isPresent() && !activeSubscription.get().getProviderSubscriptionId().equals(linkedPurchaseToken)) {
+            throw new SubscriptionWebhookEventException("user already has an active subscription");
+        }
+
+        // invalidate old (linked) subscription.
+        // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
+        if (activeSubscription.isPresent()) {
+            val linkedSubscription = activeSubscription.get();
+            linkedSubscription.setStatus(Subscription.Status.INACTIVE);
+            linkedSubscription.setEndAt(LocalDateTime.now());
+            subscriptionRepository.save(linkedSubscription);
+        }
+
         val plan = subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionId.asText())
             .orElseThrow(() -> new SubscriptionWebhookEventException("failed to subscription plan with id '" + subscriptionId.asText() + "'"));
 
@@ -231,18 +249,6 @@ class SubscriptionService {
         }
 
         subscriptionRepository.save(subscription);
-
-        // invalidate old subscription.
-        // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
-        val linkedPurchaseToken = purchase.getLinkedPurchaseToken();
-        if (linkedPurchaseToken != null) {
-            val linkedSubscription = subscriptionRepository.findActiveByProviderSubscriptionId(linkedPurchaseToken).orElse(null);
-            if (linkedSubscription != null && linkedSubscription.getStatus() != Subscription.Status.INACTIVE) {
-                linkedSubscription.setStatus(Subscription.Status.INACTIVE);
-                linkedSubscription.setEndAt(LocalDateTime.now());
-                subscriptionRepository.save(linkedSubscription);
-            }
-        }
 
         if (!Integer.valueOf(1).equals(purchase.getAcknowledgementState())) {
             try {
