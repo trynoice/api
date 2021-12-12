@@ -204,35 +204,36 @@ class SubscriptionService {
         val activeSubscription = subscriptionRepository.findActiveByOwnerAndStatus(
             owner, Subscription.Status.ACTIVE, Subscription.Status.PENDING);
 
-        if (activeSubscription.isPresent() && !activeSubscription.get().getProviderSubscriptionId().equals(linkedPurchaseToken)) {
-            throw new SubscriptionWebhookEventException("user already has an active subscription");
-        }
-
-        // invalidate old (linked) subscription.
-        // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
         if (activeSubscription.isPresent()) {
-            val linkedSubscription = activeSubscription.get();
-            linkedSubscription.setStatus(Subscription.Status.INACTIVE);
-            linkedSubscription.setEndAt(LocalDateTime.now());
-            subscriptionRepository.save(linkedSubscription);
+            val activeSubscriptionId = activeSubscription.get().getProviderSubscriptionId();
+            if (activeSubscriptionId.equals(linkedPurchaseToken)) {
+                // invalidate old (linked) subscription.
+                // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
+                val linkedSubscription = activeSubscription.get();
+                linkedSubscription.setStatus(Subscription.Status.INACTIVE);
+                linkedSubscription.setEndAt(LocalDateTime.now());
+                subscriptionRepository.save(linkedSubscription);
+            } else if (!activeSubscriptionId.equals(purchaseToken.asText())) {
+                // The purchase neither corresponds nor links to the currently active subscription.
+                // Hence, throw an error because we cannot have two active subscriptions at the same
+                // time.
+                throw new SubscriptionWebhookEventException("user already has an active subscription");
+            }
         }
 
         val plan = subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionId.asText())
-            .orElseThrow(() -> new SubscriptionWebhookEventException("failed to subscription plan with id '" + subscriptionId.asText() + "'"));
+            .orElseThrow(() -> {
+                val errMsg = String.format("failed to find a subscription plan with id '%s'", subscriptionId.asText());
+                return new SubscriptionWebhookEventException(errMsg);
+            });
 
         val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(purchaseToken.asText())
             .orElseGet(() -> Subscription.builder()
                 .owner(owner)
                 .plan(plan)
                 .providerSubscriptionId(purchaseToken.asText())
-                .startAt(LocalDateTime.MAX)
+                .startAt(LocalDateTime.ofInstant(Instant.ofEpochMilli(purchase.getStartTimeMillis()), ZoneId.systemDefault()))
                 .build());
-
-        if (subscription.getStartAt().isEqual(LocalDateTime.MAX)) {
-            subscription.setStartAt(
-                LocalDateTime.ofInstant(
-                    Instant.ofEpochMilli(purchase.getStartTimeMillis()), ZoneId.systemDefault()));
-        }
 
         // https://developer.android.com/google/play/billing/subscriptions#lifecycle
         // tldr; if the expiry time is in the future, the user must have the subscription
@@ -242,10 +243,12 @@ class SubscriptionService {
         // is in their grace-period, they should be notified about the pending payment.
         val endAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(purchase.getExpiryTimeMillis()), ZoneId.systemDefault());
         subscription.setEndAt(endAt);
+        subscription.setStatus(Subscription.Status.INACTIVE);
         if (endAt.isAfter(LocalDateTime.now())) {
-            subscription.setStatus(Integer.valueOf(0).equals(purchase.getPaymentState()) ? Subscription.Status.PENDING : Subscription.Status.ACTIVE);
-        } else {
-            subscription.setStatus(Subscription.Status.INACTIVE);
+            subscription.setStatus(
+                Integer.valueOf(0).equals(purchase.getPaymentState())
+                    ? Subscription.Status.PENDING
+                    : Subscription.Status.ACTIVE);
         }
 
         subscriptionRepository.save(subscription);
