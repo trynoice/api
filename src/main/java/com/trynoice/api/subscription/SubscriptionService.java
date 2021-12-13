@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.StripeException;
 import com.trynoice.api.identity.AccountService;
-import com.trynoice.api.identity.AuthUserRepository;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
@@ -13,8 +12,9 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.models.CreateSubscriptionParams;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
+import com.trynoice.api.subscription.models.SubscriptionFlowParams;
+import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.validation.ConstraintViolationException;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.time.Instant;
@@ -44,7 +45,6 @@ class SubscriptionService {
     private final SubscriptionConfiguration subscriptionConfig;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionRepository subscriptionRepository;
-    private final AuthUserRepository authUserRepository;
     private final ObjectMapper objectMapper;
     private final AndroidPublisherApi androidPublisherApi;
     private final StripeApi stripeApi;
@@ -54,7 +54,6 @@ class SubscriptionService {
         @NonNull SubscriptionConfiguration subscriptionConfig,
         @NonNull SubscriptionPlanRepository subscriptionPlanRepository,
         @NonNull SubscriptionRepository subscriptionRepository,
-        @NonNull AuthUserRepository authUserRepository,
         @NonNull ObjectMapper objectMapper,
         @NonNull AndroidPublisherApi androidPublisherApi,
         @NonNull StripeApi stripeApi
@@ -62,7 +61,6 @@ class SubscriptionService {
         this.subscriptionConfig = subscriptionConfig;
         this.subscriptionPlanRepository = subscriptionPlanRepository;
         this.subscriptionRepository = subscriptionRepository;
-        this.authUserRepository = authUserRepository;
         this.objectMapper = objectMapper;
         this.androidPublisherApi = androidPublisherApi;
         this.stripeApi = stripeApi;
@@ -107,33 +105,74 @@ class SubscriptionService {
             .collect(Collectors.toUnmodifiableList());
     }
 
+    /**
+     * <p>
+     * Creates a new subscription entity in {@link Subscription.Status#CREATED} state and initiates
+     * the subscription flow. Any given user can have at-most one subscription with non-{@link
+     * Subscription.Status#INACTIVE INACTIVE} status.</p>
+     *
+     * <p>
+     * If the requested plan is provided by {@link SubscriptionPlan.Provider#STRIPE}, it also
+     * returns a non-null {@link SubscriptionFlowResult#getStripeCheckoutSessionUrl()}. The clients
+     * must redirect user to the checkout session url to conclude the subscription flow.</p>
+     *
+     * @param requester user that initiated the subscription flow.
+     * @param params    subscription flow parameters.
+     * @return a non-null {@link SubscriptionFlowResult}.
+     * @throws SubscriptionPlanNotFoundException if the specified plan doesn't exist.
+     * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
+     */
     @NonNull
+    @Transactional
     @SneakyThrows(StripeException.class)
-    String createSubscription(
+    SubscriptionFlowResult createSubscription(
         @NonNull AuthUser requester,
-        @NonNull CreateSubscriptionParams params
-    ) throws SubscriptionPlanNotFoundException, UnsupportedSubscriptionPlanProviderException, DuplicateSubscriptionException {
+        @NonNull SubscriptionFlowParams params
+    ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
         val plan = subscriptionPlanRepository.findActiveById(params.getPlanId())
             .orElseThrow(SubscriptionPlanNotFoundException::new);
 
-        if (plan.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY) {
-            throw new UnsupportedSubscriptionPlanProviderException("can't create subscription on google play using rest api");
+        if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
+            if (params.getSuccessUrl() == null) {
+                throw new ConstraintViolationException("'successUrl' is required for 'STRIPE' plans", null);
+            }
+
+            if (params.getCancelUrl() == null) {
+                throw new ConstraintViolationException("'cancelUrl' is required for 'STRIPE' plans", null);
+            }
         }
 
-        val activeSubscription = subscriptionRepository.findActiveByOwnerAndStatus(
-            requester, Subscription.Status.ACTIVE, Subscription.Status.PENDING);
+        val subscription = subscriptionRepository.findActiveByOwnerAndStatus(
+            requester,
+            Subscription.Status.CREATED,
+            Subscription.Status.ACTIVE,
+            Subscription.Status.PENDING);
 
-        if (activeSubscription.isPresent()) {
+        if (subscription.isPresent() && subscription.get().getStatus() != Subscription.Status.CREATED) {
             throw new DuplicateSubscriptionException();
         }
 
-        return stripeApi.createCheckoutSession(
-                params.getSuccessUrl(),
-                params.getCancelUrl(),
-                plan.getProviderPlanId(),
-                requester.getId().toString(),
-                requester.getEmail())
-            .getUrl();
+        val subscriptionId = subscription.orElseGet(
+                () -> subscriptionRepository.save(
+                    Subscription.builder()
+                        .owner(requester)
+                        .plan(plan)
+                        .build()))
+            .getId();
+
+        val result = new SubscriptionFlowResult();
+        result.setSubscriptionId(subscriptionId);
+        if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
+            result.setStripeCheckoutSessionUrl(stripeApi.createCheckoutSession(
+                    params.getSuccessUrl(),
+                    params.getCancelUrl(),
+                    plan.getProviderPlanId(),
+                    subscriptionId.toString(),
+                    requester.getEmail())
+                .getUrl());
+        }
+
+        return result;
     }
 
     /**
@@ -169,8 +208,8 @@ class SubscriptionService {
             throw new SubscriptionWebhookEventException("'subscriptionNotification' object is missing or invalid in event payload");
         }
 
-        val subscriptionId = subscriptionNotification.at("/subscriptionId");
-        if (!subscriptionId.isTextual()) {
+        val subscriptionPlanId = subscriptionNotification.at("/subscriptionId");
+        if (!subscriptionPlanId.isTextual()) {
             throw new SubscriptionWebhookEventException("'subscriptionId' is missing or invalid in 'subscriptionNotification'");
         }
 
@@ -183,57 +222,30 @@ class SubscriptionService {
         try {
             purchase = androidPublisherApi.getSubscriptionPurchase(
                 subscriptionConfig.getAndroidApplicationId(),
-                subscriptionId.asText(),
+                subscriptionPlanId.asText(),
                 purchaseToken.asText());
         } catch (IOException e) {
-            throw new SubscriptionWebhookEventException("failed to retrieve purchase data from google play", e);
+            // might be a network error, no way to be sure.
+            throw new RuntimeException("failed to retrieve purchase data from google play", e);
         }
 
-        final long ownerId;
+        final long subscriptionId;
         try {
-            ownerId = parseLong(purchase.getObfuscatedExternalAccountId());
+            subscriptionId = parseLong(purchase.getObfuscatedExternalProfileId());
         } catch (NumberFormatException e) {
-            throw new SubscriptionWebhookEventException("failed to parse obfuscated account id in subscription purchase", e);
+            throw new SubscriptionWebhookEventException("failed to parse 'obfuscatedExternalProfileId' in subscription purchase", e);
         }
 
-        val owner = authUserRepository.findActiveById(ownerId)
-            .orElseThrow(() -> new SubscriptionWebhookEventException("owner account with id '" + ownerId + "' doesn't exist"));
-
-        // check if owner already has an active or pending subscription that isn't linked with this purchase.
-        val linkedPurchaseToken = purchase.getLinkedPurchaseToken();
-        val activeSubscription = subscriptionRepository.findActiveByOwnerAndStatus(
-            owner, Subscription.Status.ACTIVE, Subscription.Status.PENDING);
-
-        if (activeSubscription.isPresent()) {
-            val activeSubscriptionId = activeSubscription.get().getProviderSubscriptionId();
-            if (activeSubscriptionId.equals(linkedPurchaseToken)) {
-                // invalidate old (linked) subscription.
-                // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
-                val linkedSubscription = activeSubscription.get();
-                linkedSubscription.setStatus(Subscription.Status.INACTIVE);
-                linkedSubscription.setEndAt(LocalDateTime.now());
-                subscriptionRepository.save(linkedSubscription);
-            } else if (!activeSubscriptionId.equals(purchaseToken.asText())) {
-                // The purchase neither corresponds nor links to the currently active subscription.
-                // Hence, throw an error because we cannot have two active subscriptions at the same
-                // time.
-                throw new SubscriptionWebhookEventException("user already has an active subscription");
-            }
-        }
-
-        val plan = subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionId.asText())
+        val subscription = subscriptionRepository.findActiveById(subscriptionId)
             .orElseThrow(() -> {
-                val errMsg = String.format("failed to find a subscription plan with id '%s'", subscriptionId.asText());
+                val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
                 return new SubscriptionWebhookEventException(errMsg);
             });
 
-        val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(purchaseToken.asText())
-            .orElseGet(() -> Subscription.builder()
-                .owner(owner)
-                .plan(plan)
-                .providerSubscriptionId(purchaseToken.asText())
-                .startAt(LocalDateTime.ofInstant(Instant.ofEpochMilli(purchase.getStartTimeMillis()), ZoneId.systemDefault()))
-                .build());
+        // check if subscription has already been linked to a purchase
+        if (subscription.getProviderSubscriptionId() != null) {
+            throw new SubscriptionWebhookEventException("subscription is already linked to a purchase");
+        }
 
         // https://developer.android.com/google/play/billing/subscriptions#lifecycle
         // tldr; if the expiry time is in the future, the user must have the subscription
@@ -241,10 +253,17 @@ class SubscriptionService {
         // future, the user is in a grace-period (retains their entitlements). If the expiry is in
         // the past, the user's account is on hold, and they lose their entitlements. When the user
         // is in their grace-period, they should be notified about the pending payment.
-        val endAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(purchase.getExpiryTimeMillis()), ZoneId.systemDefault());
-        subscription.setEndAt(endAt);
+        subscription.setProviderSubscriptionId(purchaseToken.asText());
+        subscription.setStartAt(
+            LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(purchase.getStartTimeMillis()), ZoneId.systemDefault()));
+
+        subscription.setEndAt(
+            LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(purchase.getExpiryTimeMillis()), ZoneId.systemDefault()));
+
         subscription.setStatus(Subscription.Status.INACTIVE);
-        if (endAt.isAfter(LocalDateTime.now())) {
+        if (subscription.getEndAt().isAfter(LocalDateTime.now())) {
             subscription.setStatus(
                 Integer.valueOf(0).equals(purchase.getPaymentState())
                     ? Subscription.Status.PENDING
@@ -253,14 +272,24 @@ class SubscriptionService {
 
         subscriptionRepository.save(subscription);
 
+        // invalidate old (linked) subscription.
+        // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
+        subscriptionRepository.findActiveByProviderSubscriptionId(purchase.getLinkedPurchaseToken())
+            .ifPresent(linkedSubscription -> {
+                linkedSubscription.setStatus(Subscription.Status.INACTIVE);
+                linkedSubscription.setEndAt(LocalDateTime.now());
+                subscriptionRepository.save(linkedSubscription);
+            });
+
         if (!Integer.valueOf(1).equals(purchase.getAcknowledgementState())) {
             try {
                 androidPublisherApi.acknowledgePurchase(
                     subscriptionConfig.getAndroidApplicationId(),
-                    subscriptionId.asText(),
+                    subscriptionPlanId.asText(),
                     purchaseToken.asText());
             } catch (IOException e) {
-                throw new SubscriptionWebhookEventException("failed to acknowledge subscription purchase", e);
+                // might be a network error, no way to be sure.
+                throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }
         }
     }
