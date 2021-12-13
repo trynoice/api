@@ -17,6 +17,7 @@ import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
+import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -25,7 +26,6 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -75,8 +75,8 @@ public class AccountService {
      * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
      * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
-    @Transactional
-    void signUp(@NonNull SignUpParams params) throws TooManySignInAttemptsException {
+    @ReasonablyTransactional
+    public void signUp(@NonNull SignUpParams params) throws TooManySignInAttemptsException {
         val user = authUserRepository.findActiveByEmail(params.getEmail())
             .orElseGet(() -> authUserRepository.save(
                 AuthUser.builder()
@@ -96,8 +96,8 @@ public class AccountService {
      * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
      * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
-    @Transactional
-    void signIn(@NonNull SignInParams params) throws AccountNotFoundException, TooManySignInAttemptsException {
+    @ReasonablyTransactional
+    public void signIn(@NonNull SignInParams params) throws AccountNotFoundException, TooManySignInAttemptsException {
         val user = authUserRepository.findActiveByEmail(params.getEmail())
             .orElseThrow(() -> {
                 val msg = String.format("account with email '%s' doesn't exist", params.getEmail());
@@ -109,7 +109,6 @@ public class AccountService {
     }
 
     @NonNull
-    @Transactional
     private String createSignInToken(@NonNull AuthUser authUser) throws TooManySignInAttemptsException {
         if (authUser.getSignInAttempts() >= MAX_SIGN_IN_ATTEMPTS_PER_USER) {
             throw new TooManySignInAttemptsException(authUser.getEmail());
@@ -146,8 +145,8 @@ public class AccountService {
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
-    @Transactional
-    AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
+    @ReasonablyTransactional
+    public AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
