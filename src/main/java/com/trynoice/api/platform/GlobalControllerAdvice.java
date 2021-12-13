@@ -40,27 +40,31 @@ public class GlobalControllerAdvice {
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     void handleInternalError(@NonNull final Throwable e) {
-        log.error("encountered an uncaught exception while processing the request", e);
+        log.error("uncaught exception while processing the request", e);
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
-    void handleHttpMediaTypeNotSupported() {
+    void handleHttpMediaTypeNotSupported(@NonNull final HttpMediaTypeNotSupportedException e) {
+        log.trace("http media type not supported", e);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
-    void handleHttpRequestMethodNotSupport() {
+    void handleHttpRequestMethodNotSupported(final HttpRequestMethodNotSupportedException e) {
+        log.trace("http method not supported", e);
     }
 
     @ExceptionHandler(NoHandlerFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    void handleNotFound() {
+    void handleNotFound(final NoHandlerFoundException e) {
+        log.trace("http handler not found", e);
     }
 
     @ExceptionHandler({AuthenticationException.class})
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    void handleUnauthorized() {
+    void handleUnauthorized(final AuthenticationException e) {
+        log.trace("http request not authorized", e);
     }
 
     @ExceptionHandler({
@@ -70,6 +74,7 @@ public class GlobalControllerAdvice {
         ConstraintViolationException.class
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    void handleBadRequest() {
+    void handleBadRequest(final Throwable e) {
+        log.trace("http request is not valid", e);
     }
 }
