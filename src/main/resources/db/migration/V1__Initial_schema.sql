@@ -66,12 +66,12 @@ CREATE TABLE subscription (
   version bigint NOT NULL,
   owner_id bigint NOT NULL,
   plan_id smallint NOT NULL,
-  provider_subscription_id varchar(64) NOT NULL,
+  provider_subscription_id varchar(64),
   status varchar(24) NOT NULL,
-  start_at timestamp with time zone NOT NULL,
+  start_at timestamp with time zone,
   end_at timestamp with time zone
 );
 
 CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)
 WHERE
-  deleted_at IS NULL;
+  deleted_at IS NULL AND provider_subscription_id IS NOT NULL;

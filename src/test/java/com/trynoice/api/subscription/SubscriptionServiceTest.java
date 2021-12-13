@@ -4,15 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
-import com.trynoice.api.identity.AuthUserRepository;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.models.CreateSubscriptionParams;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
+import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,9 +45,6 @@ public class SubscriptionServiceTest {
 
     @Mock
     private SubscriptionRepository subscriptionRepository;
-
-    @Mock
-    private AuthUserRepository authUserRepository;
 
     @Mock
     private AndroidPublisherApi androidPublisherApi;
@@ -93,7 +90,6 @@ public class SubscriptionServiceTest {
             subscriptionConfiguration,
             subscriptionPlanRepository,
             subscriptionRepository,
-            authUserRepository,
             new ObjectMapper(),
             androidPublisherApi,
             stripeApi);
@@ -136,12 +132,13 @@ public class SubscriptionServiceTest {
     @Test
     void createSubscription_withExistingActiveSubscription() {
         val authUser = buildAuthUser();
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
-            .thenReturn(Optional.of(mock(Subscription.class)));
         when(subscriptionPlanRepository.findActiveById((short) 1))
             .thenReturn(Optional.of(buildStripeSubscriptionPlan("provider-plan-id")));
 
-        val params = new CreateSubscriptionParams((short) 1, "success-url", "cancel-url");
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+            .thenReturn(Optional.of(mock(Subscription.class)));
+
+        val params = new SubscriptionFlowParams((short) 1, "success-url", "cancel-url");
         assertThrows(DuplicateSubscriptionException.class, () -> service.createSubscription(authUser, params));
     }
 
@@ -149,7 +146,7 @@ public class SubscriptionServiceTest {
     void createSubscription_withInvalidPlanId() {
         val authUser = buildAuthUser();
         val planId = (short) 1;
-        val params = new CreateSubscriptionParams(planId, "success-url", "cancel-url");
+        val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
         when(subscriptionPlanRepository.findActiveById(planId)).thenReturn(Optional.empty());
         assertThrows(SubscriptionPlanNotFoundException.class, () -> service.createSubscription(authUser, params));
     }
@@ -158,11 +155,17 @@ public class SubscriptionServiceTest {
     void createSubscription_withStripeApiError() throws Exception {
         val authUser = buildAuthUser();
         val stripePriceId = "stripe-price-id-1";
+        val plan = buildStripeSubscriptionPlan(stripePriceId);
+        val subscription = buildSubscription(authUser, plan, Subscription.Status.CREATED);
+
         val planId = (short) 1;
-        val params = new CreateSubscriptionParams(planId, "success-url", "cancel-url");
+        val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
 
         when(subscriptionPlanRepository.findActiveById(planId))
-            .thenReturn(Optional.of(buildStripeSubscriptionPlan(stripePriceId)));
+            .thenReturn(Optional.of(plan));
+
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+            .thenReturn(Optional.of(subscription));
 
         when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any()))
             .thenThrow(new ApiConnectionException("test-error"));
@@ -173,12 +176,18 @@ public class SubscriptionServiceTest {
     @Test
     void createSubscription_withValidParams() throws Exception {
         val authUser = buildAuthUser();
-        val stripePriceId = "stripe-price-id-2";
+        val stripePriceId = "stripe-price-id-1";
+        val plan = buildStripeSubscriptionPlan(stripePriceId);
+        val subscription = buildSubscription(authUser, plan, Subscription.Status.CREATED);
+
         val planId = (short) 1;
-        val params = new CreateSubscriptionParams(planId, "success-url", "cancel-url");
+        val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
 
         when(subscriptionPlanRepository.findActiveById(planId))
-            .thenReturn(Optional.of(buildStripeSubscriptionPlan(stripePriceId)));
+            .thenReturn(Optional.of(plan));
+
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+            .thenReturn(Optional.of(subscription));
 
         val redirectUrl = "test-redirect-url";
         val mockSession = mock(Session.class);
@@ -193,7 +202,10 @@ public class SubscriptionServiceTest {
                 authUser.getEmail()))
             .thenReturn(mockSession);
 
-        assertEquals(redirectUrl, service.createSubscription(authUser, params));
+        val result = service.createSubscription(authUser, params);
+        assertNotNull(result);
+        assertEquals(subscription.getId(), result.getSubscriptionId());
+        assertEquals(redirectUrl, result.getStripeCheckoutSessionUrl());
     }
 
     @Test
@@ -224,5 +236,21 @@ public class SubscriptionServiceTest {
 
         plan.setId((short) 1);
         return plan;
+    }
+
+    @NonNull
+    private static Subscription buildSubscription(
+        @NonNull AuthUser owner,
+        @NonNull SubscriptionPlan plan,
+        @NonNull Subscription.Status status
+    ) {
+        val subscription = Subscription.builder()
+            .owner(owner)
+            .plan(plan)
+            .status(status)
+            .build();
+
+        subscription.setId(1L);
+        return subscription;
     }
 }

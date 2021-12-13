@@ -35,23 +35,26 @@ public class Subscription extends BasicEntity<Long> {
     @ManyToOne(optional = false)
     private SubscriptionPlan plan;
 
-    @NonNull
     private String providerSubscriptionId;
 
     @NonNull
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private Status status = Status.PENDING;
+    private Status status = Status.CREATED;
 
-    @NonNull
-    private LocalDateTime startAt;
-
-    private LocalDateTime endAt;
+    private LocalDateTime startAt, endAt;
 
     /**
      * Indicates the current subscription status.
      */
     public enum Status {
+        /**
+         * Subscription has yet to be activated, but the user has initiated the subscription flow.
+         * The user shouldn't be granted access to its entitlements, unless subscription transitions
+         * to {@link Status#PENDING PENDING} or {@link Status#ACTIVE ACTIVE} status.
+         */
+        CREATED,
+
         /**
          * Subscription payment is pending or delayed, but the user still has access to its
          * entitlements.

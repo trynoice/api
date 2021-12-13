@@ -6,7 +6,7 @@ import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
-import com.trynoice.api.subscription.models.CreateSubscriptionParams;
+import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.testing.AuthTestUtils;
 import lombok.NonNull;
@@ -33,11 +33,8 @@ import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
-import static java.util.Objects.requireNonNullElse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -128,29 +125,45 @@ public class SubscriptionControllerTest {
 
         val mockSession = mock(Session.class);
         val sessionUrl = "/checkout-session-url";
-        when(mockSession.getUrl()).thenReturn(sessionUrl);
-        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any())).thenReturn(mockSession);
+        if (provider == SubscriptionPlan.Provider.STRIPE) {
+            when(mockSession.getUrl()).thenReturn(sessionUrl);
+            when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any())).thenReturn(mockSession);
+        }
 
-        mockMvc.perform(
+        val resultActions = mockMvc.perform(
                 post("/v1/subscriptions")
                     .header("Authorization", "bearer " + createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(
-                        new CreateSubscriptionParams(plan.getId(), "/success-callback", "/cancel-callback"))))
-            .andExpect(status().is(expectedResponseStatus))
-            .andExpect(
-                expectedResponseStatus == HttpStatus.CREATED.value()
-                    ? header().string("Location", sessionUrl)
-                    : header().doesNotExist("Location"));
+                        new SubscriptionFlowParams(plan.getId(), "https://api.test/success", "https://api.test/cancel"))))
+            .andExpect(status().is(expectedResponseStatus));
+
+        if (expectedResponseStatus == HttpStatus.CREATED.value()) {
+            resultActions.andExpect(header().exists("Location"))
+                .andExpect(header().exists(SubscriptionController.SUBSCRIPTION_ID_HEADER));
+
+            if (provider == SubscriptionPlan.Provider.STRIPE) {
+                resultActions.andExpect(
+                    header().string(SubscriptionController.STRIPE_CHECKOUT_SESSION_URL_HEADER, sessionUrl));
+            }
+        } else {
+            resultActions.andExpect(header().doesNotExist("Location"))
+                .andExpect(header().doesNotExist(SubscriptionController.SUBSCRIPTION_ID_HEADER))
+                .andExpect(header().doesNotExist(SubscriptionController.STRIPE_CHECKOUT_SESSION_URL_HEADER));
+        }
     }
 
     static Stream<Arguments> createSubscriptionTestCases() {
         return Stream.of(
             // provider, existing subscription status, response status
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.INACTIVE, HttpStatus.CREATED.value()),
             arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.INACTIVE, HttpStatus.CREATED.value()),
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.CREATED, HttpStatus.CREATED.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.CREATED, HttpStatus.CREATED.value()),
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.PENDING, HttpStatus.CONFLICT.value()),
             arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.PENDING, HttpStatus.CONFLICT.value()),
-            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.ACTIVE, HttpStatus.CONFLICT.value()),
-            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.ACTIVE, HttpStatus.UNPROCESSABLE_ENTITY.value())
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.ACTIVE, HttpStatus.CONFLICT.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.ACTIVE, HttpStatus.CONFLICT.value())
         );
     }
 
@@ -162,8 +175,8 @@ public class SubscriptionControllerTest {
         @NonNull Subscription.Status expectedStatus,
         boolean shouldAcknowledgePurchase
     ) throws Exception {
-        val subscriptionId = "test-subscription-id";
-        val purchaseToken = "test-purchase-token";
+        val subscriptionPlanId = "test-subscription-id";
+        val purchaseToken = UUID.randomUUID().toString();
         val data = Base64.getEncoder().encodeToString(("{" +
             "  \"version\": \"1.0\"," +
             "  \"packageName\": \"com.github.ashutoshgngwr.noice\"," +
@@ -172,7 +185,7 @@ public class SubscriptionControllerTest {
             "    \"version\": \"1.0\"," +
             "    \"notificationType\": 4," +
             "    \"purchaseToken\": \"" + purchaseToken + "\"," +
-            "    \"subscriptionId\":\"" + subscriptionId + "\"" +
+            "    \"subscriptionId\":\"" + subscriptionPlanId + "\"" +
             "  }" +
             "}").getBytes(StandardCharsets.UTF_8));
 
@@ -186,24 +199,16 @@ public class SubscriptionControllerTest {
             "}";
 
         val authUser = createAuthUser(entityManager);
-        purchase.setObfuscatedExternalAccountId(authUser.getId().toString());
-        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionId);
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionPlanId);
+        var subscription = buildSubscription(authUser, plan, existingStatus);
+        purchase.setObfuscatedExternalProfileId(subscription.getId().toString());
 
-        // if linked purchase token is given, it is used as existing subscription id. If linked
-        // purchase token is null, a random UUID is used as existing subscription id. This enables
-        // simulating both cases where an active subscription exists and an active linked
-        // subscription exists.
-        val existingSubscriptionId = requireNonNullElse(purchase.getLinkedPurchaseToken(), UUID.randomUUID().toString());
-        subscriptionRepository.save(
-            Subscription.builder()
-                .plan(plan)
-                .providerSubscriptionId(existingSubscriptionId)
-                .owner(authUser)
-                .startAt(LocalDateTime.now())
-                .status(existingStatus)
-                .build());
+        var linkedSubscription = buildSubscription(authUser, plan, Subscription.Status.ACTIVE);
+        linkedSubscription.setProviderSubscriptionId(UUID.randomUUID().toString());
+        subscriptionRepository.save(linkedSubscription);
+        purchase.setLinkedPurchaseToken(linkedSubscription.getProviderSubscriptionId());
 
-        when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionId), eq(purchaseToken)))
+        when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionPlanId), eq(purchaseToken)))
             .thenReturn(purchase);
 
         mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
@@ -211,61 +216,56 @@ public class SubscriptionControllerTest {
                 .content(eventPayload))
             .andExpect(status().is(HttpStatus.OK.value()));
 
-        val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(purchaseToken);
-        // new subscription should only exist if existing one is inactive or linked to current purchase.
-        if (existingStatus == Subscription.Status.INACTIVE || purchase.getLinkedPurchaseToken() != null) {
-            assertTrue(subscription.isPresent());
-            assertEquals(authUser.getId(), subscription.get().getOwner().getId());
-            assertEquals(expectedStatus, subscription.get().getStatus());
-        } else {
-            assertFalse(subscription.isPresent());
-        }
+        subscription = subscriptionRepository.findActiveById(subscription.getId()).orElseThrow();
+        assertEquals(expectedStatus, subscription.getStatus());
+        assertEquals(purchaseToken, subscription.getProviderSubscriptionId());
 
         verify(androidPublisherApi, times(shouldAcknowledgePurchase ? 1 : 0))
-            .acknowledgePurchase(any(), eq(subscriptionId), eq(purchaseToken));
+            .acknowledgePurchase(any(), eq(subscriptionPlanId), eq(purchaseToken));
 
-        val expectedExistingStatus = purchase.getLinkedPurchaseToken() == null ? existingStatus : Subscription.Status.INACTIVE;
-        val existingSubscription = subscriptionRepository.findActiveByProviderSubscriptionId(existingSubscriptionId).orElseThrow();
-        assertEquals(expectedExistingStatus, existingSubscription.getStatus());
+        if (expectedStatus != Subscription.Status.INACTIVE) {
+            linkedSubscription = subscriptionRepository.findActiveById(linkedSubscription.getId()).orElseThrow();
+            assertEquals(Subscription.Status.INACTIVE, linkedSubscription.getStatus());
+        }
     }
 
     static Stream<Arguments> handleGooglePlayWebhookEventTestCases() {
         val futureMillis = System.currentTimeMillis() + 60 * 60 * 1000L;
         val pastMillis = System.currentTimeMillis() - 60 * 60 * 1000L;
         return Stream.of(
-            // purchase, existing subscription status, expected status, should acknowledge
+            // purchase, existing subscription status, expected subscription status, should acknowledge
             arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 1, null),
-                Subscription.Status.INACTIVE,
+                buildSubscriptionPurchase(futureMillis, 1, 1),
+                Subscription.Status.CREATED,
                 Subscription.Status.ACTIVE,
                 false),
             arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 0, null),
-                Subscription.Status.ACTIVE,
-                Subscription.Status.ACTIVE,
-                false),
-            arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 0, UUID.randomUUID().toString()),
-                Subscription.Status.INACTIVE,
-                Subscription.Status.ACTIVE,
-                true),
-            arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 0, UUID.randomUUID().toString()),
+                buildSubscriptionPurchase(futureMillis, 1, 0),
                 Subscription.Status.ACTIVE,
                 Subscription.Status.ACTIVE,
                 true),
             arguments(
-                buildSubscriptionPurchase(futureMillis, 0, 0, null),
+                buildSubscriptionPurchase(futureMillis, 1, 0),
+                Subscription.Status.PENDING,
+                Subscription.Status.ACTIVE,
+                true),
+            arguments(
+                buildSubscriptionPurchase(futureMillis, 1, 0),
+                Subscription.Status.INACTIVE,
+                Subscription.Status.ACTIVE,
+                true),
+            arguments(
+                buildSubscriptionPurchase(futureMillis, 0, 0),
                 Subscription.Status.INACTIVE,
                 Subscription.Status.PENDING,
                 true),
             arguments(
-                buildSubscriptionPurchase(pastMillis, 0, 1, null),
+                buildSubscriptionPurchase(pastMillis, 0, 1),
                 Subscription.Status.INACTIVE,
                 Subscription.Status.INACTIVE,
                 false),
             arguments(
-                buildSubscriptionPurchase(pastMillis, 1, 0, null),
+                buildSubscriptionPurchase(pastMillis, 1, 0),
                 Subscription.Status.INACTIVE,
                 Subscription.Status.INACTIVE,
                 true)
@@ -273,18 +273,12 @@ public class SubscriptionControllerTest {
     }
 
     @NonNull
-    private static SubscriptionPurchase buildSubscriptionPurchase(
-        long expiryTimeMillis,
-        int paymentState,
-        int acknowledgementState,
-        String linkedPurchaseToken
-    ) {
+    private static SubscriptionPurchase buildSubscriptionPurchase(long expiryTimeMillis, int paymentState, int acknowledgementState) {
         val purchase = new SubscriptionPurchase();
         purchase.setStartTimeMillis(System.currentTimeMillis());
         purchase.setExpiryTimeMillis(expiryTimeMillis);
         purchase.setPaymentState(paymentState);
         purchase.setAcknowledgementState(acknowledgementState);
-        purchase.setLinkedPurchaseToken(linkedPurchaseToken);
         return purchase;
     }
 
@@ -305,7 +299,6 @@ public class SubscriptionControllerTest {
             Subscription.builder()
                 .owner(owner)
                 .plan(plan)
-                .providerSubscriptionId("provider-subscription-id")
                 .status(status)
                 .startAt(LocalDateTime.now())
                 .build());
