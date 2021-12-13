@@ -179,7 +179,8 @@ public class Application {
                 .mvcMatchers(HttpMethod.GET, "/v1/accounts/signOut")
                 .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials")
                 .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans")
-                .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook");
+                .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook")
+                .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook");
         }
 
         @Override

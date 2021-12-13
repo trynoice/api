@@ -31,3 +31,4 @@ app.auth.sign-in-token-dispatcher-type=console
 app.auth.sign-in-token-dispatcher.email.from-email=noreply@trynoice.com
 app.auth.sign-in-token-dispatcher.email.support-email=support@trynoice.com
 app.subscriptions.stripe-api-key=
+app.subscriptions.stripe-webhook-secret=

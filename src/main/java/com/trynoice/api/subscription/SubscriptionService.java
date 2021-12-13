@@ -3,7 +3,10 @@ package com.trynoice.api.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
+import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.checkout.Session;
+import com.stripe.param.SubscriptionCancelParams;
 import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
@@ -26,9 +29,7 @@ import org.springframework.stereotype.Service;
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
 import java.text.NumberFormat;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Currency;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -179,8 +180,8 @@ class SubscriptionService {
 
     /**
      * <p>
-     * Reconciles the internal state of the application by querying the changed subscription entity
-     * from the Google API.</p>
+     * Reconciles the internal state of the subscription entities by querying the changed
+     * subscription purchase from the Google API.</p>
      *
      * @param payload event payload.
      * @throws SubscriptionWebhookEventException on failing to correctly process the event payload.
@@ -246,7 +247,7 @@ class SubscriptionService {
 
         // check if subscription has already been linked to a purchase
         if (subscription.getProviderSubscriptionId() != null) {
-            throw new SubscriptionWebhookEventException("subscription is already linked to a purchase");
+            throw new SubscriptionWebhookEventException("referenced subscription is already linked to a purchase");
         }
 
         // https://developer.android.com/google/play/billing/subscriptions#lifecycle
@@ -256,13 +257,13 @@ class SubscriptionService {
         // the past, the user's account is on hold, and they lose their entitlements. When the user
         // is in their grace-period, they should be notified about the pending payment.
         subscription.setProviderSubscriptionId(purchaseToken.asText());
-        subscription.setStartAt(
-            LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(purchase.getStartTimeMillis()), ZoneId.systemDefault()));
+        if (purchase.getStartTimeMillis() != null) {
+            subscription.setStartAtMillis(purchase.getStartTimeMillis());
+        }
 
-        subscription.setEndAt(
-            LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(purchase.getExpiryTimeMillis()), ZoneId.systemDefault()));
+        if (purchase.getExpiryTimeMillis() != null) {
+            subscription.setEndAtMillis(purchase.getExpiryTimeMillis());
+        }
 
         subscription.setStatus(Subscription.Status.INACTIVE);
         if (subscription.getEndAt().isAfter(LocalDateTime.now())) {
@@ -293,6 +294,125 @@ class SubscriptionService {
                 // might be a network error, no way to be sure.
                 throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }
+        }
+    }
+
+    /**
+     * Reconciles the internal state of the subscription entities by processing the event payload.
+     *
+     * @param payload   event payload.
+     * @param signature payload signature.
+     * @throws SignatureVerificationException    on payload signature mismatch.
+     * @throws SubscriptionWebhookEventException on failing to correctly process the event payload.
+     * @see <a href="https://stripe.com/docs/billing/subscriptions/overview">How subscriptions work</a>
+     * @see <a href="https://stripe.com/docs/billing/subscriptions/build-subscription?ui=checkout#provision-and-monitor">
+     * Provision and monitor subscriptions</a>
+     * @see <a href="https://stripe.com/docs/billing/subscriptions/webhooks">Subscription webhooks</a>
+     * @see <a href="https://stripe.com/docs/api/checkout/sessions/object">Checkout Session object</a>
+     * @see <a href="https://stripe.com/docs/api/subscriptions/object">Subscription object</a>
+     */
+    @ReasonablyTransactional
+    public void handleStripeWebhookEvent(
+        @NonNull String payload,
+        @NonNull String signature
+    ) throws SignatureVerificationException, SubscriptionWebhookEventException {
+        val event = stripeApi.decodeWebhookPayload(payload, signature, subscriptionConfig.getStripeWebhookSecret());
+        switch (event.getType()) {
+            case "checkout.session.completed":
+                val session = (Session) event.getDataObjectDeserializer().getObject()
+                    .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get session object from the event payload"));
+
+                if (session.getSubscription() == null) {
+                    throw new SubscriptionWebhookEventException("checkout session subscription id is null");
+                }
+
+                try {
+                    handleStripeCheckoutSessionEvent(session);
+                } catch (SubscriptionWebhookEventException e) {
+                    try {
+                        // cancel subscription if we cannot handle the checkout session since
+                        // SubscriptionWebhookEventException only occurs if Session is not how we
+                        // expect it to be.
+                        stripeApi.getSubscription(session.getSubscription())
+                            .cancel(SubscriptionCancelParams.builder()
+                                .setProrate(true)
+                                .build());
+                    } catch (StripeException inner) {
+                        // maybe a network error, can never be sure?
+                        throw new RuntimeException("failed to cancel stripe subscription", inner);
+                    }
+
+                    throw e;
+                }
+
+                break;
+            case "customer.subscription.updated":
+            case "customer.subscription.deleted":
+            case "customer.subscription.pending_update_applied":
+            case "customer.subscription.pending_update_expired":
+            case "customer.subscription.trial_will_end":
+                val stripeSubscription = (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject()
+                    .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get subscription object from the event payload"));
+
+                val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(stripeSubscription.getId())
+                    .orElseThrow(() -> {
+                        val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
+                        return new SubscriptionWebhookEventException(errMsg);
+                    });
+
+                if (stripeSubscription.getStartDate() != null) {
+                    subscription.setStartAtSeconds(stripeSubscription.getStartDate());
+                } else if (stripeSubscription.getCurrentPeriodStart() != null) {
+                    subscription.setStartAtSeconds(stripeSubscription.getCurrentPeriodStart());
+                }
+
+                if (stripeSubscription.getEndedAt() != null) {
+                    subscription.setEndAtSeconds(stripeSubscription.getEndedAt());
+                } else if (stripeSubscription.getCurrentPeriodEnd() != null) {
+                    subscription.setEndAtSeconds(stripeSubscription.getCurrentPeriodEnd());
+                }
+
+                switch (stripeSubscription.getStatus()) {
+                    case "trialing":
+                    case "active":
+                        subscription.setStatus(Subscription.Status.ACTIVE);
+                        break;
+                    case "past_due":
+                        subscription.setStatus(Subscription.Status.PENDING);
+                        break;
+                    default:
+                        subscription.setStatus(Subscription.Status.INACTIVE);
+                        break;
+                }
+
+                subscriptionRepository.save(subscription);
+                break;
+        }
+    }
+
+    private void handleStripeCheckoutSessionEvent(@NonNull Session session) throws SubscriptionWebhookEventException {
+        if (!"subscription".equals(session.getMode())) {
+            throw new SubscriptionWebhookEventException("checkout session mode is not subscription");
+        } else if (!"complete".equals(session.getStatus())) {
+            throw new SubscriptionWebhookEventException("checkout session status is not complete");
+        } else if (!"paid".equals(session.getPaymentStatus())) {
+            throw new SubscriptionWebhookEventException("checkout session payment status is not paid");
+        }
+
+        try {
+            val subscriptionId = parseLong(session.getClientReferenceId());
+            val subscription = subscriptionRepository.findActiveById(subscriptionId)
+                .orElseThrow(() -> {
+                    val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
+                    return new SubscriptionWebhookEventException(errMsg);
+                });
+
+            subscription.setProviderSubscriptionId(session.getSubscription());
+            subscription.setStatus(Subscription.Status.ACTIVE);
+            subscription.setStartAt(LocalDateTime.now());
+            subscriptionRepository.save(subscription);
+        } catch (NumberFormatException e) {
+            throw new SubscriptionWebhookEventException("failed to parse the client reference id in checkout session");
         }
     }
 
