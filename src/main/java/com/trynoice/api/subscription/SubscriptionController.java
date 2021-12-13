@@ -1,6 +1,7 @@
 package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.stripe.exception.SignatureVerificationException;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -24,12 +26,14 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
 import java.net.URI;
 import java.util.List;
 
@@ -69,6 +73,7 @@ class SubscriptionController {
      * @return a non-null list of available subscription plans.
      */
     @Operation(summary = "List available plans")
+    @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
         @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
@@ -146,8 +151,8 @@ class SubscriptionController {
 
     /**
      * <p>
-     * On receiving an event, it processes the mutated subscription entity and reconciles the
-     * internal state of the app by re-requesting subscription entity from the Google Play API.</p>
+     * On receiving an event, it finds the mutated subscription entity and reconciles its state in
+     * the app by re-requesting referenced subscription purchase from the Google Play API.</p>
      *
      * <p><b>See also:</b></p>
      * <ul>
@@ -162,6 +167,7 @@ class SubscriptionController {
      * @param requestBody event payload (JSON).
      */
     @Operation(summary = "Webhook for listening to Google Play Billing subscription events")
+    @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "event successfully processed"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
@@ -180,6 +186,53 @@ class SubscriptionController {
         // correctly process the event payload, then Google Cloud Pub/Sub will retry its delivery.
         // Since we couldn't correctly process the payload the first-time, it's highly unlikely that
         // we'd be able to process it correctly on redelivery.
+        return ResponseEntity.ok(null);
+    }
+
+    /**
+     * <p>
+     * On receiving events, it finds the mutated subscription entity and reconciles its state in the
+     * app by processing the event payload.</p>
+     *
+     * <p><b>See also:</b></p>
+     * <ul>
+     *     <li><a href="https://stripe.com/docs/billing/subscriptions/overview">How subscriptions
+     *     work</a></li>
+     *     <li><a
+     *     href="https://stripe.com/docs/billing/subscriptions/build-subscription?ui=checkout#provision-and-monitor">
+     *     Provision and monitor subscriptions</a></li>
+     *     <li><a href="https://stripe.com/docs/billing/subscriptions/webhooks">Subscription
+     *     webhooks</a></li>
+     *     <li><a href="https://stripe.com/docs/api/checkout/sessions/object">Checkout Session
+     *     object</a></li>
+     *     <li><a href="https://stripe.com/docs/api/subscriptions/object">Subscription object
+     *     </a></li>
+     * </ul>
+     *
+     * @param body event payload (JSON String).
+     */
+    @Operation(summary = "Webhook for listening to Stripe subscription events")
+    @SecurityRequirements
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "event successfully processed"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
+        @ApiResponse(responseCode = "500", description = "internal server error"),
+    })
+    @NonNull
+    @PostMapping("/stripe/webhook")
+    ResponseEntity<Void> stripeWebhook(
+        @NotBlank @Valid @RequestHeader("Stripe-Signature") String payloadSignature,
+        @NotBlank @Valid @RequestBody String body
+    ) {
+        try {
+            subscriptionService.handleStripeWebhookEvent(body, payloadSignature);
+        } catch (SubscriptionWebhookEventException e) {
+            log.info("failed to process the stripe webhook event", e);
+        } catch (SignatureVerificationException e) {
+            log.info("failed to verify payload signature of stripe webhook event", e);
+            return ResponseEntity.badRequest().build();
+        }
+
         return ResponseEntity.ok(null);
     }
 }

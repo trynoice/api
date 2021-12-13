@@ -24,6 +24,9 @@ public class SubscriptionConfiguration {
     @NotBlank
     private String stripeApiKey;
 
+    @NotBlank
+    private String stripeWebhookSecret;
+
     @NonNull
     public GoogleCredentials getAndroidPublisherApiCredentials() throws IOException {
         return GoogleCredentials.fromStream(new FileInputStream(androidPublisherApiKeyPath))

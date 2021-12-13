@@ -14,7 +14,9 @@ import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.ManyToOne;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * A data access object that maps to the {@code subscription} table in the database.
@@ -43,6 +45,34 @@ public class Subscription extends BasicEntity<Long> {
     private Status status = Status.CREATED;
 
     private LocalDateTime startAt, endAt;
+
+    /**
+     * Helper to set {@link Subscription#startAt} using Epoch seconds.
+     */
+    public void setStartAtSeconds(long seconds) {
+        this.startAt = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneId.systemDefault());
+    }
+
+    /**
+     * Helper to set {@link Subscription#startAt} using Epoch milliseconds.
+     */
+    public void setStartAtMillis(long millis) {
+        this.startAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
+    }
+
+    /**
+     * Helper to set {@link Subscription#endAt} using Epoch seconds.
+     */
+    public void setEndAtSeconds(long seconds) {
+        this.endAt = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneId.systemDefault());
+    }
+
+    /**
+     * Helper to set {@link Subscription#endAt} using Epoch milliseconds.
+     */
+    public void setEndAtMillis(long millis) {
+        this.endAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
+    }
 
     /**
      * Indicates the current subscription status.

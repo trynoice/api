@@ -2,8 +2,12 @@ package com.trynoice.api.subscription;
 
 
 import com.stripe.Stripe;
+import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Event;
+import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
+import com.stripe.net.Webhook;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.NonNull;
 
@@ -49,5 +53,25 @@ public class StripeApi {
                         .setPrice(priceId)
                         .build())
                 .build());
+    }
+
+    /**
+     * @see Webhook#constructEvent(String, String, String)
+     */
+    @NonNull
+    Event decodeWebhookPayload(
+        @NonNull String payload,
+        @NonNull String signature,
+        @NonNull String secret
+    ) throws SignatureVerificationException {
+        return Webhook.constructEvent(payload, signature, secret);
+    }
+
+    /**
+     * @see Subscription#retrieve(String)
+     */
+    @NonNull
+    Subscription getSubscription(@NonNull String id) throws StripeException {
+        return Subscription.retrieve(id);
     }
 }
