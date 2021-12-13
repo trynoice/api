@@ -2,7 +2,6 @@ package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiConnectionException;
-import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Subscription;
@@ -170,7 +169,7 @@ public class SubscriptionServiceTest {
         when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any()))
             .thenThrow(new ApiConnectionException("test-error"));
 
-        assertThrows(StripeException.class, () -> service.createSubscription(authUser, params));
+        assertThrows(RuntimeException.class, () -> service.createSubscription(authUser, params));
     }
 
     @Test

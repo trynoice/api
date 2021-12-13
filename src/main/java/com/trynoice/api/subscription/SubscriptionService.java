@@ -6,6 +6,7 @@ import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.StripeException;
 import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
@@ -17,12 +18,10 @@ import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import lombok.NonNull;
-import lombok.SneakyThrows;
 import lombok.val;
 import org.postgresql.util.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
@@ -123,9 +122,8 @@ class SubscriptionService {
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
      */
     @NonNull
-    @Transactional
-    @SneakyThrows(StripeException.class)
-    SubscriptionFlowResult createSubscription(
+    @ReasonablyTransactional
+    public SubscriptionFlowResult createSubscription(
         @NonNull AuthUser requester,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
@@ -163,13 +161,17 @@ class SubscriptionService {
         val result = new SubscriptionFlowResult();
         result.setSubscriptionId(subscriptionId);
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
-            result.setStripeCheckoutSessionUrl(stripeApi.createCheckoutSession(
-                    params.getSuccessUrl(),
-                    params.getCancelUrl(),
-                    plan.getProviderPlanId(),
-                    subscriptionId.toString(),
-                    requester.getEmail())
-                .getUrl());
+            try {
+                result.setStripeCheckoutSessionUrl(stripeApi.createCheckoutSession(
+                        params.getSuccessUrl(),
+                        params.getCancelUrl(),
+                        plan.getProviderPlanId(),
+                        subscriptionId.toString(),
+                        requester.getEmail())
+                    .getUrl());
+            } catch (StripeException e) {
+                throw new RuntimeException("failed to create stripe checkout session", e);
+            }
         }
 
         return result;
@@ -189,8 +191,8 @@ class SubscriptionService {
      * @see <a href="https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions">
      * Android Publisher REST API reference</a>
      */
-    @Transactional
-    void handleGooglePlayWebhookEvent(@NonNull JsonNode payload) throws SubscriptionWebhookEventException {
+    @ReasonablyTransactional
+    public void handleGooglePlayWebhookEvent(@NonNull JsonNode payload) throws SubscriptionWebhookEventException {
         val data = payload.at("/message/data");
         if (!data.isTextual()) {
             throw new SubscriptionWebhookEventException("'message.data' field is missing or invalid in the payload");
