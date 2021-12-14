@@ -120,8 +120,8 @@ class SubscriptionController {
             responseCode = "201",
             description = "subscription flow successfully initiated",
             headers = {
-                @Header(name = "Location", description = "url of the created subscription", required = true),
-                @Header(name = SUBSCRIPTION_ID_HEADER, description = "id of the created subscription", required = true),
+                @Header(name = "Location", description = "url of the created subscription (always present)", required = true),
+                @Header(name = SUBSCRIPTION_ID_HEADER, description = "id of the created subscription (always present)", required = true),
                 @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER, description = "checkout session url if the plan is provided by Stripe")
             }),
         @ApiResponse(responseCode = "400", description = "request is not valid"),

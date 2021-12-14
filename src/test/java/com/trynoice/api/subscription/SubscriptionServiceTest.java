@@ -213,6 +213,11 @@ public class SubscriptionServiceTest {
         // here is to try covering as many cases in integration tests as possible.
     }
 
+    @Test
+    void handleStripeWebhookEvent() {
+        // skipped unit tests, wrote integration tests instead.
+    }
+
     @NonNull
     private static AuthUser buildAuthUser() {
         val authUser = AuthUser.builder()

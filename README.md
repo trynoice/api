@@ -75,3 +75,4 @@ inject environment variables in Spring configuration.
 | `AUTH_SIGN_IN_TOKEN_SUPPORT_EMAIL` | Support address to include in sign-in emails  |                -                 |
 | `ANDROID_PUBLISHER_API_KEY_PATH`   | Service account key for Android Publisher API | `android-publisher-api-key.json` |
 | `STRIPE_API_KEY`                   | Secret API key for accessing Stripe API       |                -                 |
+| `STRIPE_WEBHOOK_SECRET`            | Secret to verify webhook payload signature    |                -                 |

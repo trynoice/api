@@ -333,10 +333,13 @@ class SubscriptionService {
                         // cancel subscription if we cannot handle the checkout session since
                         // SubscriptionWebhookEventException only occurs if Session is not how we
                         // expect it to be.
-                        stripeApi.getSubscription(session.getSubscription())
-                            .cancel(SubscriptionCancelParams.builder()
-                                .setProrate(true)
-                                .build());
+                        val stripeSubscription = stripeApi.getSubscription(session.getSubscription());
+                        if (!"canceled".equals(stripeSubscription.getStatus())) {
+                            stripeSubscription.cancel(
+                                SubscriptionCancelParams.builder()
+                                    .setProrate(true)
+                                    .build());
+                        }
                     } catch (StripeException inner) {
                         // maybe a network error, can never be sure?
                         throw new RuntimeException("failed to cancel stripe subscription", inner);

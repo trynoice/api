@@ -2,6 +2,9 @@ package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
+import com.stripe.model.Event;
+import com.stripe.model.EventDataObjectDeserializer;
+import com.stripe.model.StripeObject;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Subscription;
@@ -27,7 +30,9 @@ import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -38,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -272,6 +278,96 @@ public class SubscriptionControllerTest {
         );
     }
 
+    @ParameterizedTest(name = "{displayName} - session.status={0} session.paymentStatus={1} expectedSubscriptionStatus={2}")
+    @MethodSource("handleStripeWebhookEvent_checkoutSessionCompleteTestCases")
+    void handleStripeWebhookEvent_checkoutSessionComplete(
+        @NonNull String sessionStatus,
+        @NonNull String sessionPaymentStatus,
+        @NonNull Subscription.Status expectedSubscriptionStatus
+    ) throws Exception {
+        var subscription = buildSubscription(
+            createAuthUser(entityManager),
+            buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan"),
+            Subscription.Status.CREATED);
+
+        val checkoutSession = buildStripeCheckoutSession(sessionStatus, sessionPaymentStatus);
+        checkoutSession.setClientReferenceId(subscription.getId().toString());
+
+        val event = buildStripeEvent("checkout.session.completed", checkoutSession);
+        val signature = "dummy-signature";
+
+        when(stripeApi.decodeWebhookPayload(eq(event.toJson()), eq(signature), any()))
+            .thenReturn(event);
+
+        lenient().when(stripeApi.getSubscription(any()))
+            .thenReturn(mock(com.stripe.model.Subscription.class));
+
+        mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
+                .header("Stripe-Signature", signature)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(event.toJson()))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        subscription = subscriptionRepository.findActiveById(subscription.getId()).orElseThrow();
+        assertEquals(expectedSubscriptionStatus, subscription.getStatus());
+    }
+
+    static Stream<Arguments> handleStripeWebhookEvent_checkoutSessionCompleteTestCases() {
+        return Stream.of(
+            // session status, payment status, expected subscription status
+            arguments("expired", "no_payment_required", Subscription.Status.CREATED),
+            arguments("complete", "no_payment_required", Subscription.Status.CREATED),
+            arguments("complete", "unpaid", Subscription.Status.CREATED),
+            arguments("complete", "paid", Subscription.Status.ACTIVE)
+        );
+    }
+
+    @ParameterizedTest(name = "{displayName} - stripeStatus={0} expectedInternalStatus={1}")
+    @MethodSource("handleStripeWebhookEvent_subscriptionEventsTestCases")
+    void handleStripeWebhookEvent_subscriptionEvents(
+        @NonNull String stripeSubscriptionStatus,
+        @NonNull Subscription.Status expectedInternalSubscriptionStatus
+    ) throws Exception {
+        var subscription = buildSubscription(
+            createAuthUser(entityManager),
+            buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id"),
+            Subscription.Status.CREATED);
+
+        val stripeSubscriptionId = UUID.randomUUID().toString();
+        subscription.setProviderSubscriptionId(stripeSubscriptionId);
+        subscriptionRepository.save(subscription);
+
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionStatus);
+        stripeSubscription.setId(stripeSubscriptionId);
+        val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
+        val signature = "dummy-signature";
+
+        when(stripeApi.decodeWebhookPayload(eq(event.toJson()), eq(signature), any()))
+            .thenReturn(event);
+
+        mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
+                .header("Stripe-Signature", signature)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(event.toJson()))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        subscription = subscriptionRepository.findActiveById(subscription.getId()).orElseThrow();
+        assertEquals(expectedInternalSubscriptionStatus, subscription.getStatus());
+    }
+
+    static Stream<Arguments> handleStripeWebhookEvent_subscriptionEventsTestCases() {
+        return Stream.of(
+            // stripe subscription status, expected internal subscription status
+            arguments("incomplete", Subscription.Status.INACTIVE),
+            arguments("incomplete_expired", Subscription.Status.INACTIVE),
+            arguments("trialing", Subscription.Status.ACTIVE),
+            arguments("active", Subscription.Status.ACTIVE),
+            arguments("past_due", Subscription.Status.PENDING),
+            arguments("canceled", Subscription.Status.INACTIVE),
+            arguments("unpaid", Subscription.Status.INACTIVE)
+        );
+    }
+
     @NonNull
     private static SubscriptionPurchase buildSubscriptionPurchase(long expiryTimeMillis, int paymentState, int acknowledgementState) {
         val purchase = new SubscriptionPurchase();
@@ -302,5 +398,43 @@ public class SubscriptionControllerTest {
                 .status(status)
                 .startAt(LocalDateTime.now())
                 .build());
+    }
+
+    @NonNull
+    private static Event buildStripeEvent(@NonNull String type, @NonNull StripeObject dataObject) {
+        // TODO: find a fix in free time.
+        // mock because event data object serialization/deserialization is confusing and all my
+        // attempts failed.
+        val event = mock(Event.class);
+        lenient().when(event.getType()).thenReturn(type);
+
+        val deserializer = mock(EventDataObjectDeserializer.class);
+        lenient().when(deserializer.getObject()).thenReturn(Optional.of(dataObject));
+        lenient().when(event.getDataObjectDeserializer()).thenReturn(deserializer);
+
+        lenient().when(event.toJson()).thenReturn("{}");
+        return event;
+    }
+
+    @NonNull
+    private static Session buildStripeCheckoutSession(@NonNull String status, @NonNull String paymentStatus) {
+        val session = new Session();
+        session.setMode("subscription");
+        session.setStatus(status);
+        session.setPaymentStatus(paymentStatus);
+        session.setSubscription(UUID.randomUUID().toString());
+        return session;
+    }
+
+    @NonNull
+    private static com.stripe.model.Subscription buildStripeSubscription(@NonNull String status) {
+        val subscription = new com.stripe.model.Subscription();
+        subscription.setStatus(status);
+
+        val now = LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond();
+        subscription.setCurrentPeriodStart(now);
+        subscription.setStartDate(now);
+        subscription.setCurrentPeriodEnd(now + 60 * 60);
+        return subscription;
     }
 }
