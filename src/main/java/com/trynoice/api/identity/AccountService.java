@@ -8,6 +8,7 @@ import com.auth0.jwt.interfaces.DecodedJWT;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
+import com.trynoice.api.identity.exceptions.BearerJwtAuthenticationException;
 import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
@@ -24,7 +25,6 @@ import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -295,18 +295,7 @@ public class AccountService {
 
         @Override
         public boolean isAuthenticated() {
-            return token != null && principalId != null;
-        }
-    }
-
-    private static class BearerJwtAuthenticationException extends AuthenticationException {
-
-        private BearerJwtAuthenticationException(String msg, Throwable cause) {
-            super(msg, cause);
-        }
-
-        private BearerJwtAuthenticationException(String msg) {
-            super(msg);
+            return principalId != null;
         }
     }
 }

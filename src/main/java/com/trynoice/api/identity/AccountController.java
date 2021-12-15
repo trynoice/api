@@ -73,11 +73,6 @@ class AccountController {
      * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
      * All further attempts using this email address will result in HTTP 403. At this point, the
      * clients may advise their user to contact the support.</p>
-     *
-     * @param params The following validation checks are applied on the request body. <ul> <li>
-     *               {@code email}: it must be a non-blank well-formed email of at most 64
-     *               characters.</li> <li> {@code name}: it must be a non-blank string of at most
-     *               64 characters.</li> </ul>
      */
     @Operation(summary = "Create a new account")
     @SecurityRequirements
@@ -110,9 +105,6 @@ class AccountController {
      * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
      * All further attempts using this email address will result in HTTP 403. At this point, the
      * clients may advise their user to contact the support.</p>
-     *
-     * @param params The following validation checks are applied on the request body. <ul> <li>
-     *               `email` : it must be a non-blank well-formed email address. </li> </ul>
      */
     @Operation(summary = "Sign-in to an existing account")
     @SecurityRequirements
