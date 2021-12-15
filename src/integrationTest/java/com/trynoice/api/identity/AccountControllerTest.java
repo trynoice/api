@@ -3,7 +3,6 @@ package com.trynoice.api.identity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthCredentials;
-import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
 import lombok.val;
@@ -287,10 +286,10 @@ class AccountControllerTest {
             .andExpect(status().is(HttpStatus.OK.value()))
             .andReturn();
 
-        val profile = objectMapper.readValue(result.getResponse().getContentAsByteArray(), Profile.class);
-        assertEquals(authUser.getId(), profile.getAccountId());
-        assertEquals(authUser.getName(), profile.getName());
-        assertEquals(authUser.getEmail(), profile.getEmail());
-        assertEquals(1, profile.getActiveSessions().size());
+        val profile = objectMapper.readTree(result.getResponse().getContentAsByteArray());
+        assertEquals(authUser.getId(), profile.findValue("accountId").asLong());
+        assertEquals(authUser.getName(), profile.findValue("name").asText());
+        assertEquals(authUser.getEmail(), profile.findValue("email").asText());
+        assertEquals(1, profile.findValue("activeSessions").size());
     }
 }

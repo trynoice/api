@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * {@link AccountService} implements operations related to account management and auth.
@@ -151,7 +152,7 @@ public class AccountService {
 
         // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
         if (token.getVersion() == 0) {
-            token.setUserAgent(userAgent);
+            token.setUserAgent(requireNonNullElse(userAgent, ""));
         }
 
         token.setExpiresAt(LocalDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
@@ -238,7 +239,7 @@ public class AccountService {
                     .stream()
                     .map((token) -> Profile.ActiveSessionInfo.builder()
                         .refreshTokenId(token.getId())
-                        .userAgent(token.getUserAgent())
+                        .userAgent(token.getUserAgent().isBlank() ? null : token.getUserAgent())
                         .createdAt(token.getCreatedAt())
                         .lastUsedAt(token.getLastUsedAt())
                         .build())

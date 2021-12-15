@@ -20,6 +20,7 @@ import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
+import com.trynoice.api.subscription.models.SubscriptionView;
 import lombok.NonNull;
 import lombok.val;
 import org.postgresql.util.Base64;
@@ -84,7 +85,7 @@ class SubscriptionService {
         if (provider != null) {
             final SubscriptionPlan.Provider p;
             try {
-                p = SubscriptionPlan.Provider.valueOf(provider);
+                p = SubscriptionPlan.Provider.valueOf(provider.toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new UnsupportedSubscriptionPlanProviderException(e);
             }
@@ -95,13 +96,7 @@ class SubscriptionService {
         }
 
         return plans.stream()
-            .map(m -> SubscriptionPlanView.builder()
-                .id(m.getId())
-                .provider(m.getProvider().name())
-                .providerPlanId(m.getProviderPlanId())
-                .billingPeriodMonths(m.getBillingPeriodMonths())
-                .priceInr(formatIndianPaiseToRupee(m.getPriceInIndianPaise()))
-                .build())
+            .map(SubscriptionService::buildSubscriptionPlanView)
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -116,8 +111,8 @@ class SubscriptionService {
      * returns a non-null {@link SubscriptionFlowResult#getStripeCheckoutSessionUrl()}. The clients
      * must redirect user to the checkout session url to conclude the subscription flow.</p>
      *
-     * @param requester user that initiated the subscription flow.
-     * @param params    subscription flow parameters.
+     * @param owner  user that initiated the subscription flow.
+     * @param params subscription flow parameters.
      * @return a non-null {@link SubscriptionFlowResult}.
      * @throws SubscriptionPlanNotFoundException if the specified plan doesn't exist.
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
@@ -125,7 +120,7 @@ class SubscriptionService {
     @NonNull
     @ReasonablyTransactional
     public SubscriptionFlowResult createSubscription(
-        @NonNull AuthUser requester,
+        @NonNull AuthUser owner,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
         val plan = subscriptionPlanRepository.findActiveById(params.getPlanId())
@@ -141,8 +136,12 @@ class SubscriptionService {
             }
         }
 
+        // At any given time, at most one subscription entity can exist per user with a non-inactive
+        // status. If user already owns a subscription, an entity must be in active or pending
+        // status. Otherwise, if the user has attempted to start a subscription previously, they
+        // must own an entity with created status.
         val subscription = subscriptionRepository.findActiveByOwnerAndStatus(
-            requester,
+            owner,
             Subscription.Status.CREATED,
             Subscription.Status.ACTIVE,
             Subscription.Status.PENDING);
@@ -154,7 +153,7 @@ class SubscriptionService {
         val subscriptionId = subscription.orElseGet(
                 () -> subscriptionRepository.save(
                     Subscription.builder()
-                        .owner(requester)
+                        .owner(owner)
                         .plan(plan)
                         .build()))
             .getId();
@@ -168,7 +167,7 @@ class SubscriptionService {
                         params.getCancelUrl(),
                         plan.getProviderPlanId(),
                         subscriptionId.toString(),
-                        requester.getEmail())
+                        owner.getEmail())
                     .getUrl());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to create stripe checkout session", e);
@@ -176,6 +175,22 @@ class SubscriptionService {
         }
 
         return result;
+    }
+
+    /**
+     * @return a list of active and inactive subscriptions owned by the given {@code owner}.
+     */
+    @NonNull
+    List<SubscriptionView> getSubscriptions(@NonNull AuthUser owner) {
+        // not listing subscriptions in created state.
+        return subscriptionRepository.findAllActiveByOwnerAndStatus(
+                owner,
+                Subscription.Status.ACTIVE,
+                Subscription.Status.PENDING,
+                Subscription.Status.INACTIVE)
+            .stream()
+            .map(SubscriptionService::buildSubscriptionView)
+            .collect(Collectors.toUnmodifiableList());
     }
 
     /**
@@ -417,6 +432,33 @@ class SubscriptionService {
         } catch (NumberFormatException e) {
             throw new SubscriptionWebhookEventException("failed to parse the client reference id in checkout session");
         }
+    }
+
+    @NonNull
+    private static SubscriptionPlanView buildSubscriptionPlanView(@NonNull SubscriptionPlan plan) {
+        return SubscriptionPlanView.builder()
+            .id(plan.getId())
+            .provider(plan.getProvider().name().toLowerCase())
+            .billingPeriodMonths(plan.getBillingPeriodMonths())
+            .priceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise()))
+            .build();
+    }
+
+    @NonNull
+    private static SubscriptionView buildSubscriptionView(@NonNull Subscription subscription) {
+        val isPaymentPending = subscription.getStatus() == Subscription.Status.PENDING;
+        val isActive = isPaymentPending || subscription.getStatus() == Subscription.Status.ACTIVE;
+        val endedAt = subscription.getEndAt() != null && subscription.getEndAt().isBefore(LocalDateTime.now())
+            ? subscription.getEndAt() : null;
+
+        return SubscriptionView.builder()
+            .id(subscription.getId())
+            .plan(buildSubscriptionPlanView(subscription.getPlan()))
+            .isActive(isActive)
+            .isPaymentPending(isPaymentPending)
+            .startedAt(subscription.getStartAt())
+            .endedAt(endedAt)
+            .build();
     }
 
     /**
