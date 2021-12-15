@@ -7,6 +7,7 @@ import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -36,4 +37,8 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     @NonNull
     @Query("select e from Subscription e where e.owner = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
     Optional<Subscription> findActiveByOwnerAndStatus(@NonNull AuthUser owner, @NonNull Subscription.Status... statuses);
+
+    @NonNull
+    @Query("select e from Subscription e where e.owner = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
+    List<Subscription> findAllActiveByOwnerAndStatus(@NonNull AuthUser owner, @NonNull Subscription.Status... statuses);
 }

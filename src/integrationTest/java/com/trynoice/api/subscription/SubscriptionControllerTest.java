@@ -1,5 +1,6 @@
 package com.trynoice.api.subscription;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.model.Event;
@@ -14,6 +15,7 @@ import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.testing.AuthTestUtils;
 import lombok.NonNull;
 import lombok.val;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -31,9 +33,15 @@ import javax.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
@@ -102,7 +110,7 @@ public class SubscriptionControllerTest {
             assertNotEquals(0, plans.length);
             if (provider != null) {
                 for (val plan : plans) {
-                    assertEquals(provider, plan.getProvider());
+                    assertEquals(provider.toLowerCase(), plan.getProvider().toLowerCase());
                 }
             }
         }
@@ -171,6 +179,47 @@ public class SubscriptionControllerTest {
             arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.ACTIVE, HttpStatus.CONFLICT.value()),
             arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.ACTIVE, HttpStatus.CONFLICT.value())
         );
+    }
+
+    @Test
+    void getSubscription() throws Exception {
+        val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
+        val random = new Random();
+        val statuses = Subscription.Status.values();
+        val data = new HashMap<AuthUser, List<Subscription>>();
+        for (int i = 0; i < 5; i++) {
+            val authUser = createAuthUser(entityManager);
+            val subscriptions = new ArrayList<Subscription>(5);
+            for (int j = 0; j < 5; j++) {
+                subscriptions.add(
+                    buildSubscription(authUser, subscriptionPlan, statuses[random.nextInt(statuses.length)]));
+            }
+
+            data.put(authUser, subscriptions);
+        }
+
+        for (val entry : data.entrySet()) {
+            val accessToken = createSignedAccessJwt(hmacSecret, entry.getKey(), AuthTestUtils.JwtType.VALID);
+            val result = mockMvc.perform(
+                    get("/v1/subscriptions")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().is(HttpStatus.OK.value()))
+                .andReturn();
+
+            val expectedIds = entry.getValue()
+                .stream()
+                .filter(s -> s.getStatus() != Subscription.Status.CREATED)
+                .map(s -> s.getId().toString())
+                .sorted()
+                .collect(Collectors.toList());
+
+            val actualIds = Arrays.stream(objectMapper.readValue(result.getResponse().getContentAsByteArray(), JsonNode[].class))
+                .map(v -> v.findValue("id").asText())
+                .sorted()
+                .collect(Collectors.toList());
+
+            assertEquals(expectedIds, actualIds);
+        }
     }
 
     @ParameterizedTest(name = "{displayName} - expectedSubscriptionStatus={1}")

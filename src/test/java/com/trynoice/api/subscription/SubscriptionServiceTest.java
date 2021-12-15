@@ -19,6 +19,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -51,12 +53,22 @@ public class SubscriptionServiceTest {
     @Mock
     private StripeApi stripeApi;
 
-    private SubscriptionPlan googlePlayPlan, stripePlan;
     private SubscriptionService service;
 
     @BeforeEach
     void setUp() {
-        googlePlayPlan = SubscriptionPlan.builder()
+        service = new SubscriptionService(
+            subscriptionConfiguration,
+            subscriptionPlanRepository,
+            subscriptionRepository,
+            new ObjectMapper(),
+            androidPublisherApi,
+            stripeApi);
+    }
+
+    @Test
+    void getPlans_withSupportedProviders() throws UnsupportedSubscriptionPlanProviderException {
+        val googlePlayPlan = SubscriptionPlan.builder()
             .provider(SubscriptionPlan.Provider.GOOGLE_PLAY)
             .providerPlanId("google_plan_plan_id")
             .billingPeriodMonths((short) 1)
@@ -64,7 +76,7 @@ public class SubscriptionServiceTest {
             .build();
 
         googlePlayPlan.setId((short) 1);
-        stripePlan = SubscriptionPlan.builder()
+        val stripePlan = SubscriptionPlan.builder()
             .provider(SubscriptionPlan.Provider.STRIPE)
             .providerPlanId("stripe_plan_id")
             .billingPeriodMonths((short) 1)
@@ -85,17 +97,6 @@ public class SubscriptionServiceTest {
             .when(subscriptionPlanRepository.findAllActiveByProvider(SubscriptionPlan.Provider.STRIPE))
             .thenReturn(List.of(stripePlan));
 
-        service = new SubscriptionService(
-            subscriptionConfiguration,
-            subscriptionPlanRepository,
-            subscriptionRepository,
-            new ObjectMapper(),
-            androidPublisherApi,
-            stripeApi);
-    }
-
-    @Test
-    void getPlans_withSupportedProviders() throws UnsupportedSubscriptionPlanProviderException {
         val testCases = new HashMap<SubscriptionPlan.Provider, List<SubscriptionPlan>>();
         testCases.put(null, List.of(googlePlayPlan, stripePlan));
         testCases.put(SubscriptionPlan.Provider.GOOGLE_PLAY, List.of(googlePlayPlan));
@@ -112,8 +113,7 @@ public class SubscriptionServiceTest {
                 val got = plans.get(i);
 
                 assertEquals(expecting.getId(), got.getId());
-                assertEquals(expecting.getProvider().name(), got.getProvider());
-                assertEquals(expecting.getProviderPlanId(), got.getProviderPlanId());
+                assertEquals(expecting.getProvider().name().toLowerCase(), got.getProvider().toLowerCase());
                 assertEquals(expecting.getBillingPeriodMonths(), got.getBillingPeriodMonths());
                 assertTrue(got.getPriceInr().contains("" + (expecting.getPriceInIndianPaise() / 100)));
             }
@@ -197,7 +197,7 @@ public class SubscriptionServiceTest {
                 params.getSuccessUrl(),
                 params.getCancelUrl(),
                 stripePriceId,
-                authUser.getId().toString(),
+                subscription.getId().toString(),
                 authUser.getEmail()))
             .thenReturn(mockSession);
 
@@ -205,6 +205,29 @@ public class SubscriptionServiceTest {
         assertNotNull(result);
         assertEquals(subscription.getId(), result.getSubscriptionId());
         assertEquals(redirectUrl, result.getStripeCheckoutSessionUrl());
+    }
+
+    @Test
+    void getSubscriptions() {
+        val authUser1 = buildAuthUser();
+        val authUser2 = buildAuthUser();
+        val plan = buildStripeSubscriptionPlan("test-provider-id");
+        val subscription1 = buildSubscription(authUser1, plan, Subscription.Status.ACTIVE);
+        val subscription2 = buildSubscription(authUser2, plan, Subscription.Status.INACTIVE);
+
+        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(authUser1), any()))
+            .thenReturn(List.of(subscription1));
+
+        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(authUser2), any()))
+            .thenReturn(List.of(subscription2));
+
+        val result1 = service.getSubscriptions(authUser1);
+        assertEquals(1, result1.size());
+        assertEquals(subscription1.getId(), result1.get(0).getId());
+
+        val result2 = service.getSubscriptions(authUser2);
+        assertEquals(1, result2.size());
+        assertEquals(subscription2.getId(), result2.get(0).getId());
     }
 
     @Test
@@ -238,7 +261,7 @@ public class SubscriptionServiceTest {
             .priceInIndianPaise(22500)
             .build();
 
-        plan.setId((short) 1);
+        plan.setId((short) Math.round(Math.random() * 1000));
         return plan;
     }
 
@@ -252,9 +275,11 @@ public class SubscriptionServiceTest {
             .owner(owner)
             .plan(plan)
             .status(status)
+            .startAt(status != Subscription.Status.CREATED ? LocalDateTime.now().minus(Duration.ofHours(1)) : null)
+            .endAt(status == Subscription.Status.INACTIVE ? LocalDateTime.now().plus(Duration.ofHours(1)) : null)
             .build();
 
-        subscription.setId(1L);
+        subscription.setId(Math.round(Math.random() * 1000));
         return subscription;
     }
 }

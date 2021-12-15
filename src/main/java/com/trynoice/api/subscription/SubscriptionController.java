@@ -9,6 +9,7 @@ import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventExceptio
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
+import com.trynoice.api.subscription.models.SubscriptionView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -61,16 +62,16 @@ class SubscriptionController {
      * Lists all available subscription plans that an auth user can subscribe.</p>
      *
      * <p>
-     * The {@code provider} parameter can have the following values.</p>
+     * The {@code provider} parameter (case-insensitive) can have the following values.</p>
      *
      * <ul>
      *     <li>empty or {@code null}: the response contains all available plans.</li>
-     *     <li>{@code GOOGLE_PLAY}: the response contains all available plans supported by Google Play.</li>
-     *     <li>{@code RAZORPAY}: the response contains all available plans supported by Razorpay.</li>
+     *     <li>{@code google_play}: the response contains all available plans supported by Google Play.</li>
+     *     <li>{@code stripe}: the response contains all available plans supported by Stripe.</li>
      * </ul>
      *
      * @param provider filter listed plans by the given provider.
-     * @return a non-null list of available subscription plans.
+     * @return a list of available subscription plans.
      */
     @Operation(summary = "List available plans")
     @SecurityRequirements
@@ -125,7 +126,8 @@ class SubscriptionController {
                 @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER, description = "checkout session url if the plan is provided by Stripe")
             }),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "409", description = "user has already began the subscription flow or has an active subscription"),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "409", description = "user already has an active subscription"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -147,6 +149,24 @@ class SubscriptionController {
         } catch (DuplicateSubscriptionException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
+    }
+
+    /**
+     * Lists all subscriptions (active/inactive) ever purchased by the authenticated user.
+     *
+     * @return a list of subscription purchases.
+     */
+    @Operation(summary = "List subscriptions")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @GetMapping
+    ResponseEntity<List<SubscriptionView>> getSubscriptions(@NonNull @AuthenticationPrincipal AuthUser principal) {
+        return ResponseEntity.ok(subscriptionService.getSubscriptions(principal));
     }
 
     /**

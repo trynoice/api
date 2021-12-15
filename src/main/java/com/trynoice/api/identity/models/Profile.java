@@ -1,6 +1,5 @@
 package com.trynoice.api.identity.models;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -40,13 +39,9 @@ public class Profile {
         @NonNull
         private Long refreshTokenId;
 
-        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         private String userAgent;
 
         @NonNull
-        private LocalDateTime createdAt;
-
-        @NonNull
-        private LocalDateTime lastUsedAt;
+        private LocalDateTime createdAt, lastUsedAt;
     }
 }

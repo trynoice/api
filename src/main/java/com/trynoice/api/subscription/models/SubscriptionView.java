@@ -6,24 +6,25 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
-/**
- * A data transfer object to send subscription plan details back to the controller.
- */
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SubscriptionPlanView {
+public class SubscriptionView {
 
     @NonNull
-    private Short id;
+    private Long id;
 
     @NonNull
-    private String provider;
+    private SubscriptionPlanView plan;
 
     @NonNull
-    private Short billingPeriodMonths;
+    private Boolean isActive, isPaymentPending;
 
     @NonNull
-    private String priceInr;
+    private LocalDateTime startedAt;
+
+    private LocalDateTime endedAt;
 }
