@@ -38,6 +38,13 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     @Query("select e from Subscription e where e.owner = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
     Optional<Subscription> findActiveByOwnerAndStatus(@NonNull AuthUser owner, @NonNull Subscription.Status... statuses);
 
+    /**
+     * Find all {@link Subscription} entities by its owner and {@link Subscription.Status}.
+     *
+     * @param owner    owner of the subscription.
+     * @param statuses expected status of the subscription
+     * @return a list of {@link Subscription} entities.
+     */
     @NonNull
     @Query("select e from Subscription e where e.owner = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
     List<Subscription> findAllActiveByOwnerAndStatus(@NonNull AuthUser owner, @NonNull Subscription.Status... statuses);

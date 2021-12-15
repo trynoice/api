@@ -107,10 +107,11 @@ class SubscriptionController {
      * <p>To conclude the subscription flow and make this subscription active</p>
      *
      * <ul>
-     *     <li>for Google Play plans, the clients must attach {@code subscriptionId} as {@code
-     *     obfuscatedExternalProfileId} to the subscription purchase.</li>
+     *     <li>for Google Play plans, the clients must link {@code subscriptionId} with the
+     *     subscription purchase by specifying it as 'obfuscatedProfileId' in Google Play billing
+     *     flow params.</li>
      *     <li>for Stripe plans, the clients must redirect the user to the provided url to make the
-     *     payment.</li>
+     *     payment and complete the checkout session.</li>
      * </ul>
      *
      * @param params {@code successUrl} and {@code cancelUrl} are only required for Stripe plans.
