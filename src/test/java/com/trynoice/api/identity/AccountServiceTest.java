@@ -170,7 +170,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
         val usedRefreshToken = buildRefreshToken(authUser);
-        usedRefreshToken.setVersion(refreshToken.getVersion() - 1);
+        usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
         val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
 
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
@@ -217,7 +217,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
         val usedRefreshToken = buildRefreshToken(authUser);
-        usedRefreshToken.setVersion(refreshToken.getVersion() - 1);
+        usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
         val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
 
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
@@ -313,7 +313,6 @@ class AccountServiceTest {
             .build();
 
         authUser.setId(1L);
-        authUser.setVersion(1L);
         authUser.setCreatedAt(LocalDateTime.now());
         return authUser;
     }
@@ -327,7 +326,6 @@ class AccountServiceTest {
             .build();
 
         refreshToken.setId(1L);
-        refreshToken.setVersion(1L);
         refreshToken.setCreatedAt(LocalDateTime.now());
         return refreshToken;
     }
