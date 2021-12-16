@@ -96,8 +96,23 @@ public class AuthTestUtils {
             .build();
 
         entityManager.persist(refreshToken);
-        refreshToken.setVersion(refreshToken.getVersion() - (type == JwtType.REUSED ? 1 : 0));
-        return refreshToken.getJwt(Algorithm.HMAC256(hmacSecret));
+
+        val jwtSigningAlgorithm = Algorithm.HMAC256(hmacSecret);
+        if (type != JwtType.REUSED) {
+            return refreshToken.getJwt(jwtSigningAlgorithm);
+        }
+
+        // create a separate entity that is not attached to the entity manager.
+        val usedRefreshToken = RefreshToken.builder()
+            .owner(owner)
+            .expiresAt(refreshToken.getExpiresAt())
+            .ordinal(refreshToken.getOrdinal() + 1)
+            .build();
+
+        usedRefreshToken.setId(refreshToken.getId());
+        usedRefreshToken.setCreatedAt(refreshToken.getCreatedAt());
+
+        return usedRefreshToken.getJwt(jwtSigningAlgorithm);
     }
 
     /**

@@ -29,6 +29,7 @@ CREATE TABLE refresh_token (
   version bigint NOT NULL,
   owner_id bigint NOT NULL,
   user_agent varchar(128) NOT NULL,
+  ordinal bigint NOT NULL,
   expires_at timestamp with time zone NOT NULL,
   last_used_at timestamp with time zone NOT NULL
 );
