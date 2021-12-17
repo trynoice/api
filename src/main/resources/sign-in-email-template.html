@@ -4,182 +4,117 @@
     <meta name="viewport" content="width=device-width" />
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>Noice: Sign-in</title>
-    <style>
-      :root {
-        --col-text: #1d1d26;
-        --col-brand: #23232d;
-        --col-accent: #1eb980;
-      }
-
-      /* Box sizing rules */
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-      }
-
-      /* Remove default margin */
-      body,
-      h1,
-      h2,
-      h3,
-      h4,
-      p,
-      figure,
-      blockquote,
-      dl,
-      dd {
-        margin: 0;
-      }
-
-      /* Remove list styles on ul, ol elements with a list role, which suggests default styling will be removed */
-      ul[role="list"],
-      ol[role="list"] {
-        list-style: none;
-      }
-
-      /* Set core root defaults */
-      html:focus-within {
-        scroll-behavior: smooth;
-      }
-
-      input,
-      button,
-      textarea,
-      select {
-        font: inherit;
-      }
-
-      body {
-        background-color: var(--col-brand);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        color: var(--col-text);
-        background: linear-gradient(
-          110deg,
-          var(--col-brand) 60%,
-          var(--col-accent) 60%
-        );
-        line-height: 1.5;
-      }
-
-      p {
-        margin-bottom: .5rem;
-        text-align: center;
-      }
-
-      header {
-          display: flex;
-          justify-content: center;
-      }
-
-      .container {
-        max-width: 45ch;
-        border-radius: 1rem;
-        background-color: white;
-        padding: 1rem 2rem;
-      }
-
-      .logo {
-        margin-left: -0.5rem;
-        margin-bottom: 2rem;
-        height: 2rem;
-      }
-
-      .footer {
-        font-size: 0.9rem;
-        margin-top: 2rem;
-        padding-top: 1rem;
-        border-top: 1px solid #f1f1f1;
-      }
-
-      .signin-link {
-        display: inline-block;
-        color: #fff;
-        font-size: 14px;
-        margin-bottom: 2rem;
-        font-weight: 600;
-        text-decoration: none;
-        width: auto;
-        text-align: center;
-        border-radius: 5px;
-        letter-spacing: normal;
-        background: #28a73f
-          linear-gradient(-180deg, var(--col-accent) 0%, var(--col-brand) 90%);
-        padding: 6px 12px;
-      }
-
-      .link {
-        color: #0074cc;
-      }
-
-      .social {
-          display: flex;
-          justify-content: center;
-      }
-
-      .social img {
-          padding: .5rem;
-      }
-    </style>
   </head>
 
-  <body>
-    <div class="container">
-      <header>
-        <a href="https://trynoice.com" target="_blank">
-          <img
-            class="logo"
-            alt="noice"
-            src="https://cdn.trynoice.com/public/sign-in-email/logo-280x80px.png"
-          />
-        </a>
-      </header>
-      <main>
-        <p>You are one click away from signing in to Noice!</p>
-        <p>
-          <a class="signin-link" href="${signInLink}" target="_blank">
-            Log In
-          </a>
-        </p>
-        <p>Unable to click the button? Try the following link!</p>
-        <p>
-          <a class="link" href="${signInLink}" target="_blank">${signInLink}</a>
-        </p>
-      </main>
-      <footer class="footer">
-        <p>
-          Questions? Visit our support site at
-          <a class="link" href="https://trynoice.com/contact-us"
-            >https://trynoice.com/contact-us</a
-          >
-          or contact us at
-          <a class="link" href="mailto:trynoice@gmail.com">trynoice@gmail.com</a
-          >.
-        </p>
-
-        <div class="social">
-          <a href="https://twitter.com/trynoice" target="_blank">
+  <body style="margin: 0; padding: 0; height: 100%; background-color: #23232d;"></body>
+    <div
+      style="
+      margin: 0;
+      padding: 0;
+      margin-top: 64px;
+      color: #1d1d26;
+      line-height: 1.5;
+      mso-line-height-rule: exactly;
+      background-color: #23232d;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      "
+    >
+      <div
+        style="
+          background-color: white;
+          text-align: center;
+          padding: 16px 32px;
+          border-radius: 8px;
+          max-width: 400px;
+          margin: auto;
+        "
+      >
+        <div>
+          <a href="https://trynoice.com" target="_blank">
             <img
-              alt="twitter"
-              src="https://cdn.trynoice.com/public/sign-in-email/twitter-29x24px.png"
-            />
-          </a>
-          <a href="https://instagram.com/trynoice" target="_blank">
-            <img
-              alt="instagram"
-              src="https://cdn.trynoice.com/public/sign-in-email/instagram-24x24px.png"
+              style="height: 32px"
+              alt="noice"
+              src="https://cdn.trynoice.com/public/sign-in-email/horizontal-logo.inkscape.svg"
             />
           </a>
         </div>
+        <div>
+          <p>You are one click away from signing in to Noice!</p>
+          <p>
+            <a
+              style="
+                display: inline-block;
+                color: #fff;
+                font-size: 14px;
+                margin-bottom: 2rem;
+                font-weight: 600;
+                text-decoration: none;
+                width: auto;
+                text-align: center;
+                border-radius: 5px;
+                background-color: #28a73f;
+                background: linear-gradient(-180deg, #1eb980 0%, #1d1d26 90%);
+                padding: 6px 12px;
+              "
+              href="${signInLink}"
+              target="_blank"
+            >
+              Log In
+            </a>
+          </p>
+          <p>
+            Unable to click the button? Try the following link! <br />
+            <span style="color: #0074cc">${signInLink}</span>
+          </p>
+          <div
+            style="
+              border-top: 1px solid #f1f1f1;
+              font-size: 14px;
+              margin-top: 32px;
+            "
+          >
+            <p>
+              Questions? Visit our support site at
+              <a style="color: #0074cc" href="https://trynoice.com/contact-us"
+                >https://trynoice.com/contact-us</a
+              >
+              or contact us at
+              <a style="color: #0074cc" href="mailto:trynoice@gmail.com"
+                >trynoice@gmail.com</a
+              >.
+            </p>
 
-        <p>Made with <span style="color: red;">&hearts;</span> in India</p>
-      </footer>
+            <div>
+              <a
+                style="text-decoration: none"
+                href="https://twitter.com/trynoice"
+                target="_blank"
+              >
+                <img
+                  style="padding: 8px"
+                  alt="twitter"
+                  src="https://cdn.trynoice.com/public/sign-in-email/twitter-29x24px.png"
+                />
+              </a>
+              <a
+                style="text-decoration: none"
+                href="https://instagram.com/trynoice"
+                target="_blank"
+              >
+                <img
+                  style="padding: 8px"
+                  alt="instagram"
+                  src="https://cdn.trynoice.com/public/sign-in-email/instagram-24x24px.png"
+                />
+              </a>
+            </div>
+
+            <p>Made with <span style="color: red">&hearts;</span> in India</p>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
