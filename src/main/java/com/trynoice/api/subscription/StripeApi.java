@@ -8,8 +8,10 @@ import com.stripe.model.Event;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionCancelParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.NonNull;
+import lombok.val;
 
 /**
  * A thin wrapper around {@link Stripe} api to enable easy mocking.
@@ -73,5 +75,23 @@ public class StripeApi {
     @NonNull
     Subscription getSubscription(@NonNull String id) throws StripeException {
         return Subscription.retrieve(id);
+    }
+
+    /**
+     * Cancels an uncanceled subscription immediately and refunds any remaining (unused) amount on a
+     * prorated basis.
+     *
+     * @see Subscription#cancel(SubscriptionCancelParams)
+     */
+    void cancelSubscription(@NonNull String id) throws StripeException {
+        val subscription = getSubscription(id);
+        if ("canceled".equals(subscription.getStatus())) {
+            return;
+        }
+
+        subscription.cancel(
+            SubscriptionCancelParams.builder()
+                .setProrate(true)
+                .build());
     }
 }

@@ -6,14 +6,15 @@ import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
-import com.stripe.param.SubscriptionCancelParams;
 import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
+import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
@@ -194,6 +195,60 @@ class SubscriptionService {
     }
 
     /**
+     * Cancels the given subscription by marking it as inactive in app's internal state and
+     * requesting its cancellation from its provider.
+     *
+     * @param owner          expected owner of the subscription (authenticated user).
+     * @param subscriptionId id of the subscription to be cancelled.
+     * @throws SubscriptionNotFoundException if subscription with given id and owner doesn't exist.
+     * @throws SubscriptionStateException    if subscription is not currently active.
+     */
+    @ReasonablyTransactional
+    public void cancelSubscription(
+        @NonNull AuthUser owner,
+        @NonNull Long subscriptionId
+    ) throws SubscriptionNotFoundException, SubscriptionStateException {
+        val subscription = subscriptionRepository.findActiveById(subscriptionId)
+            .orElseThrow(() -> new SubscriptionNotFoundException("subscription doesn't exist"));
+
+        if (!subscription.getOwner().equals(owner)) {
+            throw new SubscriptionNotFoundException("given owner doesn't own this subscription");
+        }
+
+        if (subscription.getStatus() != Subscription.Status.ACTIVE && subscription.getStatus() != Subscription.Status.PENDING) {
+            throw new SubscriptionStateException("subscription status is neither active nor pending");
+        }
+
+        switch (subscription.getPlan().getProvider()) {
+            case GOOGLE_PLAY:
+                try {
+                    androidPublisherApi.cancelSubscription(
+                        subscriptionConfig.getAndroidApplicationId(),
+                        subscription.getPlan().getProviderPlanId(),
+                        subscription.getProviderSubscriptionId());
+                } catch (IOException e) {
+                    throw new RuntimeException("google play api error", e);
+                }
+
+                break;
+            case STRIPE:
+                try {
+                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId());
+                } catch (StripeException e) {
+                    throw new RuntimeException("stripe api error", e);
+                }
+
+                break;
+            default:
+                throw new IllegalStateException("unsupported provider used in subscription plan");
+        }
+
+        subscription.setStatus(Subscription.Status.INACTIVE);
+        subscription.setEndAt(LocalDateTime.now());
+        subscriptionRepository.save(subscription);
+    }
+
+    /**
      * <p>
      * Reconciles the internal state of the subscription entities by querying the changed
      * subscription purchase from the Google API.</p>
@@ -243,7 +298,7 @@ class SubscriptionService {
                 subscriptionPlanId.asText(),
                 purchaseToken.asText());
         } catch (IOException e) {
-            // might be a network error, no way to be sure.
+            // runtime exception so that webhook is retried since it might be a network error.
             throw new RuntimeException("failed to retrieve purchase data from google play", e);
         }
 
@@ -306,7 +361,7 @@ class SubscriptionService {
                     subscriptionPlanId.asText(),
                     purchaseToken.asText());
             } catch (IOException e) {
-                // might be a network error, no way to be sure.
+                // runtime exception so that webhook is retried since it might be a network error.
                 throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }
         }
@@ -348,15 +403,9 @@ class SubscriptionService {
                         // cancel subscription if we cannot handle the checkout session since
                         // SubscriptionWebhookEventException only occurs if Session is not how we
                         // expect it to be.
-                        val stripeSubscription = stripeApi.getSubscription(session.getSubscription());
-                        if (!"canceled".equals(stripeSubscription.getStatus())) {
-                            stripeSubscription.cancel(
-                                SubscriptionCancelParams.builder()
-                                    .setProrate(true)
-                                    .build());
-                        }
+                        stripeApi.cancelSubscription(session.getSubscription());
                     } catch (StripeException inner) {
-                        // maybe a network error, can never be sure?
+                        // runtime exception so that webhook is retried since it might be a network error.
                         throw new RuntimeException("failed to cancel stripe subscription", inner);
                     }
 

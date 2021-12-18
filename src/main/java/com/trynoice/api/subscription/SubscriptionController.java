@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.stripe.exception.SignatureVerificationException;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
+import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
@@ -24,7 +26,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -34,7 +38,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.net.URI;
 import java.util.List;
 
@@ -127,7 +133,7 @@ class SubscriptionController {
                 @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER, description = "checkout session url if the plan is provided by Stripe")
             }),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid"),
         @ApiResponse(responseCode = "409", description = "user already has an active subscription"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
@@ -168,6 +174,33 @@ class SubscriptionController {
     @GetMapping
     ResponseEntity<List<SubscriptionView>> getSubscriptions(@NonNull @AuthenticationPrincipal AuthUser principal) {
         return ResponseEntity.ok(subscriptionService.getSubscriptions(principal));
+    }
+
+    /**
+     * Cancels the given subscription if it is currently ongoing (active).
+     */
+    @Operation(summary = "Cancel subscription")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "subscription cancelled"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
+        @ApiResponse(responseCode = "401", description = "access token is invalid"),
+        @ApiResponse(responseCode = "409", description = "referenced subscription is not ongoing (active)"),
+        @ApiResponse(responseCode = "500", description = "internal server error"),
+    })
+    @NonNull
+    @DeleteMapping("/{subscriptionId}")
+    ResponseEntity<Void> cancelSubscription(
+        @NonNull @AuthenticationPrincipal AuthUser principal,
+        @NotNull @Min(1) @Valid @PathVariable Long subscriptionId
+    ) {
+        try {
+            subscriptionService.cancelSubscription(principal, subscriptionId);
+            return ResponseEntity.ok(null);
+        } catch (SubscriptionNotFoundException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (SubscriptionStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
     }
 
     /**
