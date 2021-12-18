@@ -56,6 +56,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -222,6 +223,66 @@ public class SubscriptionControllerTest {
         }
     }
 
+    @ParameterizedTest(name = "{displayName} - provider={0} status={1} expectedResponseStatus={2}")
+    @MethodSource("cancelSubscriptionTestCases")
+    void cancelSubscription(
+        @NonNull SubscriptionPlan.Provider provider,
+        @NonNull Subscription.Status status,
+        int expectedResponseCode
+    ) throws Exception {
+        val actualOwner = createAuthUser(entityManager);
+        val impersonator = createAuthUser(entityManager);
+        val actualOwnerAccessToken = createSignedAccessJwt(hmacSecret, actualOwner, AuthTestUtils.JwtType.VALID);
+        val impersonatorAccessToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
+
+        val plan = buildSubscriptionPlan(provider, "provider-plan-id");
+        val subscription = buildSubscription(actualOwner, plan, status);
+
+        mockMvc.perform(
+                delete("/v1/subscriptions/" + subscription.getId())
+                    .header("Authorization", "Bearer " + impersonatorAccessToken))
+            .andExpect(status().is(HttpStatus.BAD_REQUEST.value()));
+
+        mockMvc.perform(
+                delete("/v1/subscriptions/" + subscription.getId())
+                    .header("Authorization", "Bearer " + actualOwnerAccessToken))
+            .andExpect(status().is(expectedResponseCode));
+
+        if (expectedResponseCode == HttpStatus.OK.value()) {
+            assertEquals(Subscription.Status.INACTIVE, subscription.getStatus());
+
+            switch (provider) {
+                case GOOGLE_PLAY:
+                    verify(androidPublisherApi, times(1))
+                        .cancelSubscription(
+                            any(),
+                            eq(plan.getProviderPlanId()),
+                            eq(subscription.getProviderSubscriptionId()));
+                    break;
+                case STRIPE:
+                    verify(stripeApi, times(1))
+                        .cancelSubscription(eq(subscription.getProviderSubscriptionId()));
+                    break;
+                default:
+                    throw new RuntimeException("unknown provider");
+            }
+        }
+    }
+
+    static Stream<Arguments> cancelSubscriptionTestCases() {
+        return Stream.of(
+            // subscription provider, subscription status, expected response code
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.ACTIVE, HttpStatus.OK.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.ACTIVE, HttpStatus.OK.value()),
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.PENDING, HttpStatus.OK.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.PENDING, HttpStatus.OK.value()),
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.CREATED, HttpStatus.CONFLICT.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.CREATED, HttpStatus.CONFLICT.value()),
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.INACTIVE, HttpStatus.CONFLICT.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.INACTIVE, HttpStatus.CONFLICT.value())
+        );
+    }
+
     @ParameterizedTest(name = "{displayName} - expectedSubscriptionStatus={1}")
     @MethodSource("handleGooglePlayWebhookEventTestCases")
     void handleGooglePlayWebhookEvent(
@@ -255,12 +316,13 @@ public class SubscriptionControllerTest {
 
         val authUser = createAuthUser(entityManager);
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionPlanId);
-        var subscription = buildSubscription(authUser, plan, existingStatus);
+        val subscription = buildSubscription(authUser, plan, existingStatus);
+        subscription.setProviderSubscriptionId(null);
+        subscriptionRepository.save(subscription);
+
         purchase.setObfuscatedExternalProfileId(subscription.getId().toString());
 
-        var linkedSubscription = buildSubscription(authUser, plan, Subscription.Status.ACTIVE);
-        linkedSubscription.setProviderSubscriptionId(UUID.randomUUID().toString());
-        subscriptionRepository.save(linkedSubscription);
+        val linkedSubscription = buildSubscription(authUser, plan, Subscription.Status.ACTIVE);
         purchase.setLinkedPurchaseToken(linkedSubscription.getProviderSubscriptionId());
 
         when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionPlanId), eq(purchaseToken)))
@@ -271,7 +333,6 @@ public class SubscriptionControllerTest {
                 .content(eventPayload))
             .andExpect(status().is(HttpStatus.OK.value()));
 
-        subscription = subscriptionRepository.findActiveById(subscription.getId()).orElseThrow();
         assertEquals(expectedStatus, subscription.getStatus());
         assertEquals(purchaseToken, subscription.getProviderSubscriptionId());
 
@@ -279,7 +340,6 @@ public class SubscriptionControllerTest {
             .acknowledgePurchase(any(), eq(subscriptionPlanId), eq(purchaseToken));
 
         if (expectedStatus != Subscription.Status.INACTIVE) {
-            linkedSubscription = subscriptionRepository.findActiveById(linkedSubscription.getId()).orElseThrow();
             assertEquals(Subscription.Status.INACTIVE, linkedSubscription.getStatus());
         }
     }
@@ -334,7 +394,7 @@ public class SubscriptionControllerTest {
         @NonNull String sessionPaymentStatus,
         @NonNull Subscription.Status expectedSubscriptionStatus
     ) throws Exception {
-        var subscription = buildSubscription(
+        val subscription = buildSubscription(
             createAuthUser(entityManager),
             buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan"),
             Subscription.Status.CREATED);
@@ -357,7 +417,6 @@ public class SubscriptionControllerTest {
                 .content(event.toJson()))
             .andExpect(status().is(HttpStatus.OK.value()));
 
-        subscription = subscriptionRepository.findActiveById(subscription.getId()).orElseThrow();
         assertEquals(expectedSubscriptionStatus, subscription.getStatus());
     }
 
@@ -377,7 +436,7 @@ public class SubscriptionControllerTest {
         @NonNull String stripeSubscriptionStatus,
         @NonNull Subscription.Status expectedInternalSubscriptionStatus
     ) throws Exception {
-        var subscription = buildSubscription(
+        val subscription = buildSubscription(
             createAuthUser(entityManager),
             buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id"),
             Subscription.Status.CREATED);
@@ -400,7 +459,6 @@ public class SubscriptionControllerTest {
                 .content(event.toJson()))
             .andExpect(status().is(HttpStatus.OK.value()));
 
-        subscription = subscriptionRepository.findActiveById(subscription.getId()).orElseThrow();
         assertEquals(expectedInternalSubscriptionStatus, subscription.getStatus());
     }
 
@@ -444,6 +502,7 @@ public class SubscriptionControllerTest {
             Subscription.builder()
                 .owner(owner)
                 .plan(plan)
+                .providerSubscriptionId(UUID.randomUUID().toString())
                 .status(status)
                 .startAt(LocalDateTime.now())
                 .build());

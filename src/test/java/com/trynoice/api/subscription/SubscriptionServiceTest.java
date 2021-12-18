@@ -2,12 +2,15 @@ package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiConnectionException;
+import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
+import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
@@ -16,23 +19,33 @@ import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -132,7 +145,7 @@ public class SubscriptionServiceTest {
     void createSubscription_withExistingActiveSubscription() {
         val authUser = buildAuthUser();
         when(subscriptionPlanRepository.findActiveById((short) 1))
-            .thenReturn(Optional.of(buildStripeSubscriptionPlan("provider-plan-id")));
+            .thenReturn(Optional.of(buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id")));
 
         when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
             .thenReturn(Optional.of(mock(Subscription.class)));
@@ -154,7 +167,7 @@ public class SubscriptionServiceTest {
     void createSubscription_withStripeApiError() throws Exception {
         val authUser = buildAuthUser();
         val stripePriceId = "stripe-price-id-1";
-        val plan = buildStripeSubscriptionPlan(stripePriceId);
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, stripePriceId);
         val subscription = buildSubscription(authUser, plan, Subscription.Status.CREATED);
 
         val planId = (short) 1;
@@ -176,7 +189,7 @@ public class SubscriptionServiceTest {
     void createSubscription_withValidParams() throws Exception {
         val authUser = buildAuthUser();
         val stripePriceId = "stripe-price-id-1";
-        val plan = buildStripeSubscriptionPlan(stripePriceId);
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, stripePriceId);
         val subscription = buildSubscription(authUser, plan, Subscription.Status.CREATED);
 
         val planId = (short) 1;
@@ -211,7 +224,7 @@ public class SubscriptionServiceTest {
     void getSubscriptions() {
         val authUser1 = buildAuthUser();
         val authUser2 = buildAuthUser();
-        val plan = buildStripeSubscriptionPlan("test-provider-id");
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
         val subscription1 = buildSubscription(authUser1, plan, Subscription.Status.ACTIVE);
         val subscription2 = buildSubscription(authUser2, plan, Subscription.Status.INACTIVE);
 
@@ -228,6 +241,56 @@ public class SubscriptionServiceTest {
         val result2 = service.getSubscriptions(authUser2);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
+    }
+
+    @ParameterizedTest(name = "{displayName} #{index}")
+    @MethodSource("cancelSubscriptionTestCases")
+    <T extends Throwable> void cancelSubscription(
+        @NonNull Subscription subscription,
+        @NonNull AuthUser principal,
+        Class<T> expectedException
+    ) throws IOException, StripeException {
+        when(subscriptionRepository.findActiveById(subscription.getId()))
+            .thenReturn(Optional.of(subscription));
+
+        if (expectedException != null) {
+            assertThrows(expectedException, () -> service.cancelSubscription(principal, subscription.getId()));
+        } else {
+            assertDoesNotThrow(() -> service.cancelSubscription(principal, subscription.getId()));
+
+            switch (subscription.getPlan().getProvider()) {
+                case GOOGLE_PLAY:
+                    verify(androidPublisherApi, times(1))
+                        .cancelSubscription(
+                            any(),
+                            eq(subscription.getPlan().getProviderPlanId()),
+                            eq(subscription.getProviderSubscriptionId()));
+                    break;
+                case STRIPE:
+                    verify(stripeApi, times(1))
+                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                    break;
+                default:
+                    throw new RuntimeException("unknown provider");
+            }
+        }
+    }
+
+    static Stream<Arguments> cancelSubscriptionTestCases() {
+        val authUser1 = buildAuthUser();
+        val authUser2 = buildAuthUser();
+        val googlePlayPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
+        val stripePlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
+
+        return Stream.of(
+            // subscription, principal, expected exception
+            arguments(buildSubscription(authUser1, googlePlayPlan, Subscription.Status.ACTIVE), authUser1, null),
+            arguments(buildSubscription(authUser1, stripePlan, Subscription.Status.ACTIVE), authUser1, null),
+            arguments(buildSubscription(authUser2, googlePlayPlan, Subscription.Status.ACTIVE), authUser1, SubscriptionNotFoundException.class),
+            arguments(buildSubscription(authUser1, stripePlan, Subscription.Status.ACTIVE), authUser2, SubscriptionNotFoundException.class),
+            arguments(buildSubscription(authUser1, googlePlayPlan, Subscription.Status.CREATED), authUser1, SubscriptionStateException.class),
+            arguments(buildSubscription(authUser1, stripePlan, Subscription.Status.INACTIVE), authUser1, SubscriptionStateException.class)
+        );
     }
 
     @Test
@@ -248,14 +311,14 @@ public class SubscriptionServiceTest {
             .email("test-name@api.test")
             .build();
 
-        authUser.setId(1L);
+        authUser.setId(Math.round(Math.random() * 10000));
         return authUser;
     }
 
     @NonNull
-    private static SubscriptionPlan buildStripeSubscriptionPlan(@NonNull String providerPlanId) {
+    private static SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providerPlanId) {
         val plan = SubscriptionPlan.builder()
-            .provider(SubscriptionPlan.Provider.STRIPE)
+            .provider(provider)
             .providerPlanId(providerPlanId)
             .billingPeriodMonths((short) 1)
             .priceInIndianPaise(22500)
@@ -274,6 +337,7 @@ public class SubscriptionServiceTest {
         val subscription = Subscription.builder()
             .owner(owner)
             .plan(plan)
+            .providerSubscriptionId(UUID.randomUUID().toString())
             .status(status)
             .startAt(status != Subscription.Status.CREATED ? LocalDateTime.now().minus(Duration.ofHours(1)) : null)
             .endAt(status == Subscription.Status.INACTIVE ? LocalDateTime.now().plus(Duration.ofHours(1)) : null)

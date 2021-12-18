@@ -8,6 +8,7 @@ import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAckno
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
 import lombok.NonNull;
+import lombok.val;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -28,15 +29,7 @@ public class AndroidPublisherApi {
     }
 
     /**
-     * Checks whether a user's subscription purchase is valid and returns its expiry time.
-     *
-     * @param applicationId  The package name of the application for which this subscription was
-     *                       purchased (for example, 'com.some.thing').
-     * @param subscriptionId The purchased subscription ID (for example, 'monthly001').
-     * @param purchaseToken  The token provided to the user's device when the subscription was
-     *                       purchased.
-     * @return a non-null {@link SubscriptionPurchase}
-     * @throws IOException on request failure
+     * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#get(String, String, String)
      */
     @NonNull
     SubscriptionPurchase getSubscriptionPurchase(
@@ -51,19 +44,37 @@ public class AndroidPublisherApi {
     }
 
     /**
-     * Acknowledges a subscription purchase.
-     *
-     * @param applicationId  The package name of the application for which this subscription was
-     *                       purchased (for example, 'com.some.thing').
-     * @param subscriptionId The purchased subscription ID (for example, 'monthly001').
-     * @param purchaseToken  The token provided to the user's device when the subscription was
-     *                       purchased.
-     * @throws IOException on request failure.
+     * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#acknowledge(
+     *String, String, String, SubscriptionPurchasesAcknowledgeRequest)
      */
     void acknowledgePurchase(@NonNull String applicationId, @NonNull String subscriptionId, @NonNull String purchaseToken) throws IOException {
         client.purchases()
             .subscriptions()
             .acknowledge(applicationId, subscriptionId, purchaseToken, new SubscriptionPurchasesAcknowledgeRequest())
+            .execute();
+    }
+
+    /**
+     * Cancels subscription purchases that renew automatically.
+     *
+     * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#cancel(String, String, String)
+     * @see <a href="https://developer.android.com/google/play/billing/subscriptions#cancel">Cancellations</a>
+     */
+    void cancelSubscription(
+        @NonNull String applicationId,
+        @NonNull String subscriptionId,
+        @NonNull String purchaseToken
+    ) throws IOException {
+        val purchase = getSubscriptionPurchase(applicationId, subscriptionId, purchaseToken);
+        if (Boolean.FALSE.equals(purchase.getAutoRenewing())) {
+            // subscription is already cancelled.
+            // https://developer.android.com/google/play/billing/subscriptions#cancel
+            return;
+        }
+
+        client.purchases()
+            .subscriptions()
+            .cancel(applicationId, subscriptionId, purchaseToken)
             .execute();
     }
 }
