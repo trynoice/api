@@ -3,6 +3,7 @@ package com.trynoice.api.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
+import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.StripeObject;
@@ -48,6 +49,7 @@ import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -200,9 +202,25 @@ public class SubscriptionControllerTest {
         }
 
         for (val entry : data.entrySet()) {
+            val testReturnUrl = "https://test-return-url";
+            val testCustomerPortalUrl = "test-customer-portal-url";
+            val mockSession = mock(com.stripe.model.billingportal.Session.class);
+            lenient().when(mockSession.getUrl()).thenReturn(testCustomerPortalUrl);
+
+            entry.getValue().stream()
+                .filter(s -> s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE)
+                .forEach(s -> {
+                    try {
+                        lenient().when(stripeApi.createCustomerPortalSession(s.getStripeCustomerId(), testReturnUrl))
+                            .thenReturn(mockSession);
+                    } catch (StripeException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
             val accessToken = createSignedAccessJwt(hmacSecret, entry.getKey(), AuthTestUtils.JwtType.VALID);
             val result = mockMvc.perform(
-                    get("/v1/subscriptions")
+                    get("/v1/subscriptions?stripeReturnUrl=" + testReturnUrl)
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().is(HttpStatus.OK.value()))
                 .andReturn();
@@ -214,12 +232,23 @@ public class SubscriptionControllerTest {
                 .sorted()
                 .collect(Collectors.toList());
 
-            val actualIds = Arrays.stream(objectMapper.readValue(result.getResponse().getContentAsByteArray(), JsonNode[].class))
+            val actualSubscriptions = objectMapper.readValue(result.getResponse().getContentAsByteArray(), JsonNode[].class);
+            val actualIds = Arrays.stream(actualSubscriptions)
                 .map(v -> v.findValue("id").asText())
                 .sorted()
                 .collect(Collectors.toList());
 
             assertEquals(expectedIds, actualIds);
+            for (val actualSubscription : actualSubscriptions) {
+                val actualIsActive = actualSubscription.at("/isActive").asBoolean(false);
+                val actualProvider = actualSubscription.at("/plan/provider").asText();
+                val stripeCustomerPortalUrlNode = actualSubscription.at("/stripeCustomerPortalUrl");
+                if (actualIsActive && actualProvider.equalsIgnoreCase(SubscriptionPlan.Provider.STRIPE.name())) {
+                    assertEquals(testCustomerPortalUrl, stripeCustomerPortalUrlNode.asText());
+                } else {
+                    assertTrue(stripeCustomerPortalUrlNode.isMissingNode() || stripeCustomerPortalUrlNode.isNull());
+                }
+            }
         }
     }
 
@@ -505,6 +534,7 @@ public class SubscriptionControllerTest {
                 .providerSubscriptionId(UUID.randomUUID().toString())
                 .status(status)
                 .startAt(LocalDateTime.now())
+                .stripeCustomerId(plan.getProvider() == SubscriptionPlan.Provider.STRIPE ? UUID.randomUUID().toString() : null)
                 .build());
     }
 

@@ -226,7 +226,7 @@ public class SubscriptionServiceTest {
     }
 
     @Test
-    void getSubscriptions() {
+    void getSubscriptions() throws StripeException {
         val authUser1 = buildAuthUser();
         val authUser2 = buildAuthUser();
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
@@ -239,11 +239,14 @@ public class SubscriptionServiceTest {
         lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(authUser2), any()))
             .thenReturn(List.of(subscription2));
 
-        val result1 = service.getSubscriptions(authUser1);
+        lenient().when(stripeApi.createCustomerPortalSession(any(), any()))
+            .thenReturn(mock(com.stripe.model.billingportal.Session.class));
+
+        val result1 = service.getSubscriptions(authUser1, false, null);
         assertEquals(1, result1.size());
         assertEquals(subscription1.getId(), result1.get(0).getId());
 
-        val result2 = service.getSubscriptions(authUser2);
+        val result2 = service.getSubscriptions(authUser2, false, null);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
     }
