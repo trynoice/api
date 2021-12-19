@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
  * https} scheme and its {@code host} must not be blank. Please note that <b>{@code null} values are
  * also considered valid.</b>
  */
-@Target({ElementType.FIELD})
+@Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Constraint(validatedBy = HttpUrlValidator.class)

@@ -181,18 +181,30 @@ class SubscriptionService {
     }
 
     /**
+     * @param onlyActive      return on the active subscription (if any).
+     * @param stripeReturnUrl optional redirect URL on exiting Stripe Customer portal (only used
+     *                        when an active subscription exists and is provided by Stripe).
      * @return a list of active and inactive subscriptions owned by the given {@code owner}.
      */
     @NonNull
-    List<SubscriptionView> getSubscriptions(@NonNull AuthUser owner) {
-        // not listing subscriptions in created state.
-        return subscriptionRepository.findAllActiveByOwnerAndStatus(
+    List<SubscriptionView> getSubscriptions(@NonNull AuthUser owner, @NonNull Boolean onlyActive, String stripeReturnUrl) {
+        final List<Subscription> subscriptions;
+        if (onlyActive) {
+            subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
+                owner,
+                Subscription.Status.ACTIVE,
+                Subscription.Status.PENDING);
+        } else {
+            subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
                 owner,
                 Subscription.Status.ACTIVE,
                 Subscription.Status.PENDING,
-                Subscription.Status.INACTIVE)
-            .stream()
-            .map(SubscriptionService::buildSubscriptionView)
+                Subscription.Status.INACTIVE);
+        }
+
+        // not listing subscriptions in created state.
+        return subscriptions.stream()
+            .map(subscription -> buildSubscriptionView(subscription, stripeApi, stripeReturnUrl))
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -499,11 +511,29 @@ class SubscriptionService {
     }
 
     @NonNull
-    private static SubscriptionView buildSubscriptionView(@NonNull Subscription subscription) {
+    private static SubscriptionView buildSubscriptionView(
+        @NonNull Subscription subscription,
+        @NonNull StripeApi stripeApi,
+        String stripeReturnUrl
+    ) {
         val isPaymentPending = subscription.getStatus() == Subscription.Status.PENDING;
         val isActive = isPaymentPending || subscription.getStatus() == Subscription.Status.ACTIVE;
         val endedAt = subscription.getEndAt() != null && subscription.getEndAt().isBefore(LocalDateTime.now())
             ? subscription.getEndAt() : null;
+
+        final String stripeCustomerPortalUrl;
+        if (isActive && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE) {
+            try {
+                stripeCustomerPortalUrl = stripeApi.createCustomerPortalSession(
+                        subscription.getStripeCustomerId(),
+                        stripeReturnUrl)
+                    .getUrl();
+            } catch (StripeException e) {
+                throw new RuntimeException("stripe api error", e);
+            }
+        } else {
+            stripeCustomerPortalUrl = null;
+        }
 
         return SubscriptionView.builder()
             .id(subscription.getId())
@@ -512,6 +542,7 @@ class SubscriptionService {
             .isPaymentPending(isPaymentPending)
             .startedAt(subscription.getStartAt())
             .endedAt(endedAt)
+            .stripeCustomerPortalUrl(stripeCustomerPortalUrl)
             .build();
     }
 

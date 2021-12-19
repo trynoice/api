@@ -3,6 +3,7 @@ package com.trynoice.api.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.stripe.exception.SignatureVerificationException;
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
@@ -142,7 +143,7 @@ class SubscriptionController {
     ResponseEntity<Void> createSubscription(
         @NonNull HttpServletRequest request,
         @NonNull @AuthenticationPrincipal AuthUser principal,
-        @Valid @NonNull @RequestBody SubscriptionFlowParams params
+        @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
         try {
             val result = subscriptionService.createSubscription(principal, params);
@@ -161,6 +162,8 @@ class SubscriptionController {
     /**
      * Lists all subscriptions (active/inactive) ever purchased by the authenticated user.
      *
+     * @param onlyActive      return only the active subscription (single instance).
+     * @param stripeReturnUrl redirect URL for exiting Stripe customer portal.
      * @return a list of subscription purchases.
      */
     @Operation(summary = "List subscriptions")
@@ -172,8 +175,12 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping
-    ResponseEntity<List<SubscriptionView>> getSubscriptions(@NonNull @AuthenticationPrincipal AuthUser principal) {
-        return ResponseEntity.ok(subscriptionService.getSubscriptions(principal));
+    ResponseEntity<List<SubscriptionView>> getSubscriptions(
+        @NonNull @AuthenticationPrincipal AuthUser principal,
+        @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
+        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl
+    ) {
+        return ResponseEntity.ok(subscriptionService.getSubscriptions(principal, onlyActive, stripeReturnUrl));
     }
 
     /**
@@ -191,7 +198,7 @@ class SubscriptionController {
     @DeleteMapping("/{subscriptionId}")
     ResponseEntity<Void> cancelSubscription(
         @NonNull @AuthenticationPrincipal AuthUser principal,
-        @NotNull @Min(1) @Valid @PathVariable Long subscriptionId
+        @Valid @NotNull @Min(1) @PathVariable Long subscriptionId
     ) {
         try {
             subscriptionService.cancelSubscription(principal, subscriptionId);
@@ -229,7 +236,7 @@ class SubscriptionController {
     })
     @NonNull
     @PostMapping("/googlePlay/webhook")
-    ResponseEntity<Void> googlePlayWebhook(@RequestBody JsonNode requestBody) {
+    ResponseEntity<Void> googlePlayWebhook(@Valid @NotNull @RequestBody JsonNode requestBody) {
         try {
             subscriptionService.handleGooglePlayWebhookEvent(requestBody);
         } catch (SubscriptionWebhookEventException e) {
@@ -275,8 +282,8 @@ class SubscriptionController {
     @NonNull
     @PostMapping("/stripe/webhook")
     ResponseEntity<Void> stripeWebhook(
-        @NotBlank @Valid @RequestHeader("Stripe-Signature") String payloadSignature,
-        @NotBlank @Valid @RequestBody String body
+        @Valid @NotBlank @RequestHeader("Stripe-Signature") String payloadSignature,
+        @Valid @NotBlank @RequestBody String body
     ) {
         try {
             subscriptionService.handleStripeWebhookEvent(body, payloadSignature);

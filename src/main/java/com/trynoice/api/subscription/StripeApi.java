@@ -97,4 +97,19 @@ public class StripeApi {
                 .setProrate(true)
                 .build());
     }
+
+    /**
+     * @see com.stripe.model.billingportal.Session#create(com.stripe.param.billingportal.SessionCreateParams)
+     */
+    @NonNull
+    com.stripe.model.billingportal.Session createCustomerPortalSession(
+        @NonNull String customerId,
+        String returnUrl
+    ) throws StripeException {
+        return com.stripe.model.billingportal.Session.create(
+            com.stripe.param.billingportal.SessionCreateParams.builder()
+                .setCustomer(customerId)
+                .setReturnUrl(returnUrl)
+                .build());
+    }
 }
