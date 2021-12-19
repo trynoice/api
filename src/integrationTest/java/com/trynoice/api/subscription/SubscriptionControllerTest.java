@@ -142,7 +142,7 @@ public class SubscriptionControllerTest {
         val sessionUrl = "/checkout-session-url";
         if (provider == SubscriptionPlan.Provider.STRIPE) {
             when(mockSession.getUrl()).thenReturn(sessionUrl);
-            when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any())).thenReturn(mockSession);
+            when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any())).thenReturn(mockSession);
         }
 
         val resultActions = mockMvc.perform(
@@ -531,6 +531,7 @@ public class SubscriptionControllerTest {
         session.setStatus(status);
         session.setPaymentStatus(paymentStatus);
         session.setSubscription(UUID.randomUUID().toString());
+        session.setCustomer(UUID.randomUUID().toString());
         return session;
     }
 
