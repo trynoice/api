@@ -435,11 +435,26 @@ class SubscriptionService {
                 val stripeSubscription = (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get subscription object from the event payload"));
 
+                if (stripeSubscription.getItems() == null
+                    || stripeSubscription.getItems().getData() == null
+                    || stripeSubscription.getItems().getData().size() != 1
+                    || stripeSubscription.getItems().getData().get(0) == null
+                    || stripeSubscription.getItems().getData().get(0).getPrice() == null) {
+                    throw new SubscriptionWebhookEventException("failed to get subscription price object from the event payload");
+                }
+
+                val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
                 val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(stripeSubscription.getId())
                     .orElseThrow(() -> {
                         val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
                         return new SubscriptionWebhookEventException(errMsg);
                     });
+
+                if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
+                    subscription.setPlan(
+                        subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
+                            .orElseThrow(() -> new SubscriptionWebhookEventException("updated provider plan id not recognised")));
+                }
 
                 if (stripeSubscription.getStartDate() != null) {
                     subscription.setStartAtSeconds(stripeSubscription.getStartDate());

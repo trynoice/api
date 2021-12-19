@@ -6,7 +6,10 @@ import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
+import com.stripe.model.Price;
 import com.stripe.model.StripeObject;
+import com.stripe.model.SubscriptionItem;
+import com.stripe.model.SubscriptionItemCollection;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Subscription;
@@ -465,17 +468,18 @@ public class SubscriptionControllerTest {
         @NonNull String stripeSubscriptionStatus,
         @NonNull Subscription.Status expectedInternalSubscriptionStatus
     ) throws Exception {
-        val subscription = buildSubscription(
-            createAuthUser(entityManager),
-            buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id"),
-            Subscription.Status.CREATED);
-
+        val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
+        val subscription = buildSubscription(createAuthUser(entityManager), subscriptionPlan, Subscription.Status.CREATED);
         val stripeSubscriptionId = UUID.randomUUID().toString();
         subscription.setProviderSubscriptionId(stripeSubscriptionId);
         subscriptionRepository.save(subscription);
 
         val stripeSubscription = buildStripeSubscription(stripeSubscriptionStatus);
         stripeSubscription.setId(stripeSubscriptionId);
+        val stripeSubscriptionItems = new SubscriptionItemCollection();
+        stripeSubscriptionItems.setData(List.of(buildSubscriptionItem(subscriptionPlan.getProviderPlanId())));
+        stripeSubscription.setItems(stripeSubscriptionItems);
+
         val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
         val signature = "dummy-signature";
 
@@ -575,5 +579,15 @@ public class SubscriptionControllerTest {
         subscription.setStartDate(now);
         subscription.setCurrentPeriodEnd(now + 60 * 60);
         return subscription;
+    }
+
+    @NonNull
+    private static SubscriptionItem buildSubscriptionItem(@NonNull String priceId) {
+        val price = new Price();
+        price.setId(priceId);
+
+        val subscriptionItem = new SubscriptionItem();
+        subscriptionItem.setPrice(price);
+        return subscriptionItem;
     }
 }
