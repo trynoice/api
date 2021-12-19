@@ -163,13 +163,15 @@ class SubscriptionService {
         result.setSubscriptionId(subscriptionId);
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
             try {
-                result.setStripeCheckoutSessionUrl(stripeApi.createCheckoutSession(
-                        params.getSuccessUrl(),
-                        params.getCancelUrl(),
-                        plan.getProviderPlanId(),
-                        subscriptionId.toString(),
-                        owner.getEmail())
-                    .getUrl());
+                result.setStripeCheckoutSessionUrl(
+                    stripeApi.createCheckoutSession(
+                            params.getSuccessUrl(),
+                            params.getCancelUrl(),
+                            plan.getProviderPlanId(),
+                            subscriptionId.toString(),
+                            owner.getEmail(),
+                            subscriptionRepository.findActiveStripeCustomerIdByOwner(owner).orElse(null))
+                        .getUrl());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to create stripe checkout session", e);
             }
@@ -464,6 +466,8 @@ class SubscriptionService {
             throw new SubscriptionWebhookEventException("checkout session status is not complete");
         } else if (!"paid".equals(session.getPaymentStatus())) {
             throw new SubscriptionWebhookEventException("checkout session payment status is not paid");
+        } else if (session.getCustomer() == null) {
+            throw new SubscriptionWebhookEventException("customer id is missing from the checkout session");
         }
 
         try {
@@ -475,6 +479,7 @@ class SubscriptionService {
                 });
 
             subscription.setProviderSubscriptionId(session.getSubscription());
+            subscription.setStripeCustomerId(session.getCustomer());
             subscription.setStatus(Subscription.Status.ACTIVE);
             subscription.setStartAt(LocalDateTime.now());
             subscriptionRepository.save(subscription);

@@ -70,7 +70,8 @@ CREATE TABLE subscription (
   provider_subscription_id varchar(64),
   status varchar(24) NOT NULL,
   start_at timestamp with time zone,
-  end_at timestamp with time zone
+  end_at timestamp with time zone,
+  stripe_customer_id varchar(64)
 );
 
 CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)

@@ -31,6 +31,7 @@ public class StripeApi {
      * @param priceId           price id of the subscription.
      * @param clientReferenceId a reference id to identify customer internally.
      * @param customerEmail     customer's email.
+     * @param stripeCustomerId  customer id assigned by Stripe to the subscription owner (optional)
      * @return a new checkout session
      * @throws StripeException on api call error
      */
@@ -40,7 +41,8 @@ public class StripeApi {
         @NonNull String cancelUrl,
         @NonNull String priceId,
         @NonNull String clientReferenceId,
-        @NonNull String customerEmail
+        @NonNull String customerEmail,
+        String stripeCustomerId
     ) throws StripeException {
         return Session.create(
             new SessionCreateParams.Builder()
@@ -49,6 +51,7 @@ public class StripeApi {
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
                 .setClientReferenceId(clientReferenceId)
                 .setCustomerEmail(customerEmail)
+                .setCustomer(stripeCustomerId)
                 .addLineItem(
                     new SessionCreateParams.LineItem.Builder()
                         .setQuantity(1L)

@@ -48,4 +48,15 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     @NonNull
     @Query("select e from Subscription e where e.owner = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
     List<Subscription> findAllActiveByOwnerAndStatus(@NonNull AuthUser owner, @NonNull Subscription.Status... statuses);
+
+    /**
+     * Find a non-null value for {@link Subscription#stripeCustomerId stripeCustomerId} for the
+     * given {@link AuthUser owner}.
+     *
+     * @param owner the {@link AuthUser} that the {@code stripeCustomerId} should belong to.
+     * @return the {@code stripeCustomerId} if one exists.
+     */
+    @NonNull
+    @Query("select e.stripeCustomerId from Subscription e where e.owner = ?1 and e.stripeCustomerId is not null and" + WHERE_ACTIVE_CLAUSE)
+    Optional<String> findActiveStripeCustomerIdByOwner(@NonNull AuthUser owner);
 }

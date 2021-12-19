@@ -179,7 +179,7 @@ public class SubscriptionServiceTest {
         when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
             .thenReturn(Optional.of(subscription));
 
-        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any()))
+        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any()))
             .thenThrow(new ApiConnectionException("test-error"));
 
         assertThrows(RuntimeException.class, () -> service.createSubscription(authUser, params));
@@ -189,6 +189,7 @@ public class SubscriptionServiceTest {
     void createSubscription_withValidParams() throws Exception {
         val authUser = buildAuthUser();
         val stripePriceId = "stripe-price-id-1";
+        val stripeCustomerId = "stripe-customer-id";
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, stripePriceId);
         val subscription = buildSubscription(authUser, plan, Subscription.Status.CREATED);
 
@@ -201,6 +202,9 @@ public class SubscriptionServiceTest {
         when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
             .thenReturn(Optional.of(subscription));
 
+        when(subscriptionRepository.findActiveStripeCustomerIdByOwner(authUser))
+            .thenReturn(Optional.of(stripeCustomerId));
+
         val redirectUrl = "test-redirect-url";
         val mockSession = mock(Session.class);
         when(mockSession.getUrl()).thenReturn(redirectUrl);
@@ -211,7 +215,8 @@ public class SubscriptionServiceTest {
                 params.getCancelUrl(),
                 stripePriceId,
                 subscription.getId().toString(),
-                authUser.getEmail()))
+                authUser.getEmail(),
+                stripeCustomerId))
             .thenReturn(mockSession);
 
         val result = service.createSubscription(authUser, params);
