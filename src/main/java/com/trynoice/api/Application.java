@@ -196,6 +196,9 @@ public class Application {
                 .securityContext().disable()
                 .sessionManagement().disable();
 
+            // will automatically consider CORS configuration from WebMVC.
+            // https://docs.spring.io/spring-security/site/docs/5.2.1.RELEASE/reference/htmlsingle/#cors
+            http.cors();
             http.exceptionHandling()
                 .authenticationEntryPoint(globalControllerAdvice.noOpAuthenticationEntrypoint());
 
