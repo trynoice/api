@@ -270,7 +270,7 @@ class AccountServiceTest {
     void getProfile() {
         val authUser = buildAuthUser();
         val refreshTokens = List.of(buildRefreshToken(authUser));
-        when(refreshTokenRepository.findAllActiveByOwner(authUser)).thenReturn(refreshTokens);
+        when(refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)).thenReturn(refreshTokens);
 
         val profile = service.getProfile(authUser);
         assertEquals(authUser.getId(), profile.getAccountId());
