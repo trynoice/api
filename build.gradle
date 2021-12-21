@@ -27,7 +27,7 @@ configurations {
 }
 
 bootRun {
-    systemProperty "spring.profiles.active", "dev"
+    systemProperty "spring.profiles.active", "dev-default,dev"
 }
 
 bootJar {
