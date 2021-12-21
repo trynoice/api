@@ -237,7 +237,7 @@ public class AccountService {
             .name(authUser.getName())
             .email(authUser.getEmail())
             .activeSessions(
-                refreshTokenRepository.findAllActiveByOwner(authUser)
+                refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)
                     .stream()
                     .map((token) -> Profile.ActiveSessionInfo.builder()
                         .refreshTokenId(token.getId())
