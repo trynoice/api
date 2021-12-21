@@ -16,6 +16,7 @@ import com.trynoice.api.subscription.models.SubscriptionView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -129,9 +130,18 @@ class SubscriptionController {
             responseCode = "201",
             description = "subscription flow successfully initiated",
             headers = {
-                @Header(name = "Location", description = "url of the created subscription (always present)", required = true),
-                @Header(name = SUBSCRIPTION_ID_HEADER, description = "id of the created subscription (always present)", required = true),
-                @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER, description = "checkout session url if the plan is provided by Stripe")
+                @Header(
+                    name = "Location",
+                    description = "url of the created subscription (always present)",
+                    required = true,
+                    schema = @Schema(type = "string")),
+                @Header(name = SUBSCRIPTION_ID_HEADER,
+                    description = "id of the created subscription (always present)",
+                    required = true,
+                    schema = @Schema(type = "string")),
+                @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER,
+                    description = "checkout session url if the plan is provided by Stripe",
+                    schema = @Schema(type = "string"))
             }),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "401", description = "access token is invalid"),
