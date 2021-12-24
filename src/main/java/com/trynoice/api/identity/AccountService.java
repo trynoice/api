@@ -13,7 +13,6 @@ import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
@@ -43,7 +42,7 @@ import static java.util.Objects.requireNonNullElse;
  */
 @Service
 @Slf4j
-public class AccountService {
+class AccountService {
 
     static final short MAX_SIGN_IN_ATTEMPTS_PER_USER = 5;
 

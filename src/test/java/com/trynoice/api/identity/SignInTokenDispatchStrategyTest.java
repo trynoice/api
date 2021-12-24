@@ -1,7 +1,6 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
-import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -29,7 +28,7 @@ class SignInTokenDispatchStrategyTest {
     class EmailTest {
 
         @Mock
-        private EmailSignInTokenDispatcherConfiguration config;
+        private AuthConfiguration.EmailSignInTokenDispatcherConfiguration config;
 
         @Mock
         private SesClient sesClient;

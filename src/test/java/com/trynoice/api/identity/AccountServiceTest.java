@@ -8,7 +8,6 @@ import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
 import lombok.NonNull;
