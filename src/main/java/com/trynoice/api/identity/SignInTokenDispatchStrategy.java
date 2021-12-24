@@ -1,7 +1,6 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
-import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import lombok.NonNull;
 import lombok.val;
 import software.amazon.awssdk.services.ses.SesClient;
@@ -21,7 +20,7 @@ import static org.apache.commons.text.StringSubstitutor.replace;
  * links) are delivered. There are two implementations available for {@link
  * SignInTokenDispatchStrategy}: {@link Console Console} and {@link Email Email}.
  */
-public interface SignInTokenDispatchStrategy {
+interface SignInTokenDispatchStrategy {
 
     /**
      * Dispatches the sign-in token to be delivered at the specified destination address.
@@ -53,14 +52,14 @@ public interface SignInTokenDispatchStrategy {
      */
     class Email implements SignInTokenDispatchStrategy {
 
-        private final EmailSignInTokenDispatcherConfiguration config;
+        private final AuthConfiguration.EmailSignInTokenDispatcherConfiguration config;
         private final SesClient sesClient;
 
-        public Email(@NonNull EmailSignInTokenDispatcherConfiguration config) {
+        Email(@NonNull AuthConfiguration.EmailSignInTokenDispatcherConfiguration config) {
             this(config, SesClient.create());
         }
 
-        Email(@NonNull EmailSignInTokenDispatcherConfiguration config, @NonNull SesClient sesClient) {
+        Email(@NonNull AuthConfiguration.EmailSignInTokenDispatcherConfiguration config, @NonNull SesClient sesClient) {
             this.config = config;
             this.sesClient = sesClient;
         }

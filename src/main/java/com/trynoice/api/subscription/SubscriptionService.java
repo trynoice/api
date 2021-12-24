@@ -6,7 +6,6 @@ import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
-import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
 import com.trynoice.api.subscription.entities.Subscription;
@@ -17,7 +16,6 @@ import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundExceptio
 import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
@@ -39,7 +37,7 @@ import java.util.stream.Collectors;
 import static java.lang.Long.parseLong;
 
 /**
- * {@link AccountService} implements operations related to subscription management.
+ * {@link SubscriptionService} implements operations related to subscription management.
  */
 @Service
 class SubscriptionService {

@@ -2,7 +2,9 @@ package com.trynoice.api.identity;
 
 import lombok.NonNull;
 import lombok.val;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
@@ -29,11 +31,13 @@ import java.io.IOException;
  * {@code null} {@link org.springframework.security.core.Authentication Authentication} on the
  * {@link org.springframework.security.core.context.SecurityContext SecurityContext}. </p>
  */
+@Component
 public class BearerTokenAuthFilter extends OncePerRequestFilter {
 
     private final AccountService accountService;
 
-    public BearerTokenAuthFilter(@NonNull AccountService accountService) {
+    @Autowired
+    BearerTokenAuthFilter(@NonNull AccountService accountService) {
         this.accountService = accountService;
     }
 
