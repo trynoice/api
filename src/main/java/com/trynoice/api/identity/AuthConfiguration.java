@@ -10,14 +10,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ResourceUtils;
 import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
@@ -157,10 +157,10 @@ class AuthConfiguration {
 
         @SuppressWarnings("unused")
         @SneakyThrows
-        public void setTemplate(String template) {
-            val file = ResourceUtils.getFile(template);
-            // remove extra indentation spaces.
-            this.template = Files.readString(file.toPath()).replaceAll("\\s+", " ");
+        public void setTemplate(String templateFile) {
+            val file = new ClassPathResource(templateFile);
+            this.template = new String(file.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
+                .replaceAll("\\s+", " ");
         }
     }
 }
