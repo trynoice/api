@@ -311,6 +311,27 @@ public class SubscriptionServiceTest {
         // skipped unit tests, wrote integration tests instead.
     }
 
+    @ParameterizedTest(name = "{displayName} - isUserSubscribed={2}")
+    @MethodSource("isUserSubscribedTestCases")
+    void isUserSubscribed(@NonNull AuthUser authUser, Subscription subscription, boolean isUserSubscribed) {
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+            .thenReturn(Optional.ofNullable(subscription));
+
+        assertEquals(isUserSubscribed, service.isUserSubscribed(authUser));
+    }
+
+    static Stream<Arguments> isUserSubscribedTestCases() {
+        val authUser = buildAuthUser();
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
+
+        return Stream.of(
+            // subscription, expected response
+            arguments(authUser, null, false),
+            arguments(authUser, buildSubscription(authUser, plan, Subscription.Status.ACTIVE), true),
+            arguments(authUser, buildSubscription(authUser, plan, Subscription.Status.PENDING), true)
+        );
+    }
+
     @NonNull
     private static AuthUser buildAuthUser() {
         val authUser = AuthUser.builder()

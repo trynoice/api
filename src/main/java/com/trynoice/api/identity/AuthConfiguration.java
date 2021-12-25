@@ -24,8 +24,8 @@ import java.time.Duration;
  * Configuration properties used by various auth components in the identity package.
  */
 @Validated
-@Data
 @ConfigurationProperties("app.auth")
+@Data
 @Configuration
 class AuthConfiguration {
 
