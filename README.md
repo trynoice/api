@@ -79,3 +79,6 @@ properties must be configured before deploying the application to the production
 | `app.subscriptions.android-publisher-api-key-path` | Path of the service account key to access Android Publisher API  |
 | `app.subscriptions.stripe-api-key`                 | Secret API key to access Stripe API                              |
 | `app.subscriptions.stripe-webhook-secret`          | Secret to verify webhook event payload using HMAC-256 signatures |
+| `app.sounds.library-manifest-s3-bucket`            | Name of the S3 bucket that hosts the library manifest            |
+| `app.sounds.library-manifest-s3-key`               | Path of the library manifest in the given S3 bucket              |
+| `app.sounds.library-manifest-cache-ttl`            | TTL for library manifest cache from the S3 bucket (default: 5m)  |

@@ -40,7 +40,7 @@ import static java.lang.Long.parseLong;
  * {@link SubscriptionService} implements operations related to subscription management.
  */
 @Service
-class SubscriptionService {
+public class SubscriptionService {
 
     private final SubscriptionConfiguration subscriptionConfig;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
@@ -511,6 +511,17 @@ class SubscriptionService {
         } catch (NumberFormatException e) {
             throw new SubscriptionWebhookEventException("failed to parse the client reference id in checkout session");
         }
+    }
+
+    /**
+     * @return if the given {@code user} owns an active subscription.
+     */
+    public boolean isUserSubscribed(@NonNull AuthUser user) {
+        return subscriptionRepository.findActiveByOwnerAndStatus(
+                user,
+                Subscription.Status.PENDING,
+                Subscription.Status.ACTIVE)
+            .isPresent();
     }
 
     @NonNull
