@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -47,6 +48,7 @@ import static java.util.Objects.requireNonNullElse;
 @RestController
 @RequestMapping("/v1/accounts")
 @Slf4j
+@Tag(name = "account")
 class AccountController {
 
     static final String REFRESH_TOKEN_HEADER = "X-Refresh-Token";

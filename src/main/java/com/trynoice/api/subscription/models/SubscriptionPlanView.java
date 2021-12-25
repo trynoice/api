@@ -14,6 +14,7 @@ import lombok.NonNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(name = "SubscriptionPlan")
 public class SubscriptionPlanView {
 
     @Schema(required = true, description = "id of the subscription plan")
