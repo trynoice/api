@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -53,6 +54,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/v1/subscriptions")
 @Slf4j
+@Tag(name = "subscription")
 class SubscriptionController {
 
     static final String SUBSCRIPTION_ID_HEADER = "X-Subscription-Id";

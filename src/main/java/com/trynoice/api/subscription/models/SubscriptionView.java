@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(name = "Subscription")
 public class SubscriptionView {
 
     @Schema(required = true, description = "id of the subscription purchase")
