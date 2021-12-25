@@ -8,7 +8,10 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.validation.annotation.Validated;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import javax.validation.constraints.NotBlank;
@@ -55,7 +58,12 @@ public class SoundConfiguration {
 
     @NonNull
     @Bean
-    S3Client s3Client() {
-        return S3Client.create();
+    S3Client s3Client(@NonNull Environment environment) {
+        // since `S3Client.create()` loads the AWS CLI configuration to obtain default credentials,
+        // it throws error in test environments (CI). Therefore, explicitly create a dummy S3 client
+        // during tests with minimal configuration.
+        return environment.acceptsProfiles(Profiles.of("test"))
+            ? S3Client.builder().region(Region.US_WEST_2).build()
+            : S3Client.create();
     }
 }
