@@ -20,11 +20,15 @@ public class AndroidPublisherApi {
 
     private final AndroidPublisher client;
 
-    public AndroidPublisherApi(@NonNull GoogleCredentials credentials) throws GeneralSecurityException, IOException {
+    public AndroidPublisherApi(
+        @NonNull GoogleCredentials credentials,
+        @NonNull String applicationName
+    ) throws GeneralSecurityException, IOException {
         client = new AndroidPublisher.Builder(
             GoogleNetHttpTransport.newTrustedTransport(),
             GsonFactory.getDefaultInstance(),
             new HttpCredentialsAdapter(credentials))
+            .setApplicationName(applicationName)
             .build();
     }
 
