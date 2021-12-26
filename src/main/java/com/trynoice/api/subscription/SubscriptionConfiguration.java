@@ -5,6 +5,7 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import lombok.Data;
 import lombok.NonNull;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,7 +49,8 @@ public class SubscriptionConfiguration {
     @Bean
     AndroidPublisherApi androidPublisherApi(
         @NonNull Environment environment,
-        @NonNull SubscriptionConfiguration config
+        @NonNull SubscriptionConfiguration config,
+        @NonNull @Value("${spring.application.name}") String appName
     ) throws IOException, GeneralSecurityException {
         GoogleCredentials credentials;
         try {
@@ -62,7 +64,7 @@ public class SubscriptionConfiguration {
             credentials = GoogleCredentials.create(new AccessToken("dummy-token", null));
         }
 
-        return new AndroidPublisherApi(credentials);
+        return new AndroidPublisherApi(credentials, appName);
     }
 
     @NonNull
