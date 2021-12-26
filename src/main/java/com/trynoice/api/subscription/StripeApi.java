@@ -42,7 +42,8 @@ public class StripeApi {
         @NonNull String priceId,
         @NonNull String clientReferenceId,
         @NonNull String customerEmail,
-        String stripeCustomerId
+        String stripeCustomerId,
+        @NonNull Long trialPeriodDays
     ) throws StripeException {
         return Session.create(
             new SessionCreateParams.Builder()
@@ -52,6 +53,10 @@ public class StripeApi {
                 .setClientReferenceId(clientReferenceId)
                 .setCustomerEmail(customerEmail)
                 .setCustomer(stripeCustomerId)
+                .setSubscriptionData(
+                    SessionCreateParams.SubscriptionData.builder()
+                        .setTrialPeriodDays(trialPeriodDays)
+                        .build())
                 .addLineItem(
                     new SessionCreateParams.LineItem.Builder()
                         .setQuantity(1L)

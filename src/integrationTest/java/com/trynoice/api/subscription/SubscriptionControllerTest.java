@@ -147,7 +147,8 @@ public class SubscriptionControllerTest {
         val sessionUrl = "/checkout-session-url";
         if (provider == SubscriptionPlan.Provider.STRIPE) {
             when(mockSession.getUrl()).thenReturn(sessionUrl);
-            when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any())).thenReturn(mockSession);
+            when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(mockSession);
         }
 
         val resultActions = mockMvc.perform(

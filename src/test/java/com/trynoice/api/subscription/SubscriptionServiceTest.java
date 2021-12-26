@@ -69,6 +69,7 @@ public class SubscriptionServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(subscriptionConfiguration.getStripeTrialPeriodDays()).thenReturn(1L);
         service = new SubscriptionService(
             subscriptionConfiguration,
             subscriptionPlanRepository,
@@ -178,7 +179,7 @@ public class SubscriptionServiceTest {
         when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
             .thenReturn(Optional.of(subscription));
 
-        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any()))
+        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any(), any()))
             .thenThrow(new ApiConnectionException("test-error"));
 
         assertThrows(RuntimeException.class, () -> service.createSubscription(authUser, params));
@@ -210,12 +211,13 @@ public class SubscriptionServiceTest {
 
         when(
             stripeApi.createCheckoutSession(
-                params.getSuccessUrl(),
-                params.getCancelUrl(),
-                stripePriceId,
-                subscription.getId().toString(),
-                authUser.getEmail(),
-                stripeCustomerId))
+                eq(params.getSuccessUrl()),
+                eq(params.getCancelUrl()),
+                eq(stripePriceId),
+                eq(subscription.getId().toString()),
+                eq(authUser.getEmail()),
+                eq(stripeCustomerId),
+                any()))
             .thenReturn(mockSession);
 
         val result = service.createSubscription(authUser, params);
