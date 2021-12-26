@@ -29,6 +29,10 @@ public class SubscriptionPlanView {
     @NonNull
     private Short billingPeriodMonths;
 
+    @Schema(required = true, description = "number of days included as the trial period with the plan")
+    @NonNull
+    private Short trialPeriodDays;
+
     @Schema(required = true, description = "currency formatted string showing plan's price in INR, e.g. '₹225'")
     @NonNull
     private String priceInr;

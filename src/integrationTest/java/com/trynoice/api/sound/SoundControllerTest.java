@@ -148,6 +148,7 @@ public class SoundControllerTest {
             .provider(SubscriptionPlan.Provider.STRIPE)
             .providerPlanId(UUID.randomUUID().toString().substring(0, 16))
             .billingPeriodMonths((short) 1)
+            .trialPeriodDays((short) 1)
             .priceInIndianPaise(10000)
             .build();
 

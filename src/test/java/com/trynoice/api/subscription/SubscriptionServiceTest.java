@@ -69,7 +69,6 @@ public class SubscriptionServiceTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(subscriptionConfiguration.getStripeTrialPeriodDays()).thenReturn(1L);
         service = new SubscriptionService(
             subscriptionConfiguration,
             subscriptionPlanRepository,
@@ -81,21 +80,10 @@ public class SubscriptionServiceTest {
 
     @Test
     void getPlans_withSupportedProviders() throws UnsupportedSubscriptionPlanProviderException {
-        val googlePlayPlan = SubscriptionPlan.builder()
-            .provider(SubscriptionPlan.Provider.GOOGLE_PLAY)
-            .providerPlanId("google_plan_plan_id")
-            .billingPeriodMonths((short) 1)
-            .priceInIndianPaise(10000)
-            .build();
-
+        val googlePlayPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "google_plan_plan_id");
         googlePlayPlan.setId((short) 1);
-        val stripePlan = SubscriptionPlan.builder()
-            .provider(SubscriptionPlan.Provider.STRIPE)
-            .providerPlanId("stripe_plan_id")
-            .billingPeriodMonths((short) 1)
-            .priceInIndianPaise(10000)
-            .build();
 
+        val stripePlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "stripe_plan_id");
         stripePlan.setId((short) 2);
 
         lenient()
@@ -128,6 +116,7 @@ public class SubscriptionServiceTest {
                 assertEquals(expecting.getId(), got.getId());
                 assertEquals(expecting.getProvider().name().toLowerCase(), got.getProvider().toLowerCase());
                 assertEquals(expecting.getBillingPeriodMonths(), got.getBillingPeriodMonths());
+                assertEquals(expecting.getTrialPeriodDays(), got.getTrialPeriodDays());
                 assertTrue(got.getPriceInr().contains("" + (expecting.getPriceInIndianPaise() / 100)));
             }
         }
@@ -351,6 +340,7 @@ public class SubscriptionServiceTest {
             .provider(provider)
             .providerPlanId(providerPlanId)
             .billingPeriodMonths((short) 1)
+            .trialPeriodDays((short) 1)
             .priceInIndianPaise(22500)
             .build();
 

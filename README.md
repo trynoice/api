@@ -60,7 +60,7 @@ All production configuration must be accepted through a separate properties file
 properties must be configured before deploying the application to the production environment.
 
 | Name                                               | Description                                                      |
-| -------------------------------------------------- | ---------------------------------------------------------------- |
+|----------------------------------------------------|------------------------------------------------------------------|
 | `spring.datasource.url`                            | Spring datasource URL (PostgreSQL DSN)                           |
 | `spring.datasource.username`                       | PostgreSQL user name                                             |
 | `spring.datasource.password`                       | PostgreSQL user password                                         |
@@ -77,7 +77,6 @@ properties must be configured before deploying the application to the production
 | `app.auth.sign-in-token-expiry`                    | Duration for the expiry of sign-in token (default: `15m`)        |
 | `app.auth.cookie-domain`                           | Domain value to use when sending cookies to clients              |
 | `app.subscriptions.android-publisher-api-key-path` | Path of the service account key to access Android Publisher API  |
-| `app.subscriptions.stripe-trial-period-days`       | Applicable trial period days when creating Stripe subscriptions  |
 | `app.subscriptions.stripe-api-key`                 | Secret API key to access Stripe API                              |
 | `app.subscriptions.stripe-webhook-secret`          | Secret to verify webhook event payload using HMAC-256 signatures |
 | `app.sounds.library-manifest-s3-bucket`            | Name of the S3 bucket that hosts the library manifest            |
