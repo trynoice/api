@@ -168,7 +168,8 @@ public class SubscriptionService {
                             plan.getProviderPlanId(),
                             subscriptionId.toString(),
                             owner.getEmail(),
-                            subscriptionRepository.findActiveStripeCustomerIdByOwner(owner).orElse(null))
+                            subscriptionRepository.findActiveStripeCustomerIdByOwner(owner).orElse(null),
+                            subscriptionConfig.getStripeTrialPeriodDays())
                         .getUrl());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to create stripe checkout session", e);
