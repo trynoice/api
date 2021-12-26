@@ -526,6 +526,7 @@ public class SubscriptionControllerTest {
                 .provider(provider)
                 .providerPlanId(providerPlanId)
                 .billingPeriodMonths((short) 1)
+                .trialPeriodDays((short) 1)
                 .priceInIndianPaise(10000)
                 .build());
     }

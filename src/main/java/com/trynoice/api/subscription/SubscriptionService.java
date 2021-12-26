@@ -169,7 +169,7 @@ public class SubscriptionService {
                             subscriptionId.toString(),
                             owner.getEmail(),
                             subscriptionRepository.findActiveStripeCustomerIdByOwner(owner).orElse(null),
-                            subscriptionConfig.getStripeTrialPeriodDays())
+                            Long.valueOf(plan.getTrialPeriodDays()))
                         .getUrl());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to create stripe checkout session", e);
@@ -531,6 +531,7 @@ public class SubscriptionService {
             .id(plan.getId())
             .provider(plan.getProvider().name().toLowerCase())
             .billingPeriodMonths(plan.getBillingPeriodMonths())
+            .trialPeriodDays(plan.getTrialPeriodDays())
             .priceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise()))
             .build();
     }
