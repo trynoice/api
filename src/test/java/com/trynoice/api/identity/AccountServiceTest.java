@@ -227,6 +227,12 @@ class AccountServiceTest {
     }
 
     @Test
+    void issueAuthCredentials_withMalformedJWT() {
+        val refreshToken = JWT.create().sign(jwtAlgorithm);
+        assertThrows(RefreshTokenVerificationException.class, () -> service.issueAuthCredentials(refreshToken, ""));
+    }
+
+    @Test
     void issueAuthCredentials_withValidJWT() throws RefreshTokenVerificationException {
         val refreshToken = buildRefreshToken(buildAuthUser());
         val token = refreshToken.getJwt(jwtAlgorithm);

@@ -178,12 +178,13 @@ class AccountService {
 
     @NonNull
     private RefreshToken verifyRefreshJWT(@NonNull String jwt) throws RefreshTokenVerificationException {
-        final long jwtId, jwtOrdinal;
+        //noinspection WrapperTypeMayBePrimitive because jwtOrdinal could be null.
+        final Long jwtId, jwtOrdinal;
         try {
             val decodedToken = jwtVerifier.verify(jwt);
             jwtId = parseLong(decodedToken.getId());
             jwtOrdinal = decodedToken.getClaim(RefreshToken.ORD_JWT_CLAIM).asLong();
-        } catch (JWTVerificationException e) {
+        } catch (JWTVerificationException | NumberFormatException e) {
             throw new RefreshTokenVerificationException("refresh token verification failed", e);
         }
 
@@ -192,7 +193,7 @@ class AccountService {
 
         // if token ordinal is different, it implies that an old refresh token is being re-used.
         // delete token on re-use to effectively sign out both the legitimate user and the attacker.
-        if (!Long.valueOf(jwtOrdinal).equals(token.getOrdinal())) {
+        if (!token.getOrdinal().equals(jwtOrdinal)) {
             refreshTokenRepository.delete(token);
             throw new RefreshTokenVerificationException("refresh token ordinal mismatch");
         }
