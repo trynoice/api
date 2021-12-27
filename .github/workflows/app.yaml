@@ -98,15 +98,15 @@ jobs:
             sudo rm -rf /usr/local/share/noice /etc/noice
 
             sudo mkdir -p /var/log/noice
-            sudo chown -R nobody:root /var/log/noice
+            sudo chown -R nobody:nogroup /var/log/noice
 
             sudo mv ${{ env.API_DEPLOYMENT_PATH }}/build/libs /usr/local/share/noice
-            sudo chown -R nobody:root /usr/local/share/noice
+            sudo chown -R nobody:nogroup /usr/local/share/noice
             sudo chmod -R a=rx,u=rwx /usr/local/share/noice
 
             sudo mv ${{ env.API_DEPLOYMENT_PATH }}/conf /etc/noice
-            sudo chown -R nobody:root /etc/noice
-            sudo chmod -R a=x,g=rx,u=rwx /etc/noice
+            sudo chown -R nobody:nogroup /etc/noice
+            sudo chmod -R a=x,u=rwx /etc/noice
 
             sudo mv ${{ env.API_DEPLOYMENT_PATH }}/scripts/noice-api.service /etc/systemd/system/noice-api.service
             sudo systemctl daemon-reload

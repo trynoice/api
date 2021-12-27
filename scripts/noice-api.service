@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 User=nobody
+Group=nogroup
 Type=simple
 ExecStart=/usr/bin/authbind --deep /usr/bin/java -jar /usr/local/share/noice/api.jar --spring.config.additional-location=file:///etc/noice/api.properties --logging.file.name=/var/log/noice/api.log
 SuccessExitStatus=143
