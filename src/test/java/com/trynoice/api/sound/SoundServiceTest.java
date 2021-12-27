@@ -1,7 +1,7 @@
 package com.trynoice.api.sound;
 
 import com.trynoice.api.identity.entities.AuthUser;
-import com.trynoice.api.sound.exceptions.SegmentRequestAuthorizationException;
+import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
 import com.trynoice.api.subscription.SubscriptionService;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,7 +65,7 @@ public class SoundServiceTest {
                 service.authorizeSegmentRequest(principal, soundId, premiumSegmentId);
             });
         } else {
-            assertThrows(SegmentRequestAuthorizationException.class, () -> service.authorizeSegmentRequest(principal, soundId, premiumSegmentId));
+            assertThrows(SegmentAccessDeniedException.class, () -> service.authorizeSegmentRequest(principal, soundId, premiumSegmentId));
         }
     }
 

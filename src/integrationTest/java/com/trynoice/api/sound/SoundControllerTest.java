@@ -55,9 +55,9 @@ public class SoundControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @ParameterizedTest(name = "{displayName} - isSignedIn={0} subscriptionStatus={1} canAccessPremiumSegments={2}")
+    @ParameterizedTest(name = "{displayName} - isSignedIn={0} subscriptionStatus={1} responseStatus={2}")
     @MethodSource("authorizeSegmentRequestTestCases")
-    void authorizeSegmentRequest(boolean isSignedIn, Subscription.Status subscriptionStatus, boolean canAccessPremiumSegments) throws Exception {
+    void authorizeSegmentRequest(boolean isSignedIn, Subscription.Status subscriptionStatus, int expectedResponseStatus) throws Exception {
         val soundId = "test";
         val freeSegmentId = "test_free";
         val premiumSegmentId = "test_premium";
@@ -113,18 +113,17 @@ public class SoundControllerTest {
 
         mockMvc.perform(freeSegmentRequest).andExpect(status().is(HttpStatus.OK.value()));
         mockMvc.perform(premiumSegmentRequest)
-            .andExpect(status().is(
-                canAccessPremiumSegments ? HttpStatus.OK.value() : HttpStatus.UNAUTHORIZED.value()));
+            .andExpect(status().is(expectedResponseStatus));
     }
 
     static Stream<Arguments> authorizeSegmentRequestTestCases() {
         return Stream.of(
-            // isSignedIn, subscriptionStatus, canAccessPremiumSegments
-            arguments(false, null, false),
-            arguments(true, Subscription.Status.CREATED, false),
-            arguments(true, Subscription.Status.INACTIVE, false),
-            arguments(true, Subscription.Status.PENDING, true),
-            arguments(true, Subscription.Status.ACTIVE, true)
+            // isSignedIn, subscriptionStatus, expectedResponseCode
+            arguments(false, null, HttpStatus.UNAUTHORIZED.value()),
+            arguments(true, Subscription.Status.CREATED, HttpStatus.FORBIDDEN.value()),
+            arguments(true, Subscription.Status.INACTIVE, HttpStatus.FORBIDDEN.value()),
+            arguments(true, Subscription.Status.PENDING, HttpStatus.OK.value()),
+            arguments(true, Subscription.Status.ACTIVE, HttpStatus.OK.value())
         );
     }
 

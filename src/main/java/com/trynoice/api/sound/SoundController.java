@@ -2,7 +2,7 @@ package com.trynoice.api.sound;
 
 
 import com.trynoice.api.identity.entities.AuthUser;
-import com.trynoice.api.sound.exceptions.SegmentRequestAuthorizationException;
+import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -53,7 +53,8 @@ class SoundController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "request is authorized"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "401", description = "request is not authorized"),
+        @ApiResponse(responseCode = "401", description = "user requested a premium segment but is not signed-in"),
+        @ApiResponse(responseCode = "403", description = "user requested a premium segment but doesn't have an active subscription"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -66,9 +67,9 @@ class SoundController {
         try {
             soundService.authorizeSegmentRequest(principal, soundId, segmentId);
             return ResponseEntity.ok(null);
-        } catch (SegmentRequestAuthorizationException e) {
-            log.trace("segment request is not authorized", e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        } catch (SegmentAccessDeniedException e) {
+            log.trace("segment request denied", e);
+            return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN).build();
         }
     }
 }
