@@ -1,17 +1,8 @@
 package com.trynoice.api;
 
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
-import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.BearerTokenAuthFilter;
 import com.trynoice.api.identity.CookieAuthFilter;
-import com.trynoice.api.identity.SignInTokenDispatchStrategy;
-import com.trynoice.api.identity.models.AuthConfiguration;
-import com.trynoice.api.identity.models.EmailSignInTokenDispatcherConfiguration;
 import com.trynoice.api.platform.GlobalControllerAdvice;
-import com.trynoice.api.subscription.AndroidPublisherApi;
-import com.trynoice.api.subscription.StripeApi;
-import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -22,102 +13,26 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.Banner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-
 @SpringBootApplication
+@EnableCaching
 public class Application {
 
     public static void main(String[] args) {
         new SpringApplicationBuilder(Application.class)
             .bannerMode(Banner.Mode.OFF)
             .run(args);
-    }
-
-    @NonNull
-    @Validated
-    @Bean
-    @ConfigurationProperties("app.auth")
-    AuthConfiguration authConfiguration() {
-        return new AuthConfiguration();
-    }
-
-    @NonNull
-    @Validated
-    @Bean
-    @ConfigurationProperties("app.auth.sign-in-token-dispatcher.email")
-    @ConditionalOnProperty(name = "app.auth.sign-in-token-dispatcher-type", havingValue = "email")
-    EmailSignInTokenDispatcherConfiguration emailSignInTokenDispatcherConfiguration() {
-        return new EmailSignInTokenDispatcherConfiguration();
-    }
-
-    @NonNull
-    @Validated
-    @Bean
-    @ConfigurationProperties("app.subscriptions")
-    SubscriptionConfiguration subscriptionConfiguration() {
-        return new SubscriptionConfiguration();
-    }
-
-    @NonNull
-    @Bean
-    SignInTokenDispatchStrategy signInTokenDispatchStrategy(
-        @NonNull AuthConfiguration authConfig,
-        @Autowired(required = false) EmailSignInTokenDispatcherConfiguration emailSignInTokenDispatcherConfig
-    ) {
-        switch (authConfig.getSignInTokenDispatcherType()) {
-            case EMAIL:
-                assert emailSignInTokenDispatcherConfig != null;
-                return new SignInTokenDispatchStrategy.Email(emailSignInTokenDispatcherConfig);
-            case CONSOLE:
-                return new SignInTokenDispatchStrategy.Console();
-            default:
-                throw new IllegalArgumentException("unsupported sign-in token dispatch strategy: "
-                    + authConfiguration().getSignInTokenDispatcherType());
-        }
-    }
-
-    @NonNull
-    @Bean
-    AndroidPublisherApi androidPublisherApi(
-        @NonNull Environment environment,
-        @NonNull SubscriptionConfiguration config
-    ) throws IOException, GeneralSecurityException {
-        GoogleCredentials credentials;
-        try {
-            credentials = config.getAndroidPublisherApiCredentials();
-        } catch (IOException e) {
-            // create dummy credentials when running tests since credentials file may not be available.
-            if (environment.acceptsProfiles(Profiles.of("!test"))) {
-                throw e;
-            }
-
-            credentials = GoogleCredentials.create(new AccessToken("dummy-token", null));
-        }
-
-        return new AndroidPublisherApi(credentials);
-    }
-
-    @NonNull
-    @Bean
-    StripeApi stripeApi(@NonNull SubscriptionConfiguration config) {
-        return new StripeApi(config.getStripeApiKey());
     }
 
     @NonNull
@@ -161,12 +76,12 @@ public class Application {
 
         @Autowired
         public WebSecurityConfiguration(
-            @NonNull AuthConfiguration authConfig,
-            @NonNull AccountService accountService,
+            @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
+            @NonNull CookieAuthFilter cookieAuthFilter,
             @NonNull GlobalControllerAdvice globalControllerAdvice
         ) {
-            this.bearerTokenAuthFilter = new BearerTokenAuthFilter(accountService);
-            this.cookieAuthFilter = new CookieAuthFilter(authConfig, accountService);
+            this.bearerTokenAuthFilter = bearerTokenAuthFilter;
+            this.cookieAuthFilter = cookieAuthFilter;
             this.globalControllerAdvice = globalControllerAdvice;
         }
 
@@ -196,11 +111,15 @@ public class Application {
                 .securityContext().disable()
                 .sessionManagement().disable();
 
+            // will automatically consider CORS configuration from WebMVC.
+            // https://docs.spring.io/spring-security/site/docs/5.2.1.RELEASE/reference/htmlsingle/#cors
+            http.cors();
             http.exceptionHandling()
                 .authenticationEntryPoint(globalControllerAdvice.noOpAuthenticationEntrypoint());
 
             // use request filter to use SecurityContext for authorizing requests.
             http.authorizeRequests()
+                .mvcMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
                 .antMatchers("/v1/**").fullyAuthenticated()
                 .anyRequest().permitAll();
 

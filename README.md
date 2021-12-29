@@ -32,11 +32,12 @@ To run from the terminal, use the Gradle wrapper.
 ### Development Configuration
 
 Both the `bootRun` Gradle task and the [**API** IntelliJ run
-configuration](.idea/runConfigurations/API.xml), activate the `dev` Spring profile. To customise
-[`application.properties`](src/main/resources/application.properties) for your development
-environment, override properties in `application-dev.properties` (loaded when the `dev` Spring
-profile is active). `application-dev.properties` is ignored by Git and a sample file is available
-[here](src/main/resources/application-dev.properties.sample).
+configuration](.idea/runConfigurations/API.xml), activate the `dev-default` and `dev` Spring
+profiles.
+[`application-dev-default.properties`](src/main/resources/application-dev-default.properties)
+contains some sensible defaults required for development, whereas,
+[`application-dev.properties`](src/main/resources/application-dev.properties) is gitignored and
+meant to store developer's personalised configuration (such as API secrets, etc.).
 
 ### Integration Tests
 
@@ -55,24 +56,29 @@ database.
 
 ## Production Configuration
 
-As a convention, all production configuration must be accepted through environment variables. To
-enable such behaviour, use [`application.properties`](src/main/resources/application.properties) to
-inject environment variables in Spring configuration.
+All production configuration must be accepted through a separate properties file. The following
+properties must be configured before deploying the application to the production environment.
 
-| Name                               | Description                                   |             Default              |
-| ---------------------------------- | --------------------------------------------- | :------------------------------: |
-| `PGDB_HOST`                        | PostgreSQL server host                        |            localhost             |
-| `PGDB_PORT`                        | PostgreSQL server port                        |               5432               |
-| `PGDB_NAME`                        | PostgreSQL database name                      |             develop              |
-| `PGDB_USER`                        | PostgreSQL user name                          |              admin               |
-| `PGDB_PASSWORD`                    | PostgreSQL user password                      |             password             |
-| `APP_DOMAIN`                       | App domain for cookies and CORS policy        |                -                 |
-| `AUTH_HMAC_SECRET`                 | HMAC secret for signing JWTs                  |                -                 |
-| `AUTH_REFRESH_TOKEN_EXPIRY`        | Duration for the expiry of refresh token      |                7d                |
-| `AUTH_ACCESS_TOKEN_EXPIRY`         | Duration for the expiry of access token       |               30m                |
-| `AUTH_SIGN_IN_TOKEN_EXPIRY`        | Duration for the expiry of sign-in token      |               15m                |
-| `AUTH_SIGN_IN_TOKEN_FROM_EMAIL`    | `from` email for sending sign-in tokens       |                -                 |
-| `AUTH_SIGN_IN_TOKEN_SUPPORT_EMAIL` | Support address to include in sign-in emails  |                -                 |
-| `ANDROID_PUBLISHER_API_KEY_PATH`   | Service account key for Android Publisher API | `android-publisher-api-key.json` |
-| `STRIPE_API_KEY`                   | Secret API key for accessing Stripe API       |                -                 |
-| `STRIPE_WEBHOOK_SECRET`            | Secret to verify webhook payload signature    |                -                 |
+| Name                                               | Description                                                      |
+|----------------------------------------------------|------------------------------------------------------------------|
+| `spring.datasource.url`                            | Spring datasource URL (PostgreSQL DSN)                           |
+| `spring.datasource.username`                       | PostgreSQL user name                                             |
+| `spring.datasource.password`                       | PostgreSQL user password                                         |
+| `app.cors.allowed-origins`                         | Comma-separated list of allowed origins patterns for CORS        |
+|                                                    | `https://*.domain1.com` - all endings with domain1.com           |
+|                                                    | `https://*.domain1.com:[8080,8081]` - all endings with           |
+|                                                    | domain1.com on port 8080 or 8081                                 |
+|                                                    | `https://*.domain1.com:[*]` - all endings with domain1.com       |
+|                                                    | with any port (including default port)                           |
+|                                                    |                                                                  |
+| `app.auth.hmac-secret`                             | HMAC secret for signing JWTs                                     |
+| `app.auth.refresh-token-expiry`                    | Duration for the expiry of refresh token (default: `7d`)         |
+| `app.auth.access-token-expiry`                     | Duration for the expiry of access token (default: `30m`)         |
+| `app.auth.sign-in-token-expiry`                    | Duration for the expiry of sign-in token (default: `15m`)        |
+| `app.auth.cookie-domain`                           | Domain value to use when sending cookies to clients              |
+| `app.subscriptions.android-publisher-api-key-path` | Path of the service account key to access Android Publisher API  |
+| `app.subscriptions.stripe-api-key`                 | Secret API key to access Stripe API                              |
+| `app.subscriptions.stripe-webhook-secret`          | Secret to verify webhook event payload using HMAC-256 signatures |
+| `app.sounds.library-manifest-s3-bucket`            | Name of the S3 bucket that hosts the library manifest            |
+| `app.sounds.library-manifest-s3-key`               | Path of the library manifest in the given S3 bucket              |
+| `app.sounds.library-manifest-cache-ttl`            | TTL for library manifest cache from the S3 bucket (default: 5m)  |

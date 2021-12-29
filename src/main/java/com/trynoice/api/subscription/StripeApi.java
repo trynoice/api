@@ -8,8 +8,10 @@ import com.stripe.model.Event;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionCancelParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.NonNull;
+import lombok.val;
 
 /**
  * A thin wrapper around {@link Stripe} api to enable easy mocking.
@@ -29,6 +31,7 @@ public class StripeApi {
      * @param priceId           price id of the subscription.
      * @param clientReferenceId a reference id to identify customer internally.
      * @param customerEmail     customer's email.
+     * @param stripeCustomerId  customer id assigned by Stripe to the subscription owner (optional)
      * @return a new checkout session
      * @throws StripeException on api call error
      */
@@ -38,7 +41,9 @@ public class StripeApi {
         @NonNull String cancelUrl,
         @NonNull String priceId,
         @NonNull String clientReferenceId,
-        @NonNull String customerEmail
+        @NonNull String customerEmail,
+        String stripeCustomerId,
+        @NonNull Long trialPeriodDays
     ) throws StripeException {
         return Session.create(
             new SessionCreateParams.Builder()
@@ -47,6 +52,11 @@ public class StripeApi {
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
                 .setClientReferenceId(clientReferenceId)
                 .setCustomerEmail(customerEmail)
+                .setCustomer(stripeCustomerId)
+                .setSubscriptionData(
+                    SessionCreateParams.SubscriptionData.builder()
+                        .setTrialPeriodDays(trialPeriodDays)
+                        .build())
                 .addLineItem(
                     new SessionCreateParams.LineItem.Builder()
                         .setQuantity(1L)
@@ -73,5 +83,38 @@ public class StripeApi {
     @NonNull
     Subscription getSubscription(@NonNull String id) throws StripeException {
         return Subscription.retrieve(id);
+    }
+
+    /**
+     * Cancels an uncanceled subscription immediately and refunds any remaining (unused) amount on a
+     * prorated basis.
+     *
+     * @see Subscription#cancel(SubscriptionCancelParams)
+     */
+    void cancelSubscription(@NonNull String id) throws StripeException {
+        val subscription = getSubscription(id);
+        if ("canceled".equals(subscription.getStatus())) {
+            return;
+        }
+
+        subscription.cancel(
+            SubscriptionCancelParams.builder()
+                .setProrate(true)
+                .build());
+    }
+
+    /**
+     * @see com.stripe.model.billingportal.Session#create(com.stripe.param.billingportal.SessionCreateParams)
+     */
+    @NonNull
+    com.stripe.model.billingportal.Session createCustomerPortalSession(
+        @NonNull String customerId,
+        String returnUrl
+    ) throws StripeException {
+        return com.stripe.model.billingportal.Session.create(
+            com.stripe.param.billingportal.SessionCreateParams.builder()
+                .setCustomer(customerId)
+                .setReturnUrl(returnUrl)
+                .build());
     }
 }

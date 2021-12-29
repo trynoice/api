@@ -34,6 +34,9 @@ public class SubscriptionPlan extends BasicEntity<Short> {
     private Short billingPeriodMonths;
 
     @NonNull
+    private Short trialPeriodDays;
+
+    @NonNull
     private Integer priceInIndianPaise;
 
     public enum Provider {

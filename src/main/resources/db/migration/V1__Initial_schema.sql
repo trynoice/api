@@ -29,6 +29,7 @@ CREATE TABLE refresh_token (
   version bigint NOT NULL,
   owner_id bigint NOT NULL,
   user_agent varchar(128) NOT NULL,
+  ordinal bigint NOT NULL,
   expires_at timestamp with time zone NOT NULL,
   last_used_at timestamp with time zone NOT NULL
 );
@@ -45,19 +46,20 @@ CREATE TABLE subscription_plan (
   provider varchar(16) NOT NULL,
   provider_plan_id varchar(32) NOT NULL,
   billing_period_months smallint NOT NULL,
+  trial_period_days smallint NOT NULL,
   price_in_indian_paise integer NOT NULL
 );
 
-INSERT INTO subscription_plan (created_at, version, provider, provider_plan_id, billing_period_months, price_in_indian_paise)
+INSERT INTO subscription_plan (created_at, version, provider, provider_plan_id, billing_period_months, trial_period_days, price_in_indian_paise)
   VALUES
-    (now(), 0, 'GOOGLE_PLAY', 'monthly', 1, 22500),
-    (now(), 0, 'GOOGLE_PLAY', 'quarterly', 3, 60000),
-    (now(), 0, 'GOOGLE_PLAY', 'bi_yearly', 6, 105000),
-    (now(), 0, 'GOOGLE_PLAY', 'yearly', 12, 180000),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORTL7UKS05', 1, 22500),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jOR5Utj2H24', 3, 60000),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORPUdnVRBx', 6, 105000),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORenAfLOCj', 12, 180000);
+    (now(), 0, 'GOOGLE_PLAY', 'monthly', 1, 14, 22500),
+    (now(), 0, 'GOOGLE_PLAY', 'quarterly', 3, 14, 60000),
+    (now(), 0, 'GOOGLE_PLAY', 'bi_yearly', 6, 14, 105000),
+    (now(), 0, 'GOOGLE_PLAY', 'yearly', 12, 14, 180000),
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORTL7UKS05', 1, 14, 22500),
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jOR5Utj2H24', 3, 14, 60000),
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORPUdnVRBx', 6, 14, 105000),
+    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORenAfLOCj', 12, 14, 180000);
 
 CREATE TABLE subscription (
   id bigserial NOT NULL PRIMARY KEY,
@@ -69,7 +71,8 @@ CREATE TABLE subscription (
   provider_subscription_id varchar(64),
   status varchar(24) NOT NULL,
   start_at timestamp with time zone,
-  end_at timestamp with time zone
+  end_at timestamp with time zone,
+  stripe_customer_id varchar(64)
 );
 
 CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)

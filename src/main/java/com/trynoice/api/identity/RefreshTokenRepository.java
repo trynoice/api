@@ -18,9 +18,10 @@ public interface RefreshTokenRepository extends BasicEntityCrudRepository<Refres
 
     /**
      * @param owner to filter the returned list.
-     * @return a list of {@link RefreshToken} entities owned by the provided {@link AuthUser owner}.
+     * @return a list of <b>unexpired</b> {@link RefreshToken} entities owned by the provided {@link
+     * AuthUser owner}.
      */
     @NonNull
-    @Query("select e from RefreshToken e where e.owner = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    List<RefreshToken> findAllActiveByOwner(@NonNull AuthUser owner);
+    @Query("select e from RefreshToken e where e.owner = ?1 and e.expiresAt > now() and" + WHERE_ACTIVE_CLAUSE)
+    List<RefreshToken> findAllActiveAndUnexpiredByOwner(@NonNull AuthUser owner);
 }

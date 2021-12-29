@@ -1,13 +1,14 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
-import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthCredentials;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
@@ -34,6 +35,7 @@ import static java.util.Objects.requireNonNullElse;
  * tokens) and adds as new cookies to the {@link HttpServletResponse}. </p>
  */
 @Slf4j
+@Component
 public class CookieAuthFilter extends OncePerRequestFilter {
 
     public static final String REFRESH_TOKEN_COOKIE = "rtc";
@@ -42,7 +44,8 @@ public class CookieAuthFilter extends OncePerRequestFilter {
     private final AuthConfiguration authConfig;
     private final AccountService accountService;
 
-    public CookieAuthFilter(@NonNull AuthConfiguration authConfig, @NonNull AccountService accountService) {
+    @Autowired
+    CookieAuthFilter(@NonNull AuthConfiguration authConfig, @NonNull AccountService accountService) {
         this.authConfig = authConfig;
         this.accountService = accountService;
     }

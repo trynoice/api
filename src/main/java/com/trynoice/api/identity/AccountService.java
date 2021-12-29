@@ -13,7 +13,6 @@ import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
@@ -26,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNullElse;
  */
 @Service
 @Slf4j
-public class AccountService {
+class AccountService {
 
     static final short MAX_SIGN_IN_ATTEMPTS_PER_USER = 5;
 
@@ -146,16 +146,17 @@ public class AccountService {
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
-    @ReasonablyTransactional
+    @Transactional(rollbackFor = Exception.class, noRollbackFor = RefreshTokenVerificationException.class)
     public AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 
-        // version 0 implies that this refresh token is being used to sign in, so persist userAgent.
-        if (token.getVersion() == 0) {
+        // ordinal 0 implies that this refresh token is being used to sign in, so persist userAgent.
+        if (Long.valueOf(0).equals(token.getOrdinal())) {
             token.setUserAgent(requireNonNullElse(userAgent, ""));
         }
 
         token.setExpiresAt(LocalDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
+        token.incrementOrdinal();
         token = refreshTokenRepository.save(token);
 
         // reset sign in attempts and update last active timestamp for the auth user. Last active
@@ -177,23 +178,24 @@ public class AccountService {
 
     @NonNull
     private RefreshToken verifyRefreshJWT(@NonNull String jwt) throws RefreshTokenVerificationException {
-        final long jwtId, jwtVersion;
+        //noinspection WrapperTypeMayBePrimitive because jwtOrdinal could be null.
+        final Long jwtId, jwtOrdinal;
         try {
             val decodedToken = jwtVerifier.verify(jwt);
             jwtId = parseLong(decodedToken.getId());
-            jwtVersion = decodedToken.getClaim(RefreshToken.ORD_JWT_CLAIM).asLong();
-        } catch (JWTVerificationException e) {
+            jwtOrdinal = decodedToken.getClaim(RefreshToken.ORD_JWT_CLAIM).asLong();
+        } catch (JWTVerificationException | NumberFormatException e) {
             throw new RefreshTokenVerificationException("refresh token verification failed", e);
         }
 
         val token = refreshTokenRepository.findActiveById(jwtId)
             .orElseThrow(() -> new RefreshTokenVerificationException("refresh token doesn't exist in database"));
 
-        // if token version is different, it implies that an old refresh token is being re-used.
+        // if token ordinal is different, it implies that an old refresh token is being re-used.
         // delete token on re-use to effectively sign out both the legitimate user and the attacker.
-        if (jwtVersion != token.getVersion()) {
+        if (!token.getOrdinal().equals(jwtOrdinal)) {
             refreshTokenRepository.delete(token);
-            throw new RefreshTokenVerificationException("refresh token version mismatch");
+            throw new RefreshTokenVerificationException("refresh token ordinal mismatch");
         }
 
         return token;
@@ -235,7 +237,7 @@ public class AccountService {
             .name(authUser.getName())
             .email(authUser.getEmail())
             .activeSessions(
-                refreshTokenRepository.findAllActiveByOwner(authUser)
+                refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)
                     .stream()
                     .map((token) -> Profile.ActiveSessionInfo.builder()
                         .refreshTokenId(token.getId())

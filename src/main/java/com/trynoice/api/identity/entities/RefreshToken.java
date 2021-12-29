@@ -42,6 +42,10 @@ public class RefreshToken extends BasicEntity<Long> {
     private String userAgent = "";
 
     @NonNull
+    @Builder.Default
+    private Long ordinal = 0L;
+
+    @NonNull
     private LocalDateTime expiresAt;
 
     @NonNull
@@ -53,6 +57,10 @@ public class RefreshToken extends BasicEntity<Long> {
     @PreUpdate
     void setLastUsedAt() {
         this.lastUsedAt = LocalDateTime.now();
+    }
+
+    public void incrementOrdinal() {
+        ordinal++;
     }
 
     /**
@@ -67,7 +75,7 @@ public class RefreshToken extends BasicEntity<Long> {
             .withJWTId(getId().toString())
             .withIssuedAt(convertLocalDateTimeToDate(getCreatedAt()))
             .withExpiresAt(convertLocalDateTimeToDate(expiresAt))
-            .withClaim(ORD_JWT_CLAIM, getVersion())
+            .withClaim(ORD_JWT_CLAIM, ordinal)
             .sign(signingAlgorithm);
     }
 

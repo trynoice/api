@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -47,6 +48,7 @@ import static java.util.Objects.requireNonNullElse;
 @RestController
 @RequestMapping("/v1/accounts")
 @Slf4j
+@Tag(name = "account")
 class AccountController {
 
     static final String REFRESH_TOKEN_HEADER = "X-Refresh-Token";
@@ -84,7 +86,7 @@ class AccountController {
     })
     @NonNull
     @PostMapping("/signUp")
-    ResponseEntity<Void> signUp(@NonNull @Valid @RequestBody SignUpParams params) {
+    ResponseEntity<Void> signUp(@Valid @NotNull @RequestBody SignUpParams params) {
         try {
             accountService.signUp(params);
             return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -117,7 +119,7 @@ class AccountController {
     })
     @NonNull
     @PostMapping("/signIn")
-    ResponseEntity<Void> signIn(@NonNull @Valid @RequestBody SignInParams params) {
+    ResponseEntity<Void> signIn(@Valid @NotNull @RequestBody SignInParams params) {
         try {
             accountService.signIn(params);
             return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -151,8 +153,8 @@ class AccountController {
     @NonNull
     @GetMapping(value = "/signOut")
     ResponseEntity<Void> signOut(
-        @Size(min = 1) @Valid @RequestHeader(value = REFRESH_TOKEN_HEADER, required = false) String refreshTokenHeader,
-        @Size(min = 1) @Valid @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie
+        @Valid @Size(min = 1) @RequestHeader(value = REFRESH_TOKEN_HEADER, required = false) String refreshTokenHeader,
+        @Valid @Size(min = 1) @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie
     ) {
         if (refreshTokenHeader == null && refreshTokenCookie == null) {
             return ResponseEntity.badRequest().build();
@@ -188,8 +190,8 @@ class AccountController {
     @NonNull
     @GetMapping(value = "/credentials")
     ResponseEntity<AuthCredentials> issueCredentials(
-        @NonNull @NotBlank @Valid @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
-        @Size(min = 1, max = 128) @Valid @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
+        @Valid @NotBlank @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
+        @Valid @Size(min = 1, max = 128) @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
     ) {
         try {
             val credentials = accountService.issueAuthCredentials(refreshToken, userAgent);
@@ -219,7 +221,7 @@ class AccountController {
     @DeleteMapping(value = "/refreshTokens/{tokenId}")
     ResponseEntity<Void> revokeRefreshToken(
         @NonNull @AuthenticationPrincipal AuthUser principal,
-        @NotNull @Min(1) @Valid @PathVariable Long tokenId
+        @Valid @NotNull @Min(1) @PathVariable Long tokenId
     ) {
         try {
             accountService.revokeRefreshToken(principal, tokenId);

@@ -6,17 +6,16 @@ import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
-import com.stripe.param.SubscriptionCancelParams;
-import com.trynoice.api.identity.AccountService;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
+import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.models.SubscriptionConfiguration;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
@@ -38,10 +37,10 @@ import java.util.stream.Collectors;
 import static java.lang.Long.parseLong;
 
 /**
- * {@link AccountService} implements operations related to subscription management.
+ * {@link SubscriptionService} implements operations related to subscription management.
  */
 @Service
-class SubscriptionService {
+public class SubscriptionService {
 
     private final SubscriptionConfiguration subscriptionConfig;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
@@ -162,13 +161,16 @@ class SubscriptionService {
         result.setSubscriptionId(subscriptionId);
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
             try {
-                result.setStripeCheckoutSessionUrl(stripeApi.createCheckoutSession(
-                        params.getSuccessUrl(),
-                        params.getCancelUrl(),
-                        plan.getProviderPlanId(),
-                        subscriptionId.toString(),
-                        owner.getEmail())
-                    .getUrl());
+                result.setStripeCheckoutSessionUrl(
+                    stripeApi.createCheckoutSession(
+                            params.getSuccessUrl(),
+                            params.getCancelUrl(),
+                            plan.getProviderPlanId(),
+                            subscriptionId.toString(),
+                            owner.getEmail(),
+                            subscriptionRepository.findActiveStripeCustomerIdByOwner(owner).orElse(null),
+                            Long.valueOf(plan.getTrialPeriodDays()))
+                        .getUrl());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to create stripe checkout session", e);
             }
@@ -178,19 +180,85 @@ class SubscriptionService {
     }
 
     /**
+     * @param onlyActive      return on the active subscription (if any).
+     * @param stripeReturnUrl optional redirect URL on exiting Stripe Customer portal (only used
+     *                        when an active subscription exists and is provided by Stripe).
      * @return a list of active and inactive subscriptions owned by the given {@code owner}.
      */
     @NonNull
-    List<SubscriptionView> getSubscriptions(@NonNull AuthUser owner) {
-        // not listing subscriptions in created state.
-        return subscriptionRepository.findAllActiveByOwnerAndStatus(
+    List<SubscriptionView> getSubscriptions(@NonNull AuthUser owner, @NonNull Boolean onlyActive, String stripeReturnUrl) {
+        final List<Subscription> subscriptions;
+        if (onlyActive) {
+            subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
+                owner,
+                Subscription.Status.ACTIVE,
+                Subscription.Status.PENDING);
+        } else {
+            subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
                 owner,
                 Subscription.Status.ACTIVE,
                 Subscription.Status.PENDING,
-                Subscription.Status.INACTIVE)
-            .stream()
-            .map(SubscriptionService::buildSubscriptionView)
+                Subscription.Status.INACTIVE);
+        }
+
+        // not listing subscriptions in created state.
+        return subscriptions.stream()
+            .map(subscription -> buildSubscriptionView(subscription, stripeApi, stripeReturnUrl))
             .collect(Collectors.toUnmodifiableList());
+    }
+
+    /**
+     * Cancels the given subscription by marking it as inactive in app's internal state and
+     * requesting its cancellation from its provider.
+     *
+     * @param owner          expected owner of the subscription (authenticated user).
+     * @param subscriptionId id of the subscription to be cancelled.
+     * @throws SubscriptionNotFoundException if subscription with given id and owner doesn't exist.
+     * @throws SubscriptionStateException    if subscription is not currently active.
+     */
+    @ReasonablyTransactional
+    public void cancelSubscription(
+        @NonNull AuthUser owner,
+        @NonNull Long subscriptionId
+    ) throws SubscriptionNotFoundException, SubscriptionStateException {
+        val subscription = subscriptionRepository.findActiveById(subscriptionId)
+            .orElseThrow(() -> new SubscriptionNotFoundException("subscription doesn't exist"));
+
+        if (!subscription.getOwner().equals(owner)) {
+            throw new SubscriptionNotFoundException("given owner doesn't own this subscription");
+        }
+
+        if (subscription.getStatus() != Subscription.Status.ACTIVE && subscription.getStatus() != Subscription.Status.PENDING) {
+            throw new SubscriptionStateException("subscription status is neither active nor pending");
+        }
+
+        switch (subscription.getPlan().getProvider()) {
+            case GOOGLE_PLAY:
+                try {
+                    androidPublisherApi.cancelSubscription(
+                        subscriptionConfig.getAndroidApplicationId(),
+                        subscription.getPlan().getProviderPlanId(),
+                        subscription.getProviderSubscriptionId());
+                } catch (IOException e) {
+                    throw new RuntimeException("google play api error", e);
+                }
+
+                break;
+            case STRIPE:
+                try {
+                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId());
+                } catch (StripeException e) {
+                    throw new RuntimeException("stripe api error", e);
+                }
+
+                break;
+            default:
+                throw new IllegalStateException("unsupported provider used in subscription plan");
+        }
+
+        subscription.setStatus(Subscription.Status.INACTIVE);
+        subscription.setEndAt(LocalDateTime.now());
+        subscriptionRepository.save(subscription);
     }
 
     /**
@@ -243,7 +311,7 @@ class SubscriptionService {
                 subscriptionPlanId.asText(),
                 purchaseToken.asText());
         } catch (IOException e) {
-            // might be a network error, no way to be sure.
+            // runtime exception so that webhook is retried since it might be a network error.
             throw new RuntimeException("failed to retrieve purchase data from google play", e);
         }
 
@@ -306,7 +374,7 @@ class SubscriptionService {
                     subscriptionPlanId.asText(),
                     purchaseToken.asText());
             } catch (IOException e) {
-                // might be a network error, no way to be sure.
+                // runtime exception so that webhook is retried since it might be a network error.
                 throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }
         }
@@ -348,15 +416,9 @@ class SubscriptionService {
                         // cancel subscription if we cannot handle the checkout session since
                         // SubscriptionWebhookEventException only occurs if Session is not how we
                         // expect it to be.
-                        val stripeSubscription = stripeApi.getSubscription(session.getSubscription());
-                        if (!"canceled".equals(stripeSubscription.getStatus())) {
-                            stripeSubscription.cancel(
-                                SubscriptionCancelParams.builder()
-                                    .setProrate(true)
-                                    .build());
-                        }
+                        stripeApi.cancelSubscription(session.getSubscription());
                     } catch (StripeException inner) {
-                        // maybe a network error, can never be sure?
+                        // runtime exception so that webhook is retried since it might be a network error.
                         throw new RuntimeException("failed to cancel stripe subscription", inner);
                     }
 
@@ -372,11 +434,26 @@ class SubscriptionService {
                 val stripeSubscription = (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get subscription object from the event payload"));
 
+                if (stripeSubscription.getItems() == null
+                    || stripeSubscription.getItems().getData() == null
+                    || stripeSubscription.getItems().getData().size() != 1
+                    || stripeSubscription.getItems().getData().get(0) == null
+                    || stripeSubscription.getItems().getData().get(0).getPrice() == null) {
+                    throw new SubscriptionWebhookEventException("failed to get subscription price object from the event payload");
+                }
+
+                val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
                 val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(stripeSubscription.getId())
                     .orElseThrow(() -> {
                         val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
                         return new SubscriptionWebhookEventException(errMsg);
                     });
+
+                if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
+                    subscription.setPlan(
+                        subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
+                            .orElseThrow(() -> new SubscriptionWebhookEventException("updated provider plan id not recognised")));
+                }
 
                 if (stripeSubscription.getStartDate() != null) {
                     subscription.setStartAtSeconds(stripeSubscription.getStartDate());
@@ -415,6 +492,8 @@ class SubscriptionService {
             throw new SubscriptionWebhookEventException("checkout session status is not complete");
         } else if (!"paid".equals(session.getPaymentStatus())) {
             throw new SubscriptionWebhookEventException("checkout session payment status is not paid");
+        } else if (session.getCustomer() == null) {
+            throw new SubscriptionWebhookEventException("customer id is missing from the checkout session");
         }
 
         try {
@@ -426,6 +505,7 @@ class SubscriptionService {
                 });
 
             subscription.setProviderSubscriptionId(session.getSubscription());
+            subscription.setStripeCustomerId(session.getCustomer());
             subscription.setStatus(Subscription.Status.ACTIVE);
             subscription.setStartAt(LocalDateTime.now());
             subscriptionRepository.save(subscription);
@@ -434,22 +514,52 @@ class SubscriptionService {
         }
     }
 
+    /**
+     * @return if the given {@code user} owns an active subscription.
+     */
+    public boolean isUserSubscribed(@NonNull AuthUser user) {
+        return subscriptionRepository.findActiveByOwnerAndStatus(
+                user,
+                Subscription.Status.PENDING,
+                Subscription.Status.ACTIVE)
+            .isPresent();
+    }
+
     @NonNull
     private static SubscriptionPlanView buildSubscriptionPlanView(@NonNull SubscriptionPlan plan) {
         return SubscriptionPlanView.builder()
             .id(plan.getId())
             .provider(plan.getProvider().name().toLowerCase())
             .billingPeriodMonths(plan.getBillingPeriodMonths())
+            .trialPeriodDays(plan.getTrialPeriodDays())
             .priceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise()))
             .build();
     }
 
     @NonNull
-    private static SubscriptionView buildSubscriptionView(@NonNull Subscription subscription) {
+    private static SubscriptionView buildSubscriptionView(
+        @NonNull Subscription subscription,
+        @NonNull StripeApi stripeApi,
+        String stripeReturnUrl
+    ) {
         val isPaymentPending = subscription.getStatus() == Subscription.Status.PENDING;
         val isActive = isPaymentPending || subscription.getStatus() == Subscription.Status.ACTIVE;
         val endedAt = subscription.getEndAt() != null && subscription.getEndAt().isBefore(LocalDateTime.now())
             ? subscription.getEndAt() : null;
+
+        final String stripeCustomerPortalUrl;
+        if (isActive && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE) {
+            try {
+                stripeCustomerPortalUrl = stripeApi.createCustomerPortalSession(
+                        subscription.getStripeCustomerId(),
+                        stripeReturnUrl)
+                    .getUrl();
+            } catch (StripeException e) {
+                throw new RuntimeException("stripe api error", e);
+            }
+        } else {
+            stripeCustomerPortalUrl = null;
+        }
 
         return SubscriptionView.builder()
             .id(subscription.getId())
@@ -458,6 +568,7 @@ class SubscriptionService {
             .isPaymentPending(isPaymentPending)
             .startedAt(subscription.getStartAt())
             .endedAt(endedAt)
+            .stripeCustomerPortalUrl(stripeCustomerPortalUrl)
             .build();
     }
 

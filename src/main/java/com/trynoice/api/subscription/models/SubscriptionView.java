@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(name = "Subscription")
 public class SubscriptionView {
 
     @Schema(required = true, description = "id of the subscription purchase")
@@ -37,4 +38,7 @@ public class SubscriptionView {
 
     @Schema(description = "subscription end timestamp (ISO-8601 format) if the subscription has ended (isActive = false)")
     private LocalDateTime endedAt;
+
+    @Schema(description = "Stripe customer portal URL to manage subscriptions (only present if provider = stripe and isActive = true)")
+    private String stripeCustomerPortalUrl;
 }

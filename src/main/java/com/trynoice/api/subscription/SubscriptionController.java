@@ -3,8 +3,11 @@ package com.trynoice.api.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.stripe.exception.SignatureVerificationException;
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
+import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
@@ -13,9 +16,11 @@ import com.trynoice.api.subscription.models.SubscriptionView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -24,7 +29,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -34,7 +41,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 import java.net.URI;
 import java.util.List;
 
@@ -45,6 +54,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/v1/subscriptions")
 @Slf4j
+@Tag(name = "subscription")
 class SubscriptionController {
 
     static final String SUBSCRIPTION_ID_HEADER = "X-Subscription-Id";
@@ -122,12 +132,21 @@ class SubscriptionController {
             responseCode = "201",
             description = "subscription flow successfully initiated",
             headers = {
-                @Header(name = "Location", description = "url of the created subscription (always present)", required = true),
-                @Header(name = SUBSCRIPTION_ID_HEADER, description = "id of the created subscription (always present)", required = true),
-                @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER, description = "checkout session url if the plan is provided by Stripe")
+                @Header(
+                    name = "Location",
+                    description = "url of the created subscription (always present)",
+                    required = true,
+                    schema = @Schema(type = "string")),
+                @Header(name = SUBSCRIPTION_ID_HEADER,
+                    description = "id of the created subscription (always present)",
+                    required = true,
+                    schema = @Schema(type = "string")),
+                @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER,
+                    description = "checkout session url if the plan is provided by Stripe",
+                    schema = @Schema(type = "string"))
             }),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid"),
         @ApiResponse(responseCode = "409", description = "user already has an active subscription"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
@@ -136,7 +155,7 @@ class SubscriptionController {
     ResponseEntity<Void> createSubscription(
         @NonNull HttpServletRequest request,
         @NonNull @AuthenticationPrincipal AuthUser principal,
-        @Valid @NonNull @RequestBody SubscriptionFlowParams params
+        @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
         try {
             val result = subscriptionService.createSubscription(principal, params);
@@ -155,6 +174,8 @@ class SubscriptionController {
     /**
      * Lists all subscriptions (active/inactive) ever purchased by the authenticated user.
      *
+     * @param onlyActive      return only the active subscription (single instance).
+     * @param stripeReturnUrl redirect URL for exiting Stripe customer portal.
      * @return a list of subscription purchases.
      */
     @Operation(summary = "List subscriptions")
@@ -166,8 +187,39 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping
-    ResponseEntity<List<SubscriptionView>> getSubscriptions(@NonNull @AuthenticationPrincipal AuthUser principal) {
-        return ResponseEntity.ok(subscriptionService.getSubscriptions(principal));
+    ResponseEntity<List<SubscriptionView>> getSubscriptions(
+        @NonNull @AuthenticationPrincipal AuthUser principal,
+        @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
+        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl
+    ) {
+        return ResponseEntity.ok(subscriptionService.getSubscriptions(principal, onlyActive, stripeReturnUrl));
+    }
+
+    /**
+     * Cancels the given subscription if it is currently ongoing (active).
+     */
+    @Operation(summary = "Cancel subscription")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "subscription cancelled"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
+        @ApiResponse(responseCode = "401", description = "access token is invalid"),
+        @ApiResponse(responseCode = "409", description = "referenced subscription is not ongoing (active)"),
+        @ApiResponse(responseCode = "500", description = "internal server error"),
+    })
+    @NonNull
+    @DeleteMapping("/{subscriptionId}")
+    ResponseEntity<Void> cancelSubscription(
+        @NonNull @AuthenticationPrincipal AuthUser principal,
+        @Valid @NotNull @Min(1) @PathVariable Long subscriptionId
+    ) {
+        try {
+            subscriptionService.cancelSubscription(principal, subscriptionId);
+            return ResponseEntity.ok(null);
+        } catch (SubscriptionNotFoundException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (SubscriptionStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
     }
 
     /**
@@ -196,7 +248,7 @@ class SubscriptionController {
     })
     @NonNull
     @PostMapping("/googlePlay/webhook")
-    ResponseEntity<Void> googlePlayWebhook(@RequestBody JsonNode requestBody) {
+    ResponseEntity<Void> googlePlayWebhook(@Valid @NotNull @RequestBody JsonNode requestBody) {
         try {
             subscriptionService.handleGooglePlayWebhookEvent(requestBody);
         } catch (SubscriptionWebhookEventException e) {
@@ -242,8 +294,8 @@ class SubscriptionController {
     @NonNull
     @PostMapping("/stripe/webhook")
     ResponseEntity<Void> stripeWebhook(
-        @NotBlank @Valid @RequestHeader("Stripe-Signature") String payloadSignature,
-        @NotBlank @Valid @RequestBody String body
+        @Valid @NotBlank @RequestHeader("Stripe-Signature") String payloadSignature,
+        @Valid @NotBlank @RequestBody String body
     ) {
         try {
             subscriptionService.handleStripeWebhookEvent(body, payloadSignature);

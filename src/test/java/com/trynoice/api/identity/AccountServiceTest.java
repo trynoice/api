@@ -8,7 +8,6 @@ import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
 import lombok.NonNull;
@@ -170,7 +169,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
         val usedRefreshToken = buildRefreshToken(authUser);
-        usedRefreshToken.setVersion(refreshToken.getVersion() - 1);
+        usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
         val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
 
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
@@ -217,7 +216,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
         val usedRefreshToken = buildRefreshToken(authUser);
-        usedRefreshToken.setVersion(refreshToken.getVersion() - 1);
+        usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
         val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
 
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
@@ -225,6 +224,12 @@ class AccountServiceTest {
 
         assertThrows(RefreshTokenVerificationException.class, () ->
             service.issueAuthCredentials(signedJwt, "test-user-agent"));
+    }
+
+    @Test
+    void issueAuthCredentials_withMalformedJWT() {
+        val refreshToken = JWT.create().sign(jwtAlgorithm);
+        assertThrows(RefreshTokenVerificationException.class, () -> service.issueAuthCredentials(refreshToken, ""));
     }
 
     @Test
@@ -270,7 +275,7 @@ class AccountServiceTest {
     void getProfile() {
         val authUser = buildAuthUser();
         val refreshTokens = List.of(buildRefreshToken(authUser));
-        when(refreshTokenRepository.findAllActiveByOwner(authUser)).thenReturn(refreshTokens);
+        when(refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)).thenReturn(refreshTokens);
 
         val profile = service.getProfile(authUser);
         assertEquals(authUser.getId(), profile.getAccountId());
@@ -313,7 +318,6 @@ class AccountServiceTest {
             .build();
 
         authUser.setId(1L);
-        authUser.setVersion(1L);
         authUser.setCreatedAt(LocalDateTime.now());
         return authUser;
     }
@@ -327,7 +331,6 @@ class AccountServiceTest {
             .build();
 
         refreshToken.setId(1L);
-        refreshToken.setVersion(1L);
         refreshToken.setCreatedAt(LocalDateTime.now());
         return refreshToken;
     }

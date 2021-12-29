@@ -14,6 +14,7 @@ import lombok.NonNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(name = "SubscriptionPlan")
 public class SubscriptionPlanView {
 
     @Schema(required = true, description = "id of the subscription plan")
@@ -27,6 +28,10 @@ public class SubscriptionPlanView {
     @Schema(required = true, description = "number of months included in a single billing period, e.g. 1 or 3")
     @NonNull
     private Short billingPeriodMonths;
+
+    @Schema(required = true, description = "number of days included as the trial period with the plan")
+    @NonNull
+    private Short trialPeriodDays;
 
     @Schema(required = true, description = "currency formatted string showing plan's price in INR, e.g. '₹225'")
     @NonNull

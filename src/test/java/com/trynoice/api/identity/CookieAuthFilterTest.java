@@ -1,7 +1,6 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
-import com.trynoice.api.identity.models.AuthConfiguration;
 import com.trynoice.api.identity.models.AuthCredentials;
 import lombok.val;
 import org.junit.jupiter.api.AfterEach;
