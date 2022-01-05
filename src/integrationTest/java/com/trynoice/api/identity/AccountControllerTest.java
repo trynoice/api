@@ -125,7 +125,7 @@ class AccountControllerTest {
         verify(signInTokenDispatchStrategy, times(isExpectingSignInTokenDispatch ? 1 : 0))
             .dispatch(tokenCaptor.capture(), eq(email));
 
-        if (expectedResponseStatus == HttpStatus.CREATED.value()) {
+        if (isExpectingSignInTokenDispatch) {
             assertValidJWT(hmacSecret, tokenCaptor.getValue());
         }
     }
@@ -136,7 +136,7 @@ class AccountControllerTest {
             arguments(null, HttpStatus.BAD_REQUEST.value(), false),
             arguments("", HttpStatus.BAD_REQUEST.value(), false),
             arguments("not-an-email", HttpStatus.BAD_REQUEST.value(), false),
-            arguments("non-existing@test.org", HttpStatus.NOT_FOUND.value(), false),
+            arguments("non-existing@test.org", HttpStatus.CREATED.value(), false),
             arguments("existing", HttpStatus.CREATED.value(), true)
         );
     }

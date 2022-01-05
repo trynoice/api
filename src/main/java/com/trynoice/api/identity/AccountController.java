@@ -111,10 +111,9 @@ class AccountController {
     @Operation(summary = "Sign-in to an existing account")
     @SecurityRequirements
     @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
+        @ApiResponse(responseCode = "201", description = "sent sign-in link to the given email if such an account exists"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
-        @ApiResponse(responseCode = "404", description = "account does not exist"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -125,7 +124,7 @@ class AccountController {
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (AccountNotFoundException e) {
             log.trace("sign-in request failed", e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (TooManySignInAttemptsException e) {
             log.trace("sign-in request failed", e);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
