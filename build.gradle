@@ -10,7 +10,7 @@ repositories {
 }
 
 group = "com.trynoice"
-version = "0.0.1"
+version = System.getenv("BUILD_VERSION") ?: "0.0.0-dev"
 
 sourceCompatibility = "11"
 
@@ -24,6 +24,10 @@ sourceSets {
 configurations {
     integrationTestImplementation.extendsFrom implementation
     integrationTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
+springBoot {
+    buildInfo()
 }
 
 bootRun {
