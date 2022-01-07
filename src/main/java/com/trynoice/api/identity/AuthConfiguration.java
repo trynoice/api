@@ -127,7 +127,6 @@ class AuthConfiguration {
          * Used as source address when sending sign-in emails.
          */
         @NotBlank
-        @Email
         private String fromEmail;
 
         /**
