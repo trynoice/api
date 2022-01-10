@@ -32,7 +32,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @SpringBootApplication
 @EnableCaching
-@Slf4j
 public class Application {
 
     public static void main(String[] args) {
@@ -136,6 +135,7 @@ public class Application {
     }
 
     @Component
+    @Slf4j
     static class ApplicationVersionLogger implements ApplicationRunner {
 
         @Autowired
