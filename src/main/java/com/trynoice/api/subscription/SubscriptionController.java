@@ -237,15 +237,13 @@ class SubscriptionController {
      *     Android Publisher REST API reference</a></li>
      * </ul>
      *
-     * @param requestBody event payload (JSON).
+     * @return <ul>
+     * <li>{@code HTTP 200} on successfully processing the event.</li>
+     * <li>{@code HTTP 400} if the request is not valid.</li>
+     * <li>{@code HTTP 500} on internal server errors.</li>
+     * </ul>
      */
-    @Operation(summary = "Webhook for listening to Google Play Billing subscription events")
-    @SecurityRequirements
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "event successfully processed"),
-        @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "500", description = "internal server error"),
-    })
+    @Operation(hidden = true)
     @NonNull
     @PostMapping("/googlePlay/webhook")
     ResponseEntity<Void> googlePlayWebhook(@Valid @NotNull @RequestBody JsonNode requestBody) {
@@ -282,15 +280,13 @@ class SubscriptionController {
      *     </a></li>
      * </ul>
      *
-     * @param body event payload (JSON String).
+     * @return <ul>
+     * <li>{@code HTTP 200} on successfully processing the event.</li>
+     * <li>{@code HTTP 400} if the request is not valid.</li>
+     * <li>{@code HTTP 500} on internal server errors.</li>
+     * </ul>
      */
-    @Operation(summary = "Webhook for listening to Stripe subscription events")
-    @SecurityRequirements
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "event successfully processed"),
-        @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "500", description = "internal server error"),
-    })
+    @Operation(hidden = true)
     @NonNull
     @PostMapping("/stripe/webhook")
     ResponseEntity<Void> stripeWebhook(
