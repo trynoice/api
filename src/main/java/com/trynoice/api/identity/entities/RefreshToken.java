@@ -3,19 +3,15 @@ package com.trynoice.api.identity.entities;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.trynoice.api.platform.BasicEntity;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import lombok.Setter;
 
 import javax.persistence.Entity;
 import javax.persistence.ManyToOne;
-import javax.persistence.PrePersist;
-import javax.persistence.PreUpdate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -47,17 +43,6 @@ public class RefreshToken extends BasicEntity<Long> {
 
     @NonNull
     private LocalDateTime expiresAt;
-
-    @NonNull
-    @Setter(AccessLevel.NONE)
-    @Builder.Default
-    private LocalDateTime lastUsedAt = LocalDateTime.now();
-
-    @PrePersist
-    @PreUpdate
-    void setLastUsedAt() {
-        this.lastUsedAt = LocalDateTime.now();
-    }
 
     public void incrementOrdinal() {
         ordinal++;
