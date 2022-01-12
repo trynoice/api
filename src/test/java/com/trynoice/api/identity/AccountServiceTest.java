@@ -5,7 +5,6 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
-import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.SignInParams;
@@ -21,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -253,42 +251,12 @@ class AccountServiceTest {
     }
 
     @Test
-    void revokeRefreshToken() {
-        val authUser = buildAuthUser();
-        val refreshToken = buildRefreshToken(authUser);
-        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
-            .thenReturn(Optional.of(refreshToken));
-
-        //noinspection CodeBlock2Expr
-        assertDoesNotThrow(() -> {
-            service.revokeRefreshToken(authUser, refreshToken.getId());
-        });
-
-        val anotherAuthUser = buildAuthUser();
-        anotherAuthUser.setId(2L);
-        assertThrows(
-            RefreshTokenRevokeException.class,
-            () -> service.revokeRefreshToken(anotherAuthUser, refreshToken.getId()));
-    }
-
-    @Test
     void getProfile() {
         val authUser = buildAuthUser();
-        val refreshTokens = List.of(buildRefreshToken(authUser));
-        when(refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)).thenReturn(refreshTokens);
-
         val profile = service.getProfile(authUser);
         assertEquals(authUser.getId(), profile.getAccountId());
         assertEquals(authUser.getName(), profile.getName());
         assertEquals(authUser.getEmail(), profile.getEmail());
-
-        val activeSessions = profile.getActiveSessions();
-        for (int i = 0; i < activeSessions.size(); i++) {
-            assertEquals(refreshTokens.get(i).getId(), activeSessions.get(i).getRefreshTokenId());
-            assertEquals(refreshTokens.get(i).getCreatedAt(), activeSessions.get(i).getCreatedAt());
-            assertEquals(refreshTokens.get(i).getLastUsedAt(), activeSessions.get(i).getLastUsedAt());
-            assertEquals(refreshTokens.get(i).getUserAgent(), activeSessions.get(i).getUserAgent());
-        }
     }
 
     @Test

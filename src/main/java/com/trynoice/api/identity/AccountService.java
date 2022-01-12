@@ -9,7 +9,6 @@ import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.BearerJwtAuthenticationException;
-import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
@@ -31,7 +30,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static java.util.Objects.requireNonNull;
@@ -202,29 +200,6 @@ class AccountService {
     }
 
     /**
-     * Deletes the refresh token with given {@code tokenId} if the given 'tokenOwner' actually owns
-     * it.
-     *
-     * @param tokenOwner expected owner of the token with {@code tokenId}.
-     * @param tokenId    id of the refresh token to revoke.
-     * @throws RefreshTokenRevokeException if such a token doesn't exist.
-     */
-    void revokeRefreshToken(@NonNull AuthUser tokenOwner, @NonNull Long tokenId) throws RefreshTokenRevokeException {
-        val refreshToken = refreshTokenRepository.findActiveById(tokenId)
-            .orElseThrow(() -> {
-                val errMsg = String.format("refresh token with id '%d' doesn't exist", tokenId);
-                return new RefreshTokenRevokeException(errMsg);
-            });
-
-        if (!tokenOwner.getId().equals(refreshToken.getOwner().getId())) {
-            val errMsg = "given 'tokenOwner' doesn't own a refresh token with the given id";
-            throw new RefreshTokenRevokeException(errMsg);
-        }
-
-        refreshTokenRepository.delete(refreshToken);
-    }
-
-    /**
      * Returns an externalised view of an account's data, containing fields that are accessible by
      * account owners.
      *
@@ -236,16 +211,6 @@ class AccountService {
             .accountId(authUser.getId())
             .name(authUser.getName())
             .email(authUser.getEmail())
-            .activeSessions(
-                refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)
-                    .stream()
-                    .map((token) -> Profile.ActiveSessionInfo.builder()
-                        .refreshTokenId(token.getId())
-                        .userAgent(token.getUserAgent().isBlank() ? null : token.getUserAgent())
-                        .createdAt(token.getCreatedAt())
-                        .lastUsedAt(token.getLastUsedAt())
-                        .build())
-                    .collect(Collectors.toUnmodifiableList()))
             .build();
     }
 

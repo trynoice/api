@@ -2,7 +2,6 @@ package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
-import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthCredentials;
@@ -24,9 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -34,7 +31,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
-import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -196,36 +192,6 @@ class AccountController {
         } catch (RefreshTokenVerificationException e) {
             log.trace("failed to issue fresh auth credentials", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-    }
-
-    /**
-     * <p>
-     * Revokes a refresh token with the given {@code tokenId} provided that it is owned by the
-     * authenticated user.</p>
-     *
-     * @param tokenId id of the refresh token.
-     */
-    @Operation(summary = "Issue new credentials using a valid refresh token")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200"),
-        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
-        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
-        @ApiResponse(responseCode = "404", description = "auth user doesn't own a refresh token with given id", content = @Content),
-        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
-    })
-    @NonNull
-    @DeleteMapping(value = "/refreshTokens/{tokenId}")
-    ResponseEntity<Void> revokeRefreshToken(
-        @NonNull @AuthenticationPrincipal AuthUser principal,
-        @Valid @NotNull @Min(1) @PathVariable Long tokenId
-    ) {
-        try {
-            accountService.revokeRefreshToken(principal, tokenId);
-            return ResponseEntity.ok(null);
-        } catch (RefreshTokenRevokeException e) {
-            log.trace("failed to revoke refresh token", e);
-            return ResponseEntity.notFound().build();
         }
     }
 
