@@ -97,9 +97,7 @@ class AccountController {
     }
 
     /**
-     * <p>
-     * Sends the sign-in link the provided email. Returns HTTP 404 if an account with the provided
-     * email doesn't exist.</p>
+     * <p>Sends the sign-in link the provided email.</p>
      * <p>
      * The sign-in link contains a short-lived refresh token and thus, it must be exchanged for
      * proper auth credentials using the '{@code /credentials}' endpoint before its expiry.</p>
