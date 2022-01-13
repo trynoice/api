@@ -1,88 +1,132 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width"/>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <title>Noice: Sign-in</title>
-</head>
+  </head>
 
-<body
+  <body
     style="
-    margin: 0;
-    padding: 16px;
-    background-color: #f1f1f1;
-    color: #1d1d26;
-    text-align: center;
-    font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica Neue',sans-serif
-  "
->
-
-<div style="margin: 16px; padding: 32px; background-color: #fefefe">
-    <h2>You are one click away from signing in to Noice!</h2>
-
-    <div>
-        <a
-            href="${signInLink}"
-            target="_blank"
-            style="
-        display: inline-block;
-        margin: 16px auto 32px;
-        padding: 12px 32px;
-        border-radius: 8px;
-        background-color: #1eb980;
-        color: #fefefe;
-        text-decoration: none;
-        font-weight: bolder
-      "
-        >
-            One-click sign-in
-        </a>
-    </div>
-
+      box-sizing: border-box;
+      padding: 32px 24px;
+      min-height: 100%;
+      height: 100%;
+      color: #fefefe;
+      background-color: #23232d;
+      font-size: 16px;
+      line-height: 1.5;
+      mso-line-height-rule: exactly;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+        Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    "
+  >
     <div
-        style="border-top: 1px solid #f1f1f1; padding-top: 16px; font-size: 0.9em;"
+      style="
+        box-sizing: border-box;
+        margin: auto;
+        padding: 32px 0;
+        max-width: 480px;
+        font-size: 18px;
+        text-align: left;
+      "
     >
-        <p>Not able to click the button? Try the following link!</p>
-        <p style="color: #0074cc; text-decoration: underline">${signInLink}</p>
+      <a
+        style="color: #fefefe; text-decoration: none"
+        href="https://trynoice.com"
+        target="_blank"
+      >
+        <img
+          style="height: 36px; vertical-align: -12px; margin-right: 16px"
+          alt="noice"
+          src="https://cdn.trynoice.com/public/sign-in-email/logo-36x36.png"
+        />
+        <b>Noice</b>: Natural calming noise
+      </a>
+    </div>
+    <div
+      style="
+        box-sizing: border-box;
+        margin: auto;
+        padding: 16px 32px;
+        max-width: 480px;
+        border-radius: 8px;
+        background-color: #fefefe;
+        color: #23232d;
+        text-align: center;
+      "
+    >
+      <p>You are one click away from signing in to Noice!</p>
+      <p>
+        <a
+          style="
+            display: inline-block;
+            margin: 16px auto 24px;
+            padding: 8px 16px;
+            border-radius: 5px;
+            color: #fefefe;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            background-color: #28a73f;
+            background: linear-gradient(-180deg, #1eb980 0%, #1d1d26 90%);
+          "
+          href="https://trynoice.com/sign-in?token=${signInToken}"
+          target="_blank"
+        >
+          Sign-in
+        </a>
+      </p>
+      <p>
+        Unable to click the button? Try the following link! <br />
+        <span style="color: #0074cc">
+          https://trynoice.com/sign-in?token=${signInToken}
+        </span>
+      </p>
+      <div
+        style="margin-top: 32px; border-top: 1px solid #f1f1f1; font-size: 14px"
+      >
+        <p>
+          If you did not request this email, please inform us at
+          <a style="color: #0074cc" href="mailto:support@trynoice.com">
+            support@trynoice.com
+          </a>
+          or
+          <a style="color: #0074cc" href="https://trynoice.com/contact-us">
+            https://trynoice.com/contact-us</a
+          >.
+        </p>
+      </div>
     </div>
 
-</div>
-
-<div style="padding: 16px; background-color: #f1f1f1; color: #999999">
-
-    <p style="font-size: 0">
-        <a href="https://twitter.com/trynoice" target="_blank"
-           style="margin: 8px; text-decoration: none">
-            <img
-                alt="twitter"
-                style="height: 24px;"
-                src="https://cdn.trynoice.com/public/sign-in-email/twitter-29x24px.png"/>
-        </a>
-        <a href="https://instagram.com/trynoice" target="_blank"
-           style="margin: 8px; text-decoration: none">
-            <img
-                alt="instagram"
-                style="height: 24px;"
-                src="https://cdn.trynoice.com/public/sign-in-email/instagram-24x24px.png"/>
-        </a>
+    <p
+      style="
+        margin: 32px 16px;
+        font-size: 14px;
+        text-align: center;
+        color: #cecece;
+      "
+    >
+      <span>Made with <span style="color: red">&hearts;</span> in India</span>
+      &nbsp;&nbsp;|&nbsp;&nbsp;
+      <span>
+        Get updates on
+        <a
+          style="text-decoration: none; color: #7dc2f7"
+          href="https://twitter.com/trynoice"
+          target="_blank"
+        >
+          Twitter</a
+        >
+        or
+        <a
+          style="text-decoration: none; color: #7dc2f7"
+          href="https://instagram.com/trynoice"
+          target="_blank"
+        >
+          Instagram</a
+        >.
+      </span>
     </p>
-
-    <a href="https://trynoice.com" target="_blank" style="display: block; margin: 32px auto 16px">
-        <img
-            alt="noice"
-            src="https://cdn.trynoice.com/public/sign-in-email/logo-280x80px.png"
-            style="display: block; margin: auto; min-width: 200px; max-width: 280px; width: 45%"/>
-    </a>
-
-    <p>
-        <small>Made with &hearts; in India</small>
-    </p>
-    <p>
-        <small>
-            If you did not request this email, please inform us at
-            <a href="mailto:${supportEmail}" style="color: #0074cc">${supportEmail}</a>.
-        </small>
-    </p>
-</div>
-</body>
+  </body>
 </html>
