@@ -68,11 +68,7 @@ interface SignInTokenDispatchStrategy {
         public void dispatch(@NonNull String token, String destination) throws SignInTokenDispatchException {
             val dest = Destination.builder().toAddresses(destination).build();
             val body = Body.builder()
-                .html(
-                    buildUtf8Content(
-                        replace(config.getTemplate(), Map.of(
-                            "signInLink", replace(config.getLinkFmt(), Map.of("token", token)),
-                            "supportEmail", config.getSupportEmail()))))
+                .html(buildUtf8Content(replace(config.getTemplate(), Map.of("signInToken", token))))
                 .build();
 
             val request = SendEmailRequest.builder()

@@ -14,7 +14,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
-import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.nio.charset.StandardCharsets;
@@ -146,19 +145,6 @@ class AuthConfiguration {
          */
         @NotBlank
         private String template;
-
-        /**
-         * Template of the sign-in link in the email body.
-         */
-        @NotBlank
-        private String linkFmt;
-
-        /**
-         * A support email to include in sign-in email body.
-         */
-        @NotBlank
-        @Email
-        private String supportEmail;
 
         @SuppressWarnings("unused")
         @SneakyThrows

@@ -40,8 +40,6 @@ class SignInTokenDispatchStrategyTest {
             when(config.getFromEmail()).thenReturn("test-from-email");
             when(config.getSubject()).thenReturn("test-subject");
             when(config.getTemplate()).thenReturn("test-template");
-            when(config.getLinkFmt()).thenReturn("test-link-fmt");
-            when(config.getSupportEmail()).thenReturn("test-support-email");
 
             emailStrategy = new SignInTokenDispatchStrategy.Email(config, sesClient);
         }
