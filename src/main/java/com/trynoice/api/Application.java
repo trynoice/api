@@ -55,9 +55,12 @@ public class Application {
 
     @NonNull
     @Bean
-    OpenAPI openAPI() {
+    OpenAPI openAPI(@NonNull BuildProperties buildProperties) {
         return new OpenAPI()
-            .info(new Info().title("Noice API").version("v1"))
+            .info(
+                new Info()
+                    .title("Noice API")
+                    .version(String.format("v%s", buildProperties.getVersion())))
             .components(
                 new Components()
                     .addSecuritySchemes("bearer-token", new SecurityScheme()
