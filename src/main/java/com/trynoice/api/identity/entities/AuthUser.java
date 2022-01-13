@@ -39,7 +39,9 @@ public class AuthUser extends BasicEntity<Long> {
 
     @NonNull
     @Builder.Default
-    private Short signInAttempts = 0;
+    private Short incompleteSignInAttempts = 0;
+
+    private LocalDateTime lastSignInAttemptAt;
 
     @PrePersist
     @PreUpdate
@@ -47,11 +49,13 @@ public class AuthUser extends BasicEntity<Long> {
         this.lastActiveAt = LocalDateTime.now();
     }
 
-    public void incrementSignInAttempts() {
-        this.signInAttempts++;
+    public void updateSignInAttemptData() {
+        this.incompleteSignInAttempts++;
+        this.lastSignInAttemptAt = LocalDateTime.now();
     }
 
-    public void resetSignInAttempts() {
-        this.signInAttempts = 0;
+    public void resetSignInAttemptData() {
+        this.incompleteSignInAttempts = 0;
+        this.lastSignInAttemptAt = null;
     }
 }

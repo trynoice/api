@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -56,7 +57,8 @@ class AccountServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(authConfiguration.getHmacSecret()).thenReturn(TEST_HMAC_SECRET);
+        lenient().when(authConfiguration.getHmacSecret()).thenReturn(TEST_HMAC_SECRET);
+        lenient().when(authConfiguration.getSignInReattemptMaxDelay()).thenReturn(Duration.ofMinutes(5));
         this.jwtAlgorithm = Algorithm.HMAC256(TEST_HMAC_SECRET);
         this.service = new AccountService(authUserRepository, refreshTokenRepository, authConfiguration, signInTokenDispatchStrategy);
     }
@@ -104,7 +106,8 @@ class AccountServiceTest {
     @Test
     void signUp_withBlacklistedEmail() {
         val authUser = buildAuthUser();
-        authUser.setSignInAttempts(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER);
+        authUser.setLastSignInAttemptAt(LocalDateTime.now());
+        authUser.setIncompleteSignInAttempts((short) 5);
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
 
@@ -144,7 +147,8 @@ class AccountServiceTest {
     @Test
     void signIn_withBlacklistedEmail() {
         val authUser = buildAuthUser();
-        authUser.setSignInAttempts(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER);
+        authUser.setLastSignInAttemptAt(LocalDateTime.now());
+        authUser.setIncompleteSignInAttempts((short) 5);
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(new SignInParams(authUser.getEmail())));
     }
@@ -246,7 +250,7 @@ class AccountServiceTest {
         assertValidJwt(credentials.getAccessToken());
 
         // must reset signInAttempts.
-        assertEquals((short) 0, refreshToken.getOwner().getSignInAttempts());
+        assertEquals((short) 0, refreshToken.getOwner().getIncompleteSignInAttempts());
         verify(authUserRepository, times(1)).save(refreshToken.getOwner());
     }
 

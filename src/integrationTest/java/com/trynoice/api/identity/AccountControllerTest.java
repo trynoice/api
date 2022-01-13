@@ -1,6 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.SignInParams;
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import javax.persistence.EntityManager;
 import javax.servlet.http.Cookie;
 import javax.transaction.Transactional;
+import java.time.LocalDateTime;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.JwtType;
@@ -31,6 +33,9 @@ import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedRefreshJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -105,9 +110,12 @@ class AccountControllerTest {
     @MethodSource("signInTestCases")
     void signIn(String email, int expectedResponseStatus, boolean isExpectingSignInTokenDispatch) throws Exception {
         // create auth user for test-cases that expect it.
+        final AuthUser authUser;
         if ("existing".equals(email)) {
-            val authUser = createAuthUser(entityManager);
+            authUser = createAuthUser(entityManager);
             email = authUser.getEmail();
+        } else {
+            authUser = null;
         }
 
         doNothing().when(signInTokenDispatchStrategy).dispatch(any(), any());
@@ -123,6 +131,12 @@ class AccountControllerTest {
 
         if (isExpectingSignInTokenDispatch) {
             assertValidJWT(hmacSecret, tokenCaptor.getValue());
+        }
+
+        if (authUser != null) {
+            entityManager.flush();
+            assertNotEquals((short) 0, authUser.getIncompleteSignInAttempts());
+            assertNotNull(authUser.getLastSignInAttemptAt());
         }
     }
 
@@ -196,7 +210,8 @@ class AccountControllerTest {
             assertValidJWT(hmacSecret, authCredentials.getAccessToken());
 
             entityManager.refresh(authUser);
-            assertEquals((short) 0, authUser.getSignInAttempts());
+            assertNull(authUser.getLastSignInAttemptAt());
+            assertEquals((short) 0, authUser.getIncompleteSignInAttempts());
         }
     }
 
@@ -212,11 +227,12 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - signInAttempts={0} responseStatus={1}")
+    @ParameterizedTest(name = "{displayName} - incompleteSignInAttempts={0} lastSignInAttemptAt={1} responseStatus={2}")
     @MethodSource("emailBlacklistingTestCases")
-    void emailBlacklisting(int signInAttempts, int expectedResponseStatus) throws Exception {
+    void emailBlacklisting(int incompleteSignInAttempts, LocalDateTime lastSignInAttemptAt, int expectedResponseStatus) throws Exception {
         val user = createAuthUser(entityManager);
-        user.setSignInAttempts((short) signInAttempts);
+        user.setLastSignInAttemptAt(lastSignInAttemptAt);
+        user.setIncompleteSignInAttempts((short) incompleteSignInAttempts);
         entityManager.persist(user);
 
         // perform sign-up
@@ -226,7 +242,8 @@ class AccountControllerTest {
                     .content(objectMapper.writeValueAsBytes(new SignUpParams(user.getEmail(), user.getName()))))
             .andExpect(status().is(expectedResponseStatus));
 
-        user.setSignInAttempts((short) signInAttempts);
+        user.setLastSignInAttemptAt(lastSignInAttemptAt);
+        user.setIncompleteSignInAttempts((short) incompleteSignInAttempts);
         entityManager.persist(user);
 
         // perform sign-in
@@ -239,11 +256,10 @@ class AccountControllerTest {
 
     static Stream<Arguments> emailBlacklistingTestCases() {
         return Stream.of(
-            // signInAttempts, responseStatus
-            arguments(0, HttpStatus.CREATED.value()),
-            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER / 2, HttpStatus.CREATED.value()),
-            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER, HttpStatus.FORBIDDEN.value()),
-            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER * 2, HttpStatus.FORBIDDEN.value())
+            // incompleteSignInAttempts, lastSignInAttemptAt, responseStatus
+            arguments(0, null, HttpStatus.CREATED.value()),
+            arguments(5, LocalDateTime.now().minusHours(1), HttpStatus.CREATED.value()),
+            arguments(5, LocalDateTime.now(), HttpStatus.TOO_MANY_REQUESTS.value())
         );
     }
 
