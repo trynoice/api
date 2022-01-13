@@ -54,6 +54,12 @@ class AuthConfiguration {
     private Duration signInTokenExpiry;
 
     /**
+     * Maximum timeout duration for an account on making too many incomplete sign-in attempts.
+     */
+    @NotNull
+    private Duration signInReattemptMaxDelay;
+
+    /**
      * Root domain for auth cookies.
      */
     @NotBlank

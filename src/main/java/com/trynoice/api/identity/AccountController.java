@@ -9,7 +9,9 @@ import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -49,6 +51,7 @@ class AccountController {
 
     static final String REFRESH_TOKEN_HEADER = "X-Refresh-Token";
     static final String USER_AGENT_HEADER = "User-Agent";
+    static final String RETRY_AFTER_HEADER = "Retry-After";
 
     private static final String REFRESH_TOKEN_COOKIE = CookieAuthFilter.REFRESH_TOKEN_COOKIE;
 
@@ -68,16 +71,23 @@ class AccountController {
      * The sign-in link contains a short-lived refresh token and thus, it must be exchanged for
      * proper auth credentials using the '{@code /credentials}' endpoint before its expiry.</p>
      * <p>
-     * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
-     * All further attempts using this email address will result in HTTP 403. At this point, the
-     * clients may advise their user to contact the support.</p>
+     * If the request returns HTTP 429, then the clients must consider the {@code Retry-After} HTTP
+     * header as the API server will refuse all further sign-up attempts until the given duration
+     * has elapsed.</p>
      */
     @Operation(summary = "Create a new account")
     @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
+        @ApiResponse(
+            responseCode = "429",
+            description = "the account is temporarily blocked from attempting sign-up",
+            headers = @Header(
+                name = RETRY_AFTER_HEADER,
+                description = "duration (in seconds) after which the account should be able to reattempt sign-up",
+                required = true,
+                schema = @Schema(type = "integer", format = "int64"))),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -88,7 +98,9 @@ class AccountController {
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (TooManySignInAttemptsException e) {
             log.trace("sign-in request failed", e);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(RETRY_AFTER_HEADER, String.valueOf(e.getRetryAfter().toSeconds()))
+                .build();
         }
     }
 
@@ -98,16 +110,23 @@ class AccountController {
      * The sign-in link contains a short-lived refresh token and thus, it must be exchanged for
      * proper auth credentials using the '{@code /credentials}' endpoint before its expiry.</p>
      * <p>
-     * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
-     * All further attempts using this email address will result in HTTP 403. At this point, the
-     * clients may advise their user to contact the support.</p>
+     * If the request returns HTTP 429, then the clients must consider the {@code Retry-After} HTTP
+     * header as the API server will refuse all further sign-in attempts until the given duration
+     * has elapsed.</p>
      */
     @Operation(summary = "Sign-in to an existing account")
     @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sent sign-in link to the given email if such an account exists"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
+        @ApiResponse(
+            responseCode = "429",
+            description = "the account is temporarily blocked from attempting sign-in",
+            headers = @Header(
+                name = RETRY_AFTER_HEADER,
+                description = "duration (in seconds) after which the account should be able to reattempt sign-in",
+                required = true,
+                schema = @Schema(type = "integer", format = "int64"))),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -121,7 +140,9 @@ class AccountController {
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (TooManySignInAttemptsException e) {
             log.trace("sign-in request failed", e);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(RETRY_AFTER_HEADER, String.valueOf(e.getRetryAfter().toSeconds()))
+                .build();
         }
     }
 
