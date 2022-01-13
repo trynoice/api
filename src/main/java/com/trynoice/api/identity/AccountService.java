@@ -9,7 +9,6 @@ import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.BearerJwtAuthenticationException;
-import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
@@ -27,13 +26,17 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
+import static java.lang.Long.min;
 import static java.lang.Long.parseLong;
+import static java.lang.Math.pow;
+import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -44,7 +47,7 @@ import static java.util.Objects.requireNonNullElse;
 @Slf4j
 class AccountService {
 
-    static final short MAX_SIGN_IN_ATTEMPTS_PER_USER = 5;
+    private static final long MIN_SIGN_IN_REATTEMPT_DELAY_SECONDS = TimeUnit.SECONDS.toSeconds(3);
 
     private final AuthUserRepository authUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -111,11 +114,17 @@ class AccountService {
 
     @NonNull
     private String createSignInToken(@NonNull AuthUser authUser) throws TooManySignInAttemptsException {
-        if (authUser.getSignInAttempts() >= MAX_SIGN_IN_ATTEMPTS_PER_USER) {
-            throw new TooManySignInAttemptsException(authUser.getEmail());
+        if (authUser.getLastSignInAttemptAt() != null) {
+            var delay = round(pow(MIN_SIGN_IN_REATTEMPT_DELAY_SECONDS, authUser.getIncompleteSignInAttempts()));
+            delay = min(delay, authConfig.getSignInReattemptMaxDelay().toSeconds());
+            val nextAttemptAt = authUser.getLastSignInAttemptAt().plusSeconds(delay);
+            val now = LocalDateTime.now();
+            if (nextAttemptAt.isAfter(now)) {
+                throw new TooManySignInAttemptsException(authUser.getEmail(), Duration.between(now, nextAttemptAt));
+            }
         }
 
-        authUser.incrementSignInAttempts();
+        authUser.updateSignInAttemptData();
         authUserRepository.save(authUser);
         return refreshTokenRepository.save(
                 RefreshToken.builder()
@@ -150,19 +159,19 @@ class AccountService {
     public AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 
-        // ordinal 0 implies that this refresh token is being used to sign in, so persist userAgent.
+        // ordinal 0 implies that this refresh token is being used to sign in, so persist userAgent
+        // and reset sign-in attempts.
         if (Long.valueOf(0).equals(token.getOrdinal())) {
             token.setUserAgent(requireNonNullElse(userAgent, ""));
+            token.getOwner().resetSignInAttemptData();
         }
 
+        // saving AuthUser entity implicitly updates last active timestamp, so always perform the
+        // save step regardless of the token ordinal value.
+        authUserRepository.save(token.getOwner());
         token.setExpiresAt(LocalDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
         token.incrementOrdinal();
         token = refreshTokenRepository.save(token);
-
-        // reset sign in attempts and update last active timestamp for the auth user. Last active
-        // timestamp uses pre-update hook on the AuthUser entity.
-        token.getOwner().resetSignInAttempts();
-        authUserRepository.save(token.getOwner());
 
         val accessTokenExpiry = LocalDateTime.now().plus(authConfig.getAccessTokenExpiry());
         val signedAccessToken = JWT.create()
@@ -202,29 +211,6 @@ class AccountService {
     }
 
     /**
-     * Deletes the refresh token with given {@code tokenId} if the given 'tokenOwner' actually owns
-     * it.
-     *
-     * @param tokenOwner expected owner of the token with {@code tokenId}.
-     * @param tokenId    id of the refresh token to revoke.
-     * @throws RefreshTokenRevokeException if such a token doesn't exist.
-     */
-    void revokeRefreshToken(@NonNull AuthUser tokenOwner, @NonNull Long tokenId) throws RefreshTokenRevokeException {
-        val refreshToken = refreshTokenRepository.findActiveById(tokenId)
-            .orElseThrow(() -> {
-                val errMsg = String.format("refresh token with id '%d' doesn't exist", tokenId);
-                return new RefreshTokenRevokeException(errMsg);
-            });
-
-        if (!tokenOwner.getId().equals(refreshToken.getOwner().getId())) {
-            val errMsg = "given 'tokenOwner' doesn't own a refresh token with the given id";
-            throw new RefreshTokenRevokeException(errMsg);
-        }
-
-        refreshTokenRepository.delete(refreshToken);
-    }
-
-    /**
      * Returns an externalised view of an account's data, containing fields that are accessible by
      * account owners.
      *
@@ -236,16 +222,6 @@ class AccountService {
             .accountId(authUser.getId())
             .name(authUser.getName())
             .email(authUser.getEmail())
-            .activeSessions(
-                refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)
-                    .stream()
-                    .map((token) -> Profile.ActiveSessionInfo.builder()
-                        .refreshTokenId(token.getId())
-                        .userAgent(token.getUserAgent().isBlank() ? null : token.getUserAgent())
-                        .createdAt(token.getCreatedAt())
-                        .lastUsedAt(token.getLastUsedAt())
-                        .build())
-                    .collect(Collectors.toUnmodifiableList()))
             .build();
     }
 

@@ -9,11 +9,15 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.Banner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +26,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -126,6 +131,19 @@ public class Application {
             // add custom filter to set SecurityContext based on Authorization bearer JWT.
             http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
             http.addFilterBefore(cookieAuthFilter, AnonymousAuthenticationFilter.class);
+        }
+    }
+
+    @Component
+    @Slf4j
+    static class ApplicationVersionLogger implements ApplicationRunner {
+
+        @Autowired
+        private BuildProperties buildProperties;
+
+        @Override
+        public void run(ApplicationArguments args) {
+            log.info("Running {} version: {}", buildProperties.getName(), buildProperties.getVersion());
         }
     }
 }

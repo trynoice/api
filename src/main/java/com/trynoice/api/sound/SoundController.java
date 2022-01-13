@@ -4,9 +4,6 @@ package com.trynoice.api.sound;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -47,16 +44,16 @@ class SoundController {
      *
      * @param soundId   id of the sound to which the requested segment belongs
      * @param segmentId id of the requested segment.
+     * @return <ul>
+     * <li>{@code HTTP 200} if request is authorized.</li>
+     * <li>{@code HTTP 400} if request is not valid.</li>
+     * <li>{@code HTTP 401} if user requested a premium segment but is not signed-in.</li>
+     * <li>{@code HTTP 403} if user requested a premium segment but doesn't have an active subscription.</li>
+     * <li>{@code HTTP 500} on internal server errors.</li>
+     * </ul>
      */
-    @Operation(summary = "Authorize access to a segment of a sound")
-    @SecurityRequirements
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "request is authorized"),
-        @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "401", description = "user requested a premium segment but is not signed-in"),
-        @ApiResponse(responseCode = "403", description = "user requested a premium segment but doesn't have an active subscription"),
-        @ApiResponse(responseCode = "500", description = "internal server error"),
-    })
+
+    @Operation(hidden = true)
     @NonNull
     @GetMapping("/{soundId}/segments/{segmentId}/authorize")
     ResponseEntity<Void> authorizeSegmentRequest(

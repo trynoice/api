@@ -2,7 +2,6 @@ package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
-import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthCredentials;
@@ -10,7 +9,9 @@ import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -24,9 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -34,7 +33,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
-import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -53,6 +51,7 @@ class AccountController {
 
     static final String REFRESH_TOKEN_HEADER = "X-Refresh-Token";
     static final String USER_AGENT_HEADER = "User-Agent";
+    static final String RETRY_AFTER_HEADER = "Retry-After";
 
     private static final String REFRESH_TOKEN_COOKIE = CookieAuthFilter.REFRESH_TOKEN_COOKIE;
 
@@ -72,16 +71,23 @@ class AccountController {
      * The sign-in link contains a short-lived refresh token and thus, it must be exchanged for
      * proper auth credentials using the '{@code /credentials}' endpoint before its expiry.</p>
      * <p>
-     * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
-     * All further attempts using this email address will result in HTTP 403. At this point, the
-     * clients may advise their user to contact the support.</p>
+     * If the request returns HTTP 429, then the clients must consider the {@code Retry-After} HTTP
+     * header as the API server will refuse all further sign-up attempts until the given duration
+     * has elapsed.</p>
      */
     @Operation(summary = "Create a new account")
     @SecurityRequirements
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
+        @ApiResponse(
+            responseCode = "429",
+            description = "the account is temporarily blocked from attempting sign-up",
+            headers = @Header(
+                name = RETRY_AFTER_HEADER,
+                description = "duration (in seconds) after which the account should be able to reattempt sign-up",
+                required = true,
+                schema = @Schema(type = "integer", format = "int64"))),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -92,29 +98,35 @@ class AccountController {
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (TooManySignInAttemptsException e) {
             log.trace("sign-in request failed", e);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(RETRY_AFTER_HEADER, String.valueOf(e.getRetryAfter().toSeconds()))
+                .build();
         }
     }
 
     /**
-     * <p>
-     * Sends the sign-in link the provided email. Returns HTTP 404 if an account with the provided
-     * email doesn't exist.</p>
+     * <p>Sends the sign-in link the provided email.</p>
      * <p>
      * The sign-in link contains a short-lived refresh token and thus, it must be exchanged for
      * proper auth credentials using the '{@code /credentials}' endpoint before its expiry.</p>
      * <p>
-     * If the request returns HTTP 403, then the clients must consider this account as blacklisted.
-     * All further attempts using this email address will result in HTTP 403. At this point, the
-     * clients may advise their user to contact the support.</p>
+     * If the request returns HTTP 429, then the clients must consider the {@code Retry-After} HTTP
+     * header as the API server will refuse all further sign-in attempts until the given duration
+     * has elapsed.</p>
      */
     @Operation(summary = "Sign-in to an existing account")
     @SecurityRequirements
     @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "sign-in link sent to the provided email"),
+        @ApiResponse(responseCode = "201", description = "sent sign-in link to the given email if such an account exists"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "403", description = "account with the given email is blacklisted"),
-        @ApiResponse(responseCode = "404", description = "account does not exist"),
+        @ApiResponse(
+            responseCode = "429",
+            description = "the account is temporarily blocked from attempting sign-in",
+            headers = @Header(
+                name = RETRY_AFTER_HEADER,
+                description = "duration (in seconds) after which the account should be able to reattempt sign-in",
+                required = true,
+                schema = @Schema(type = "integer", format = "int64"))),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -125,10 +137,12 @@ class AccountController {
             return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (AccountNotFoundException e) {
             log.trace("sign-in request failed", e);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (TooManySignInAttemptsException e) {
             log.trace("sign-in request failed", e);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(RETRY_AFTER_HEADER, String.valueOf(e.getRetryAfter().toSeconds()))
+                .build();
         }
     }
 
@@ -199,36 +213,6 @@ class AccountController {
         } catch (RefreshTokenVerificationException e) {
             log.trace("failed to issue fresh auth credentials", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-    }
-
-    /**
-     * <p>
-     * Revokes a refresh token with the given {@code tokenId} provided that it is owned by the
-     * authenticated user.</p>
-     *
-     * @param tokenId id of the refresh token.
-     */
-    @Operation(summary = "Issue new credentials using a valid refresh token")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200"),
-        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
-        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
-        @ApiResponse(responseCode = "404", description = "auth user doesn't own a refresh token with given id", content = @Content),
-        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
-    })
-    @NonNull
-    @DeleteMapping(value = "/refreshTokens/{tokenId}")
-    ResponseEntity<Void> revokeRefreshToken(
-        @NonNull @AuthenticationPrincipal AuthUser principal,
-        @Valid @NotNull @Min(1) @PathVariable Long tokenId
-    ) {
-        try {
-            accountService.revokeRefreshToken(principal, tokenId);
-            return ResponseEntity.ok(null);
-        } catch (RefreshTokenRevokeException e) {
-            log.trace("failed to revoke refresh token", e);
-            return ResponseEntity.notFound().build();
         }
     }
 

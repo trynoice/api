@@ -1,6 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.SignInParams;
@@ -19,21 +20,22 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import javax.persistence.EntityManager;
 import javax.servlet.http.Cookie;
 import javax.transaction.Transactional;
-import java.util.function.Function;
+import java.time.LocalDateTime;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.JwtType;
 import static com.trynoice.api.testing.AuthTestUtils.assertValidJWT;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
-import static com.trynoice.api.testing.AuthTestUtils.createRefreshToken;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedRefreshJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -41,7 +43,6 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -109,9 +110,12 @@ class AccountControllerTest {
     @MethodSource("signInTestCases")
     void signIn(String email, int expectedResponseStatus, boolean isExpectingSignInTokenDispatch) throws Exception {
         // create auth user for test-cases that expect it.
+        final AuthUser authUser;
         if ("existing".equals(email)) {
-            val authUser = createAuthUser(entityManager);
+            authUser = createAuthUser(entityManager);
             email = authUser.getEmail();
+        } else {
+            authUser = null;
         }
 
         doNothing().when(signInTokenDispatchStrategy).dispatch(any(), any());
@@ -125,8 +129,14 @@ class AccountControllerTest {
         verify(signInTokenDispatchStrategy, times(isExpectingSignInTokenDispatch ? 1 : 0))
             .dispatch(tokenCaptor.capture(), eq(email));
 
-        if (expectedResponseStatus == HttpStatus.CREATED.value()) {
+        if (isExpectingSignInTokenDispatch) {
             assertValidJWT(hmacSecret, tokenCaptor.getValue());
+        }
+
+        if (authUser != null) {
+            entityManager.flush();
+            assertNotEquals((short) 0, authUser.getIncompleteSignInAttempts());
+            assertNotNull(authUser.getLastSignInAttemptAt());
         }
     }
 
@@ -136,7 +146,7 @@ class AccountControllerTest {
             arguments(null, HttpStatus.BAD_REQUEST.value(), false),
             arguments("", HttpStatus.BAD_REQUEST.value(), false),
             arguments("not-an-email", HttpStatus.BAD_REQUEST.value(), false),
-            arguments("non-existing@test.org", HttpStatus.NOT_FOUND.value(), false),
+            arguments("non-existing@test.org", HttpStatus.CREATED.value(), false),
             arguments("existing", HttpStatus.CREATED.value(), true)
         );
     }
@@ -200,7 +210,8 @@ class AccountControllerTest {
             assertValidJWT(hmacSecret, authCredentials.getAccessToken());
 
             entityManager.refresh(authUser);
-            assertEquals((short) 0, authUser.getSignInAttempts());
+            assertNull(authUser.getLastSignInAttemptAt());
+            assertEquals((short) 0, authUser.getIncompleteSignInAttempts());
         }
     }
 
@@ -216,11 +227,12 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - signInAttempts={0} responseStatus={1}")
+    @ParameterizedTest(name = "{displayName} - incompleteSignInAttempts={0} lastSignInAttemptAt={1} responseStatus={2}")
     @MethodSource("emailBlacklistingTestCases")
-    void emailBlacklisting(int signInAttempts, int expectedResponseStatus) throws Exception {
+    void emailBlacklisting(int incompleteSignInAttempts, LocalDateTime lastSignInAttemptAt, int expectedResponseStatus) throws Exception {
         val user = createAuthUser(entityManager);
-        user.setSignInAttempts((short) signInAttempts);
+        user.setLastSignInAttemptAt(lastSignInAttemptAt);
+        user.setIncompleteSignInAttempts((short) incompleteSignInAttempts);
         entityManager.persist(user);
 
         // perform sign-up
@@ -230,7 +242,8 @@ class AccountControllerTest {
                     .content(objectMapper.writeValueAsBytes(new SignUpParams(user.getEmail(), user.getName()))))
             .andExpect(status().is(expectedResponseStatus));
 
-        user.setSignInAttempts((short) signInAttempts);
+        user.setLastSignInAttemptAt(lastSignInAttemptAt);
+        user.setIncompleteSignInAttempts((short) incompleteSignInAttempts);
         entityManager.persist(user);
 
         // perform sign-in
@@ -243,42 +256,16 @@ class AccountControllerTest {
 
     static Stream<Arguments> emailBlacklistingTestCases() {
         return Stream.of(
-            // signInAttempts, responseStatus
-            arguments(0, HttpStatus.CREATED.value()),
-            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER / 2, HttpStatus.CREATED.value()),
-            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER, HttpStatus.FORBIDDEN.value()),
-            arguments(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER * 2, HttpStatus.FORBIDDEN.value())
+            // incompleteSignInAttempts, lastSignInAttemptAt, responseStatus
+            arguments(0, null, HttpStatus.CREATED.value()),
+            arguments(5, LocalDateTime.now().minusHours(1), HttpStatus.CREATED.value()),
+            arguments(5, LocalDateTime.now(), HttpStatus.TOO_MANY_REQUESTS.value())
         );
-    }
-
-    @Test
-    void revokeRefreshToken() throws Exception {
-        val authUser = createAuthUser(entityManager);
-        val refreshToken = createRefreshToken(entityManager, authUser);
-        val accessToken = createSignedAccessJwt(hmacSecret, authUser, JwtType.VALID);
-
-        final Function<Long, MockHttpServletRequestBuilder> requestBuilder =
-            id -> delete("/v1/accounts/refreshTokens/" + id)
-                .header("Authorization", "Bearer " + accessToken);
-
-        // non-existing refresh token id
-        mockMvc.perform(requestBuilder.apply(99999999L))
-            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
-
-        // existing and owned refresh token id
-        mockMvc.perform(requestBuilder.apply(refreshToken.getId()))
-            .andExpect(status().is(HttpStatus.OK.value()));
-
-        // existing but not owned refresh token id
-        val anotherRefreshToken = createRefreshToken(entityManager, createAuthUser(entityManager));
-        mockMvc.perform(requestBuilder.apply(anotherRefreshToken.getId()))
-            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
     }
 
     @Test
     void getProfile() throws Exception {
         val authUser = createAuthUser(entityManager);
-        createRefreshToken(entityManager, authUser);
         val accessToken = createSignedAccessJwt(hmacSecret, authUser, JwtType.VALID);
         val result = mockMvc.perform(
                 get("/v1/accounts/profile")
@@ -290,6 +277,5 @@ class AccountControllerTest {
         assertEquals(authUser.getId(), profile.findValue("accountId").asLong());
         assertEquals(authUser.getName(), profile.findValue("name").asText());
         assertEquals(authUser.getEmail(), profile.findValue("email").asText());
-        assertEquals(1, profile.findValue("activeSessions").size());
     }
 }

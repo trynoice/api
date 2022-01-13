@@ -5,7 +5,6 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
-import com.trynoice.api.identity.exceptions.RefreshTokenRevokeException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.SignInParams;
@@ -21,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -30,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -58,7 +57,8 @@ class AccountServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(authConfiguration.getHmacSecret()).thenReturn(TEST_HMAC_SECRET);
+        lenient().when(authConfiguration.getHmacSecret()).thenReturn(TEST_HMAC_SECRET);
+        lenient().when(authConfiguration.getSignInReattemptMaxDelay()).thenReturn(Duration.ofMinutes(5));
         this.jwtAlgorithm = Algorithm.HMAC256(TEST_HMAC_SECRET);
         this.service = new AccountService(authUserRepository, refreshTokenRepository, authConfiguration, signInTokenDispatchStrategy);
     }
@@ -106,7 +106,8 @@ class AccountServiceTest {
     @Test
     void signUp_withBlacklistedEmail() {
         val authUser = buildAuthUser();
-        authUser.setSignInAttempts(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER);
+        authUser.setLastSignInAttemptAt(LocalDateTime.now());
+        authUser.setIncompleteSignInAttempts((short) 5);
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
 
@@ -146,7 +147,8 @@ class AccountServiceTest {
     @Test
     void signIn_withBlacklistedEmail() {
         val authUser = buildAuthUser();
-        authUser.setSignInAttempts(AccountService.MAX_SIGN_IN_ATTEMPTS_PER_USER);
+        authUser.setLastSignInAttemptAt(LocalDateTime.now());
+        authUser.setIncompleteSignInAttempts((short) 5);
         when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(new SignInParams(authUser.getEmail())));
     }
@@ -248,47 +250,17 @@ class AccountServiceTest {
         assertValidJwt(credentials.getAccessToken());
 
         // must reset signInAttempts.
-        assertEquals((short) 0, refreshToken.getOwner().getSignInAttempts());
+        assertEquals((short) 0, refreshToken.getOwner().getIncompleteSignInAttempts());
         verify(authUserRepository, times(1)).save(refreshToken.getOwner());
-    }
-
-    @Test
-    void revokeRefreshToken() {
-        val authUser = buildAuthUser();
-        val refreshToken = buildRefreshToken(authUser);
-        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
-            .thenReturn(Optional.of(refreshToken));
-
-        //noinspection CodeBlock2Expr
-        assertDoesNotThrow(() -> {
-            service.revokeRefreshToken(authUser, refreshToken.getId());
-        });
-
-        val anotherAuthUser = buildAuthUser();
-        anotherAuthUser.setId(2L);
-        assertThrows(
-            RefreshTokenRevokeException.class,
-            () -> service.revokeRefreshToken(anotherAuthUser, refreshToken.getId()));
     }
 
     @Test
     void getProfile() {
         val authUser = buildAuthUser();
-        val refreshTokens = List.of(buildRefreshToken(authUser));
-        when(refreshTokenRepository.findAllActiveAndUnexpiredByOwner(authUser)).thenReturn(refreshTokens);
-
         val profile = service.getProfile(authUser);
         assertEquals(authUser.getId(), profile.getAccountId());
         assertEquals(authUser.getName(), profile.getName());
         assertEquals(authUser.getEmail(), profile.getEmail());
-
-        val activeSessions = profile.getActiveSessions();
-        for (int i = 0; i < activeSessions.size(); i++) {
-            assertEquals(refreshTokens.get(i).getId(), activeSessions.get(i).getRefreshTokenId());
-            assertEquals(refreshTokens.get(i).getCreatedAt(), activeSessions.get(i).getCreatedAt());
-            assertEquals(refreshTokens.get(i).getLastUsedAt(), activeSessions.get(i).getLastUsedAt());
-            assertEquals(refreshTokens.get(i).getUserAgent(), activeSessions.get(i).getUserAgent());
-        }
     }
 
     @Test
