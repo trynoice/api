@@ -33,7 +33,11 @@ public class SubscriptionPlanView {
     @NonNull
     private Short trialPeriodDays;
 
-    @Schema(required = true, description = "currency formatted string showing plan's price in INR, e.g. '₹225'")
+    @Schema(required = true, description = "currency formatted string showing plan's total price in INR, e.g. '₹225'")
     @NonNull
-    private String priceInr;
+    private String totalPriceInr;
+
+    @Schema(required = true, description = "currency formatted string showing plan's monthly price in INR, e.g. '₹225'")
+    @NonNull
+    private String monthlyPriceInr;
 }

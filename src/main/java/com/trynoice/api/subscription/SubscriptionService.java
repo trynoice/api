@@ -532,7 +532,8 @@ public class SubscriptionService {
             .provider(plan.getProvider().name().toLowerCase())
             .billingPeriodMonths(plan.getBillingPeriodMonths())
             .trialPeriodDays(plan.getTrialPeriodDays())
-            .priceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise()))
+            .totalPriceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise()))
+            .monthlyPriceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise() / plan.getBillingPeriodMonths()))
             .build();
     }
 
@@ -579,7 +580,6 @@ public class SubscriptionService {
     private static String formatIndianPaiseToRupee(long paise) {
         val formatter = NumberFormat.getCurrencyInstance();
         formatter.setCurrency(Currency.getInstance("INR"));
-        formatter.setMinimumFractionDigits(0);
         return formatter.format(paise / 100.0);
     }
 }
