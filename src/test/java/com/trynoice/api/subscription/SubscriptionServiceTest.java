@@ -117,7 +117,9 @@ public class SubscriptionServiceTest {
                 assertEquals(expecting.getProvider().name().toLowerCase(), got.getProvider().toLowerCase());
                 assertEquals(expecting.getBillingPeriodMonths(), got.getBillingPeriodMonths());
                 assertEquals(expecting.getTrialPeriodDays(), got.getTrialPeriodDays());
-                assertTrue(got.getPriceInr().contains("" + (expecting.getPriceInIndianPaise() / 100)));
+                val totalPrice = expecting.getPriceInIndianPaise() / 100;
+                assertTrue(got.getTotalPriceInr().contains("" + totalPrice));
+                assertTrue(got.getMonthlyPriceInr().contains("" + (totalPrice / expecting.getBillingPeriodMonths())));
             }
         }
 
@@ -339,7 +341,7 @@ public class SubscriptionServiceTest {
         val plan = SubscriptionPlan.builder()
             .provider(provider)
             .providerPlanId(providerPlanId)
-            .billingPeriodMonths((short) 1)
+            .billingPeriodMonths((short) 2)
             .trialPeriodDays((short) 1)
             .priceInIndianPaise(22500)
             .build();
