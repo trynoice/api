@@ -37,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -117,12 +116,14 @@ public class SubscriptionServiceTest {
                 assertEquals(expecting.getProvider().name().toLowerCase(), got.getProvider().toLowerCase());
                 assertEquals(expecting.getBillingPeriodMonths(), got.getBillingPeriodMonths());
                 assertEquals(expecting.getTrialPeriodDays(), got.getTrialPeriodDays());
-                val totalPrice = expecting.getPriceInIndianPaise() / 100;
-                assertTrue(got.getTotalPriceInr().contains("" + totalPrice));
-                assertTrue(got.getMonthlyPriceInr().contains("" + (totalPrice / expecting.getBillingPeriodMonths())));
+                assertEquals(expecting.getPriceInIndianPaise(), got.getPriceInIndianPaise());
+                assertEquals(
+                    expecting.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
+                        ? expecting.getProviderPlanId()
+                        : null,
+                    got.getGooglePlaySubscriptionId());
             }
         }
-
     }
 
     @Test

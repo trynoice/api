@@ -33,11 +33,10 @@ public class SubscriptionPlanView {
     @NonNull
     private Short trialPeriodDays;
 
-    @Schema(required = true, description = "currency formatted string showing plan's total price in INR, e.g. '₹225'")
+    @Schema(required = true, description = "price of the plan in Indian Paise (INR * 100)")
     @NonNull
-    private String totalPriceInr;
+    private Integer priceInIndianPaise;
 
-    @Schema(required = true, description = "currency formatted string showing plan's monthly price in INR, e.g. '₹225'")
-    @NonNull
-    private String monthlyPriceInr;
+    @Schema(description = "Google Play assigned id of the subscription plan. Only present if provider is 'google_play'")
+    private String googlePlaySubscriptionId;
 }
