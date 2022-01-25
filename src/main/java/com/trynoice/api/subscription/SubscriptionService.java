@@ -532,8 +532,11 @@ public class SubscriptionService {
             .provider(plan.getProvider().name().toLowerCase())
             .billingPeriodMonths(plan.getBillingPeriodMonths())
             .trialPeriodDays(plan.getTrialPeriodDays())
-            .totalPriceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise()))
-            .monthlyPriceInr(formatIndianPaiseToRupee(plan.getPriceInIndianPaise() / plan.getBillingPeriodMonths()))
+            .priceInIndianPaise(plan.getPriceInIndianPaise())
+            .googlePlaySubscriptionId(
+                plan.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
+                    ? plan.getProviderPlanId()
+                    : null)
             .build();
     }
 
