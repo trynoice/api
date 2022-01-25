@@ -15,6 +15,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
@@ -39,11 +40,12 @@ class SoundController {
 
     /**
      * Authorizes a request for a sound segment based on the signed-in user's subscription status.
-     * If a premium segment is being requested, the user must be signed-in and have an active
-     * subscription. Otherwise, HTTP 401 is returned.
+     * If a premium segment or bitrate is being requested, the user must be signed-in and have an
+     * active subscription. Otherwise, HTTP 401 is returned.
      *
-     * @param soundId   id of the sound to which the requested segment belongs
-     * @param segmentId id of the requested segment.
+     * @param soundId      id of the sound to which the requested segment belongs.
+     * @param segmentId    id of the requested segment.
+     * @param audioBitrate bitrate of the requested hls playlist or segment, e.g. 32k or 128k.
      * @return <ul>
      * <li>{@code HTTP 200} if request is authorized.</li>
      * <li>{@code HTTP 400} if request is not valid.</li>
@@ -59,10 +61,11 @@ class SoundController {
     ResponseEntity<Void> authorizeSegmentRequest(
         @AuthenticationPrincipal AuthUser principal,
         @Valid @NotBlank @PathVariable String soundId,
-        @Valid @NotBlank @PathVariable String segmentId
+        @Valid @NotBlank @PathVariable String segmentId,
+        @RequestParam(required = false) String audioBitrate
     ) {
         try {
-            soundService.authorizeSegmentRequest(principal, soundId, segmentId);
+            soundService.authorizeSegmentRequest(principal, soundId, segmentId, audioBitrate);
             return ResponseEntity.ok(null);
         } catch (SegmentAccessDeniedException e) {
             log.trace("segment request denied", e);

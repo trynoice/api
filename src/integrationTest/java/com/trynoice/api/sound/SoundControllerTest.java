@@ -102,18 +102,20 @@ public class SoundControllerTest {
             buildSubscription(authUser, subscriptionStatus);
         }
 
-        val requestUrlFmt = "/v1/sounds/%s/segments/%s/authorize";
-        val freeSegmentRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId));
-        val premiumSegmentRequest = get(String.format(requestUrlFmt, soundId, premiumSegmentId));
+        val requestUrlFmt = "/v1/sounds/%s/segments/%s/authorize?audioBitrate=%s";
+        val freeSegmentRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "32k"));
+        val premiumSegmentRequest = get(String.format(requestUrlFmt, soundId, premiumSegmentId, "32k"));
+        val premiumBitrateRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "320k"));
         if (isSignedIn) {
             val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
             freeSegmentRequest.header("Authorization", "Bearer " + accessToken);
             premiumSegmentRequest.header("Authorization", "Bearer " + accessToken);
+            premiumBitrateRequest.header("Authorization", "Bearer " + accessToken);
         }
 
         mockMvc.perform(freeSegmentRequest).andExpect(status().is(HttpStatus.OK.value()));
-        mockMvc.perform(premiumSegmentRequest)
-            .andExpect(status().is(expectedResponseStatus));
+        mockMvc.perform(premiumSegmentRequest).andExpect(status().is(expectedResponseStatus));
+        mockMvc.perform(premiumBitrateRequest).andExpect(status().is(expectedResponseStatus));
     }
 
     static Stream<Arguments> authorizeSegmentRequestTestCases() {

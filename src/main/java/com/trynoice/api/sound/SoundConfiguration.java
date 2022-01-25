@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.time.Duration;
+import java.util.Set;
 
 /**
  * Configuration properties used by various components in the sound package.
@@ -44,6 +45,9 @@ public class SoundConfiguration {
      */
     @NotNull
     private Duration libraryManifestCacheTtl;
+
+    @NotNull
+    private Set<String> freeBitrates;
 
     @NonNull
     @Bean

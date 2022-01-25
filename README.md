@@ -75,6 +75,8 @@ properties must be configured before deploying the application to the production
 | `app.auth.refresh-token-expiry`                    | Duration for the expiry of refresh token (default: `7d`)         |
 | `app.auth.access-token-expiry`                     | Duration for the expiry of access token (default: `30m`)         |
 | `app.auth.sign-in-token-expiry`                    | Duration for the expiry of sign-in token (default: `15m`)        |
+| `app.auth.sign-in-reattempt-max-delay`             | Maximum duration to lock accounts with too many incomplete       |
+|                                                    | sign-in attempts (default: `1h`)                                 |
 | `app.auth.cookie-domain`                           | Domain value to use when sending cookies to clients              |
 | `app.subscriptions.android-publisher-api-key-path` | Path of the service account key to access Android Publisher API  |
 | `app.subscriptions.stripe-api-key`                 | Secret API key to access Stripe API                              |
@@ -82,3 +84,5 @@ properties must be configured before deploying the application to the production
 | `app.sounds.library-manifest-s3-bucket`            | Name of the S3 bucket that hosts the library manifest            |
 | `app.sounds.library-manifest-s3-key`               | Path of the library manifest in the given S3 bucket              |
 | `app.sounds.library-manifest-cache-ttl`            | TTL for library manifest cache from the S3 bucket (default: 5m)  |
+| `app.sounds.free-bitrates`                         | Comma-separated list of audio bitrates available to stream for   |
+|                                                    | free (default: `32k,128k`)                                       |
