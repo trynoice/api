@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.validation.ConstraintViolationException;
+import java.util.Set;
 
 /**
  * {@link SoundService} implements operations related to sound.
@@ -17,11 +18,17 @@ import javax.validation.ConstraintViolationException;
 class SoundService {
 
     private final LibraryManifestRepository libraryManifestRepository;
+    private final Set<String> freeAudioBitrates;
     private final SubscriptionService subscriptionService;
 
     @Autowired
-    SoundService(@NonNull LibraryManifestRepository libraryManifestRepository, @NonNull SubscriptionService subscriptionService) {
+    SoundService(
+        @NonNull SoundConfiguration soundConfig,
+        @NonNull LibraryManifestRepository libraryManifestRepository,
+        @NonNull SubscriptionService subscriptionService
+    ) {
         this.libraryManifestRepository = libraryManifestRepository;
+        this.freeAudioBitrates = soundConfig.getFreeBitrates();
         this.subscriptionService = subscriptionService;
     }
 
@@ -38,7 +45,12 @@ class SoundService {
      *                                      isn't signed-in ({@code null}) or doesn't have an active
      *                                      subscription.
      */
-    void authorizeSegmentRequest(AuthUser principal, @NonNull String soundId, @NonNull String segmentId) throws SegmentAccessDeniedException {
+    void authorizeSegmentRequest(
+        AuthUser principal,
+        @NonNull String soundId,
+        @NonNull String segmentId,
+        String audioBitrate
+    ) throws SegmentAccessDeniedException {
         val premiumSegmentMappings = libraryManifestRepository.getPremiumSegmentMappings();
         if (!premiumSegmentMappings.containsKey(soundId)) {
             throw new ConstraintViolationException(String.format("sound with id '%s' doesn't exist", soundId), null);
@@ -50,7 +62,9 @@ class SoundService {
             .stream()
             .noneMatch(s -> segmentId.startsWith(s) || segmentId.endsWith(s));
 
-        if (isRequestingFreeSegment) {
+        // audio bitrate will not be available when requesting master playlists.
+        val isRequestFreeBitrate = audioBitrate == null || audioBitrate.isBlank() || freeAudioBitrates.contains(audioBitrate);
+        if (isRequestingFreeSegment && isRequestFreeBitrate) {
             return;
         }
 
