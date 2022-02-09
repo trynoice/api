@@ -44,7 +44,7 @@ CREATE TABLE subscription_plan (
   deleted_at timestamp with time zone,
   version bigint NOT NULL,
   provider varchar(16) NOT NULL,
-  provider_plan_id varchar(32) NOT NULL,
+  provider_plan_id varchar(255) NOT NULL,
   billing_period_months smallint NOT NULL,
   trial_period_days smallint NOT NULL,
   price_in_indian_paise integer NOT NULL
@@ -68,11 +68,11 @@ CREATE TABLE subscription (
   version bigint NOT NULL,
   owner_id bigint NOT NULL,
   plan_id smallint NOT NULL,
-  provider_subscription_id varchar(64),
+  provider_subscription_id varchar(255),
   status varchar(24) NOT NULL,
   start_at timestamp with time zone,
   end_at timestamp with time zone,
-  stripe_customer_id varchar(64)
+  stripe_customer_id varchar(255)
 );
 
 CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)
