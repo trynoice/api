@@ -15,7 +15,8 @@ CREATE TABLE auth_user (
   email varchar(64) NOT NULL,
   name varchar(64) NOT NULL,
   last_active_at timestamp with time zone NOT NULL,
-  sign_in_attempts smallint NOT NULL
+  incomplete_sign_in_attempts smallint NOT NULL,
+  last_sign_in_attempt_at timestamp with time zone
 );
 
 CREATE UNIQUE INDEX auth_user__email__unqiue_idx ON auth_user (email)
@@ -30,8 +31,7 @@ CREATE TABLE refresh_token (
   owner_id bigint NOT NULL,
   user_agent varchar(128) NOT NULL,
   ordinal bigint NOT NULL,
-  expires_at timestamp with time zone NOT NULL,
-  last_used_at timestamp with time zone NOT NULL
+  expires_at timestamp with time zone NOT NULL
 );
 
 CREATE INDEX refresh_token__owner_id__idx ON refresh_token USING btree (owner_id)
