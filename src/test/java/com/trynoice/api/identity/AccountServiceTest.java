@@ -2,6 +2,7 @@ package com.trynoice.api.identity;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
@@ -52,6 +53,9 @@ class AccountServiceTest {
     @Mock
     private SignInTokenDispatchStrategy signInTokenDispatchStrategy;
 
+    @Mock
+    private Cache<String, Boolean> revokedAccessTokenCache;
+
     private Algorithm jwtAlgorithm;
     private AccountService service;
 
@@ -60,7 +64,12 @@ class AccountServiceTest {
         lenient().when(authConfiguration.getHmacSecret()).thenReturn(TEST_HMAC_SECRET);
         lenient().when(authConfiguration.getSignInReattemptMaxDelay()).thenReturn(Duration.ofMinutes(5));
         this.jwtAlgorithm = Algorithm.HMAC256(TEST_HMAC_SECRET);
-        this.service = new AccountService(authUserRepository, refreshTokenRepository, authConfiguration, signInTokenDispatchStrategy);
+        this.service = new AccountService(
+            authUserRepository,
+            refreshTokenRepository,
+            authConfiguration,
+            signInTokenDispatchStrategy,
+            revokedAccessTokenCache);
     }
 
     @Test
@@ -155,7 +164,7 @@ class AccountServiceTest {
 
     @Test
     void signOut_withInvalidJWT() {
-        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut("invalid-jwt"));
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut("invalid-jwt", "valid-acess-jwt"));
     }
 
     @Test
@@ -163,7 +172,7 @@ class AccountServiceTest {
         val refreshToken = buildRefreshToken(buildAuthUser());
         refreshToken.setExpiresAt(LocalDateTime.now().minus(Duration.ofHours(1)));
         val signedJwt = refreshToken.getJwt(jwtAlgorithm);
-        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(signedJwt));
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(signedJwt, "valid-acess-jwt"));
     }
 
     @Test
@@ -177,13 +186,14 @@ class AccountServiceTest {
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
 
-        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(signedJwt));
+        assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(signedJwt, "valid-acess-jwt"));
     }
 
     @Test
     void signOut_withValidJWT() {
         val refreshToken = buildRefreshToken(buildAuthUser());
         val signedJwt = refreshToken.getJwt(jwtAlgorithm);
+        val accessToken = "valid-acess-jwt";
 
         when(refreshTokenRepository.findActiveById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
@@ -191,10 +201,11 @@ class AccountServiceTest {
         // error without block: java: incompatible types: inference variable T has incompatible bounds
         //noinspection CodeBlock2Expr
         assertDoesNotThrow(() -> {
-            service.signOut(signedJwt);
+            service.signOut(signedJwt, accessToken);
         });
 
         verify(refreshTokenRepository, times(1)).delete(refreshToken);
+        verify(revokedAccessTokenCache, times(1)).put(accessToken, Boolean.TRUE);
     }
 
     @Test
@@ -264,10 +275,13 @@ class AccountServiceTest {
     }
 
     @Test
-    void verifyAccessToken() {
+    void verifyAccessToken_withInvalidToken() {
         val invalidToken = "invalid-token";
         assertNull(service.verifyAccessToken(invalidToken));
+    }
 
+    @Test
+    void verifyAccessToken_withValidToken() {
         val principalId = 0L;
         val validToken = JWT.create()
             .withSubject("" + principalId)
@@ -280,6 +294,19 @@ class AccountServiceTest {
         assertNotNull(auth);
         assertNotNull(auth.getPrincipal());
         verify(authUserRepository, times(1)).findActiveById(principalId);
+    }
+
+    @Test
+    void verifyAccessToken_withRevokedToken() {
+        val principalId = 0L;
+        val validToken = JWT.create()
+            .withSubject("" + principalId)
+            .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
+
+        when(revokedAccessTokenCache.getIfPresent(validToken))
+            .thenReturn(Boolean.TRUE);
+
+        assertNull(service.verifyAccessToken(validToken));
     }
 
     @NonNull

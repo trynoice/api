@@ -1,5 +1,7 @@
 package com.trynoice.api.identity;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.Data;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -27,6 +29,8 @@ import java.time.Duration;
 @Data
 @Configuration
 class AuthConfiguration {
+
+    static final String REVOKED_ACCESS_JWT_CACHE = "revokedAccessJwts";
 
     /**
      * HMAC secret to sign refresh and access tokens.
@@ -111,6 +115,15 @@ class AuthConfiguration {
         val registration = new FilterRegistrationBean<>(filter);
         registration.setEnabled(false);
         return registration;
+    }
+
+    @NonNull
+    @Bean(REVOKED_ACCESS_JWT_CACHE)
+    public Cache<String, Boolean> revokedAccessJwtCache() {
+        return Caffeine.newBuilder()
+            .expireAfterWrite(accessTokenExpiry)
+            .maximumSize(10_000) // an arbitrary upper-limit for sanity.
+            .build();
     }
 
     public enum SignInTokenDispatcherType {

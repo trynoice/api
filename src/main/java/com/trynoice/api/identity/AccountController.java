@@ -22,6 +22,7 @@ import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -148,16 +149,15 @@ class AccountController {
 
     /**
      * <p>
-     * Revokes a valid refresh token. If the refresh token is invalid, expired or re-used, it
-     * returns HTTP 401.</p>
+     * Revokes a pair of valid refresh and access tokens. If the refresh token is invalid, expired
+     * or re-used, or if the access token is invalid or expired, it returns HTTP 401.</p>
      * <p>
      * <b>Refresh token must be provided</b>, either as a header or a cookie.</p>
      *
      * @param refreshTokenHeader if present, it must be a non-blank string.
      * @param refreshTokenCookie if present, it must be a non-blank string.
      */
-    @Operation(summary = "Revokes a valid refresh token")
-    @SecurityRequirements
+    @Operation(summary = "Revokes valid credentials")
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
@@ -167,16 +167,21 @@ class AccountController {
     @NonNull
     @GetMapping(value = "/signOut")
     ResponseEntity<Void> signOut(
+        @NonNull Authentication authentication,
         @Valid @Size(min = 1) @RequestHeader(value = REFRESH_TOKEN_HEADER, required = false) String refreshTokenHeader,
         @Valid @Size(min = 1) @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie
     ) {
-        if (refreshTokenHeader == null && refreshTokenCookie == null) {
+        val isValidRefreshToken = ((refreshTokenHeader != null && !refreshTokenHeader.isBlank())
+            || (refreshTokenCookie != null && !refreshTokenCookie.isBlank()));
+
+        if (!isValidRefreshToken || !(authentication.getCredentials() instanceof String)) {
             return ResponseEntity.badRequest().build();
         }
 
         try {
             val refreshToken = requireNonNullElse(refreshTokenCookie, refreshTokenHeader);
-            accountService.signOut(refreshToken);
+            val accessToken = (String) authentication.getCredentials();
+            accountService.signOut(refreshToken, accessToken);
             return ResponseEntity.ok(null);
         } catch (RefreshTokenVerificationException e) {
             log.trace("failed to revoke refresh token", e);

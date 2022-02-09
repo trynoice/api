@@ -4,7 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.auth0.jwt.interfaces.DecodedJWT;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
@@ -21,6 +21,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -55,18 +56,21 @@ class AccountService {
     private final SignInTokenDispatchStrategy signInTokenDispatchStrategy;
     private final Algorithm jwtAlgorithm;
     private final JWTVerifier jwtVerifier;
+    private final Cache<String, Boolean> revokedAccessJwtCache;
 
     @Autowired
     AccountService(
         @NonNull AuthUserRepository authUserRepository,
         @NonNull RefreshTokenRepository refreshTokenRepository,
         @NonNull AuthConfiguration authConfig,
-        @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy
+        @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy,
+        @NonNull @Qualifier(AuthConfiguration.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache
     ) {
         this.authUserRepository = authUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.authConfig = authConfig;
         this.signInTokenDispatchStrategy = signInTokenDispatchStrategy;
+        this.revokedAccessJwtCache = revokedAccessJwtCache;
         this.jwtAlgorithm = Algorithm.HMAC256(authConfig.getHmacSecret());
         this.jwtVerifier = JWT.require(this.jwtAlgorithm).build();
     }
@@ -135,14 +139,17 @@ class AccountService {
     }
 
     /**
-     * Revokes a valid refresh token.
+     * Revokes a pair valid refresh and access tokens. The service assumes that the given {@code
+     * accessJwt} has been validated by the caller before making the call.
      *
-     * @param refreshToken refresh token provided by the client
+     * @param refreshJwt refresh token provided by the client.
+     * @param accessJwt  access token provided by the client.
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
-    void signOut(@NonNull String refreshToken) throws RefreshTokenVerificationException {
-        val token = verifyRefreshJWT(refreshToken);
-        refreshTokenRepository.delete(token);
+    void signOut(@NonNull String refreshJwt, @NonNull String accessJwt) throws RefreshTokenVerificationException {
+        val refreshToken = verifyRefreshJWT(refreshJwt);
+        refreshTokenRepository.delete(refreshToken);
+        revokedAccessJwtCache.put(accessJwt, Boolean.TRUE);
     }
 
     /**
@@ -234,10 +241,15 @@ class AccountService {
      * token is invalid.
      */
     Authentication verifyAccessToken(@NonNull String token) {
+        // check if the token was revoked during sign-out.
+        if (requireNonNullElse(revokedAccessJwtCache.getIfPresent(token), false)) {
+            log.trace("attempted authentication with a revoked access token");
+            return null;
+        }
+
         try {
-            val decodedToken = jwtVerifier.verify(token);
-            return new BearerJWT(decodedToken);
-        } catch (JWTVerificationException e) {
+            return new BearerJWT(token);
+        } catch (BearerJwtAuthenticationException e) {
             log.trace("access token verification failed", e);
         }
 
@@ -246,15 +258,18 @@ class AccountService {
 
     private class BearerJWT extends AbstractAuthenticationToken {
 
-        private final DecodedJWT token;
+        private final String token;
         private final Long principalId;
 
-        private BearerJWT(@NonNull DecodedJWT token) {
+        private BearerJWT(@NonNull String token) {
             super(List.of());
             this.token = token;
 
             try {
-                this.principalId = parseLong(token.getSubject());
+                val decodedToken = jwtVerifier.verify(token);
+                this.principalId = parseLong(decodedToken.getSubject());
+            } catch (JWTVerificationException e) {
+                throw new BearerJwtAuthenticationException("failed to verify jwt", e);
             } catch (NumberFormatException e) {
                 throw new BearerJwtAuthenticationException("failed to parse jwt subject", e);
             }

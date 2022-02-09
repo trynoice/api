@@ -156,12 +156,23 @@ class AccountControllerTest {
     void signOut_withHeader(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
-        val token = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
+        var refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
+        val accessJwt = createSignedAccessJwt(hmacSecret, authUser, JwtType.VALID);
         mockMvc.perform(
                 get("/v1/accounts/signOut")
-                    .header(AccountController.USER_AGENT_HEADER, userAgent)
-                    .header(AccountController.REFRESH_TOKEN_HEADER, token))
+                    .header("Authorization", "Bearer " + accessJwt)
+                    .header(AccountController.REFRESH_TOKEN_HEADER, refreshJwt))
             .andExpect(status().is(expectedResponseStatus));
+
+        if (expectedResponseStatus == HttpStatus.OK.value()) {
+            // retry request with the same access token
+            refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
+            mockMvc.perform(
+                    get("/v1/accounts/signOut")
+                        .header("Authorization", "Bearer " + accessJwt)
+                        .header(AccountController.REFRESH_TOKEN_HEADER, refreshJwt))
+                .andExpect(status().is(HttpStatus.UNAUTHORIZED.value()));
+        }
     }
 
     @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
@@ -169,12 +180,23 @@ class AccountControllerTest {
     void signOut_withCookie(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
-        val token = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
+        var refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
+        val accessJwt = createSignedAccessJwt(hmacSecret, authUser, JwtType.VALID);
         mockMvc.perform(
                 get("/v1/accounts/signOut")
-                    .header(AccountController.USER_AGENT_HEADER, userAgent)
-                    .cookie(new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, token)))
+                    .cookie(new Cookie(CookieAuthFilter.ACCESS_TOKEN_COOKIE, accessJwt))
+                    .cookie(new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, refreshJwt)))
             .andExpect(status().is(expectedResponseStatus));
+
+        if (expectedResponseStatus == HttpStatus.OK.value()) {
+            // retry request with the same access token
+            refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
+            mockMvc.perform(
+                    get("/v1/accounts/signOut")
+                        .cookie(new Cookie(CookieAuthFilter.ACCESS_TOKEN_COOKIE, accessJwt))
+                        .cookie(new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, refreshJwt)))
+                .andExpect(status().is(HttpStatus.UNAUTHORIZED.value()));
+        }
     }
 
     static Stream<Arguments> signOutTestCases() {
