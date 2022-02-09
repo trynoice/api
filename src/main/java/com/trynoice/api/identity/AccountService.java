@@ -16,7 +16,6 @@ import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
-import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -83,7 +82,7 @@ class AccountService {
      * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
      * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
-    @ReasonablyTransactional
+    @Transactional(rollbackFor = Throwable.class)
     public void signUp(@NonNull SignUpParams params) throws TooManySignInAttemptsException {
         val user = authUserRepository.findActiveByEmail(params.getEmail())
             .orElseGet(() -> authUserRepository.save(
@@ -104,7 +103,7 @@ class AccountService {
      * @throws SignInTokenDispatchException   if email cannot be sent (due to upstream service error).
      * @throws TooManySignInAttemptsException if auth user makes too many attempts without a successful sign-in.
      */
-    @ReasonablyTransactional
+    @Transactional(rollbackFor = Throwable.class)
     public void signIn(@NonNull SignInParams params) throws AccountNotFoundException, TooManySignInAttemptsException {
         val user = authUserRepository.findActiveByEmail(params.getEmail())
             .orElseThrow(() -> {
@@ -146,7 +145,8 @@ class AccountService {
      * @param accessJwt  access token provided by the client.
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
-    void signOut(@NonNull String refreshJwt, @NonNull String accessJwt) throws RefreshTokenVerificationException {
+    @Transactional(rollbackFor = Throwable.class)
+    public void signOut(@NonNull String refreshJwt, @NonNull String accessJwt) throws RefreshTokenVerificationException {
         val refreshToken = verifyRefreshJWT(refreshJwt);
         refreshTokenRepository.delete(refreshToken);
         revokedAccessJwtCache.put(accessJwt, Boolean.TRUE);
@@ -162,7 +162,7 @@ class AccountService {
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
-    @Transactional(rollbackFor = Exception.class, noRollbackFor = RefreshTokenVerificationException.class)
+    @Transactional(rollbackFor = Throwable.class, noRollbackFor = RefreshTokenVerificationException.class)
     public AuthCredentials issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 

@@ -7,7 +7,6 @@ import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
-import com.trynoice.api.platform.transaction.annotations.ReasonablyTransactional;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
@@ -25,12 +24,11 @@ import lombok.val;
 import org.postgresql.util.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
-import java.text.NumberFormat;
 import java.time.LocalDateTime;
-import java.util.Currency;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -117,7 +115,7 @@ public class SubscriptionService {
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
      */
     @NonNull
-    @ReasonablyTransactional
+    @Transactional(rollbackFor = Throwable.class)
     public SubscriptionFlowResult createSubscription(
         @NonNull AuthUser owner,
         @NonNull SubscriptionFlowParams params
@@ -216,7 +214,7 @@ public class SubscriptionService {
      * @throws SubscriptionNotFoundException if subscription with given id and owner doesn't exist.
      * @throws SubscriptionStateException    if subscription is not currently active.
      */
-    @ReasonablyTransactional
+    @Transactional(rollbackFor = Throwable.class)
     public void cancelSubscription(
         @NonNull AuthUser owner,
         @NonNull Long subscriptionId
@@ -275,7 +273,7 @@ public class SubscriptionService {
      * @see <a href="https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions">
      * Android Publisher REST API reference</a>
      */
-    @ReasonablyTransactional
+    @Transactional(rollbackFor = Throwable.class)
     public void handleGooglePlayWebhookEvent(@NonNull JsonNode payload) throws SubscriptionWebhookEventException {
         val data = payload.at("/message/data");
         if (!data.isTextual()) {
@@ -394,7 +392,7 @@ public class SubscriptionService {
      * @see <a href="https://stripe.com/docs/api/checkout/sessions/object">Checkout Session object</a>
      * @see <a href="https://stripe.com/docs/api/subscriptions/object">Subscription object</a>
      */
-    @ReasonablyTransactional
+    @Transactional(rollbackFor = Throwable.class)
     public void handleStripeWebhookEvent(
         @NonNull String payload,
         @NonNull String signature
@@ -433,54 +431,7 @@ public class SubscriptionService {
             case "customer.subscription.trial_will_end":
                 val stripeSubscription = (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get subscription object from the event payload"));
-
-                if (stripeSubscription.getItems() == null
-                    || stripeSubscription.getItems().getData() == null
-                    || stripeSubscription.getItems().getData().size() != 1
-                    || stripeSubscription.getItems().getData().get(0) == null
-                    || stripeSubscription.getItems().getData().get(0).getPrice() == null) {
-                    throw new SubscriptionWebhookEventException("failed to get subscription price object from the event payload");
-                }
-
-                val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
-                val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(stripeSubscription.getId())
-                    .orElseThrow(() -> {
-                        val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
-                        return new SubscriptionWebhookEventException(errMsg);
-                    });
-
-                if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
-                    subscription.setPlan(
-                        subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
-                            .orElseThrow(() -> new SubscriptionWebhookEventException("updated provider plan id not recognised")));
-                }
-
-                if (stripeSubscription.getStartDate() != null) {
-                    subscription.setStartAtSeconds(stripeSubscription.getStartDate());
-                } else if (stripeSubscription.getCurrentPeriodStart() != null) {
-                    subscription.setStartAtSeconds(stripeSubscription.getCurrentPeriodStart());
-                }
-
-                if (stripeSubscription.getEndedAt() != null) {
-                    subscription.setEndAtSeconds(stripeSubscription.getEndedAt());
-                } else if (stripeSubscription.getCurrentPeriodEnd() != null) {
-                    subscription.setEndAtSeconds(stripeSubscription.getCurrentPeriodEnd());
-                }
-
-                switch (stripeSubscription.getStatus()) {
-                    case "trialing":
-                    case "active":
-                        subscription.setStatus(Subscription.Status.ACTIVE);
-                        break;
-                    case "past_due":
-                        subscription.setStatus(Subscription.Status.PENDING);
-                        break;
-                    default:
-                        subscription.setStatus(Subscription.Status.INACTIVE);
-                        break;
-                }
-
-                subscriptionRepository.save(subscription);
+                handleStripeSubscriptionEvent(stripeSubscription);
                 break;
         }
     }
@@ -512,6 +463,58 @@ public class SubscriptionService {
         } catch (NumberFormatException e) {
             throw new SubscriptionWebhookEventException("failed to parse the client reference id in checkout session");
         }
+    }
+
+    private void handleStripeSubscriptionEvent(
+        @NonNull com.stripe.model.Subscription stripeSubscription
+    ) throws SubscriptionWebhookEventException {
+        if (stripeSubscription.getItems() == null
+            || stripeSubscription.getItems().getData() == null
+            || stripeSubscription.getItems().getData().size() != 1
+            || stripeSubscription.getItems().getData().get(0) == null
+            || stripeSubscription.getItems().getData().get(0).getPrice() == null) {
+            throw new SubscriptionWebhookEventException("failed to get subscription price object from the event payload");
+        }
+
+        val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
+        val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(stripeSubscription.getId())
+            .orElseThrow(() -> {
+                val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
+                return new SubscriptionWebhookEventException(errMsg);
+            });
+
+        if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
+            subscription.setPlan(
+                subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
+                    .orElseThrow(() -> new SubscriptionWebhookEventException("updated provider plan id not recognised")));
+        }
+
+        if (stripeSubscription.getStartDate() != null) {
+            subscription.setStartAtSeconds(stripeSubscription.getStartDate());
+        } else if (stripeSubscription.getCurrentPeriodStart() != null) {
+            subscription.setStartAtSeconds(stripeSubscription.getCurrentPeriodStart());
+        }
+
+        if (stripeSubscription.getEndedAt() != null) {
+            subscription.setEndAtSeconds(stripeSubscription.getEndedAt());
+        } else if (stripeSubscription.getCurrentPeriodEnd() != null) {
+            subscription.setEndAtSeconds(stripeSubscription.getCurrentPeriodEnd());
+        }
+
+        switch (stripeSubscription.getStatus()) {
+            case "trialing":
+            case "active":
+                subscription.setStatus(Subscription.Status.ACTIVE);
+                break;
+            case "past_due":
+                subscription.setStatus(Subscription.Status.PENDING);
+                break;
+            default:
+                subscription.setStatus(Subscription.Status.INACTIVE);
+                break;
+        }
+
+        subscriptionRepository.save(subscription);
     }
 
     /**
@@ -574,15 +577,5 @@ public class SubscriptionService {
             .endedAt(endedAt)
             .stripeCustomerPortalUrl(stripeCustomerPortalUrl)
             .build();
-    }
-
-    /**
-     * @return a localised string after converting {@code paise} to INR
-     */
-    @NonNull
-    private static String formatIndianPaiseToRupee(long paise) {
-        val formatter = NumberFormat.getCurrencyInstance();
-        formatter.setCurrency(Currency.getInstance("INR"));
-        return formatter.format(paise / 100.0);
     }
 }
