@@ -99,7 +99,6 @@ public class Application {
             web.ignoring()
                 .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp")
                 .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn")
-                .mvcMatchers(HttpMethod.GET, "/v1/accounts/signOut")
                 .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials")
                 .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans")
                 .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook")
