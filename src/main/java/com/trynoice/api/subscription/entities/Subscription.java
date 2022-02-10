@@ -44,8 +44,6 @@ public class Subscription extends BasicEntity<Long> {
 
     private LocalDateTime startAt, endAt;
 
-    private String stripeCustomerId;
-
     /**
      * Helper to set {@link Subscription#startAt} using Epoch seconds.
      */

@@ -8,6 +8,7 @@ import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.SoundSubscriptionServiceContract;
 import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
+import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
@@ -43,6 +44,7 @@ import static java.lang.Long.parseLong;
 class SubscriptionService implements SoundSubscriptionServiceContract {
 
     private final SubscriptionConfiguration subscriptionConfig;
+    private final CustomerRepository customerRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final ObjectMapper objectMapper;
@@ -53,6 +55,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     @Autowired
     SubscriptionService(
         @NonNull SubscriptionConfiguration subscriptionConfig,
+        @NonNull CustomerRepository customerRepository,
         @NonNull SubscriptionPlanRepository subscriptionPlanRepository,
         @NonNull SubscriptionRepository subscriptionRepository,
         @NonNull ObjectMapper objectMapper,
@@ -61,6 +64,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         @NonNull StripeApi stripeApi
     ) {
         this.subscriptionConfig = subscriptionConfig;
+        this.customerRepository = customerRepository;
         this.subscriptionPlanRepository = subscriptionPlanRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.objectMapper = objectMapper;
@@ -171,7 +175,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                             plan.getProviderPlanId(),
                             subscriptionId.toString(),
                             accountServiceContract.findEmailByUser(ownerId).orElse(null),
-                            subscriptionRepository.findActiveStripeCustomerIdByOwner(ownerId).orElse(null),
+                            customerRepository.findStripeIdByUserId(ownerId).orElse(null),
                             Long.valueOf(plan.getTrialPeriodDays()))
                         .getUrl());
             } catch (StripeException e) {
@@ -205,10 +209,29 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 Subscription.Status.INACTIVE);
         }
 
+        val stripeCustomerPortalUrl = subscriptions.stream()
+            .anyMatch(s -> s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
+                && (s.getStatus() == Subscription.Status.ACTIVE || s.getStatus() == Subscription.Status.PENDING))
+            ? createStripeCustomerSession(ownerId, stripeReturnUrl)
+            : null;
+
         // not listing subscriptions in created state.
         return subscriptions.stream()
-            .map(subscription -> buildSubscriptionView(subscription, stripeApi, stripeReturnUrl))
+            .map(subscription -> buildSubscriptionView(subscription, stripeCustomerPortalUrl))
             .collect(Collectors.toUnmodifiableList());
+    }
+
+    private String createStripeCustomerSession(@NonNull Long userId, String returnUrl) {
+        val customerStripeId = customerRepository.findStripeIdByUserId(userId);
+        if (customerStripeId.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return stripeApi.createCustomerPortalSession(customerStripeId.get(), returnUrl).getUrl();
+        } catch (StripeException e) {
+            throw new RuntimeException("stripe api error", e);
+        }
     }
 
     /**
@@ -453,21 +476,32 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             throw new SubscriptionWebhookEventException("customer id is missing from the checkout session");
         }
 
+        final long subscriptionId;
         try {
-            val subscriptionId = parseLong(session.getClientReferenceId());
-            val subscription = subscriptionRepository.findById(subscriptionId)
-                .orElseThrow(() -> {
-                    val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
-                    return new SubscriptionWebhookEventException(errMsg);
-                });
-
-            subscription.setProviderSubscriptionId(session.getSubscription());
-            subscription.setStripeCustomerId(session.getCustomer());
-            subscription.setStatus(Subscription.Status.ACTIVE);
-            subscription.setStartAt(LocalDateTime.now());
-            subscriptionRepository.save(subscription);
+            subscriptionId = parseLong(session.getClientReferenceId());
         } catch (NumberFormatException e) {
             throw new SubscriptionWebhookEventException("failed to parse the client reference id in checkout session");
+        }
+
+        val subscription = subscriptionRepository.findById(subscriptionId)
+            .orElseThrow(() -> {
+                val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
+                return new SubscriptionWebhookEventException(errMsg);
+            });
+
+        subscription.setProviderSubscriptionId(session.getSubscription());
+        subscription.setStatus(Subscription.Status.ACTIVE);
+        subscription.setStartAt(LocalDateTime.now());
+        subscriptionRepository.save(subscription);
+
+        val customer = customerRepository.findById(subscription.getOwnerId())
+            .orElseGet(() -> Customer.builder()
+                .userId(subscription.getOwnerId())
+                .build());
+
+        if (customer.getStripeId() == null || !customer.getStripeId().equals(session.getCustomer())) {
+            customer.setStripeId(session.getCustomer());
+            customerRepository.save(customer);
         }
     }
 
@@ -551,29 +585,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionView buildSubscriptionView(
-        @NonNull Subscription subscription,
-        @NonNull StripeApi stripeApi,
-        String stripeReturnUrl
-    ) {
+    private static SubscriptionView buildSubscriptionView(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
         val isPaymentPending = subscription.getStatus() == Subscription.Status.PENDING;
         val isActive = isPaymentPending || subscription.getStatus() == Subscription.Status.ACTIVE;
         val endedAt = subscription.getEndAt() != null && subscription.getEndAt().isBefore(LocalDateTime.now())
             ? subscription.getEndAt() : null;
-
-        final String stripeCustomerPortalUrl;
-        if (isActive && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE) {
-            try {
-                stripeCustomerPortalUrl = stripeApi.createCustomerPortalSession(
-                        subscription.getStripeCustomerId(),
-                        stripeReturnUrl)
-                    .getUrl();
-            } catch (StripeException e) {
-                throw new RuntimeException("stripe api error", e);
-            }
-        } else {
-            stripeCustomerPortalUrl = null;
-        }
 
         return SubscriptionView.builder()
             .id(subscription.getId())
@@ -582,7 +598,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             .isPaymentPending(isPaymentPending)
             .startedAt(subscription.getStartAt())
             .endedAt(endedAt)
-            .stripeCustomerPortalUrl(stripeCustomerPortalUrl)
+            .stripeCustomerPortalUrl(
+                isActive && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
+                    ? stripeCustomerPortalUrl : null)
             .build();
     }
 }

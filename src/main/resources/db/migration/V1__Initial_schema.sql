@@ -71,10 +71,14 @@ CREATE TABLE subscription (
   provider_subscription_id varchar(255),
   status varchar(24) NOT NULL,
   start_at timestamp with time zone,
-  end_at timestamp with time zone,
-  stripe_customer_id varchar(255)
+  end_at timestamp with time zone
 );
 
 CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)
 WHERE
   deleted_at IS NULL AND provider_subscription_id IS NOT NULL;
+
+CREATE TABLE customer (
+  user_id bigint NOT NULL PRIMARY KEY,
+  stripe_id varchar(255)
+);

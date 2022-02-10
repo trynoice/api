@@ -5,6 +5,7 @@ import com.trynoice.api.platform.BasicEntityCrudRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -22,10 +23,12 @@ interface AuthUserRepository extends BasicEntityCrudRepository<AuthUser, Long> {
      * @return a non-null {@link Optional}<{@link AuthUser}>.
      */
     @NonNull
+    @Transactional(readOnly = true)
     @Query("select e from AuthUser e where e.email = ?1 and" + WHERE_ACTIVE_CLAUSE)
     Optional<AuthUser> findByEmail(@NonNull String email);
 
     @NonNull
+    @Transactional(readOnly = true)
     @Query("select e.email from AuthUser e where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
     Optional<String> findEmailById(@NonNull Long id);
 }

@@ -53,6 +53,9 @@ public class SubscriptionServiceTest {
     private SubscriptionConfiguration subscriptionConfiguration;
 
     @Mock
+    private CustomerRepository customerRepository;
+
+    @Mock
     private SubscriptionPlanRepository subscriptionPlanRepository;
 
     @Mock
@@ -73,6 +76,7 @@ public class SubscriptionServiceTest {
     void setUp() {
         service = new SubscriptionService(
             subscriptionConfiguration,
+            customerRepository,
             subscriptionPlanRepository,
             subscriptionRepository,
             new ObjectMapper(),
@@ -202,7 +206,7 @@ public class SubscriptionServiceTest {
         when(accountServiceContract.findEmailByUser(userId))
             .thenReturn(Optional.of(authUserEmail));
 
-        when(subscriptionRepository.findActiveStripeCustomerIdByOwner(userId))
+        when(customerRepository.findStripeIdByUserId(userId))
             .thenReturn(Optional.of(stripeCustomerId));
 
         val redirectUrl = "test-redirect-url";

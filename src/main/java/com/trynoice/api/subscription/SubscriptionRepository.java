@@ -5,6 +5,7 @@ import com.trynoice.api.subscription.entities.Subscription;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +24,7 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
      * @return an optional {@link Subscription} entity.
      */
     @NonNull
+    @Transactional(readOnly = true)
     @Query("select e from Subscription e where e.providerSubscriptionId = ?1 and" + WHERE_ACTIVE_CLAUSE)
     Optional<Subscription> findActiveByProviderSubscriptionId(@NonNull String providerSubscriptionId);
 
@@ -34,6 +36,7 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
      * @return an optional {@link Subscription} entity.
      */
     @NonNull
+    @Transactional(readOnly = true)
     @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
     Optional<Subscription> findActiveByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
 
@@ -45,17 +48,7 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
      * @return a list of {@link Subscription} entities.
      */
     @NonNull
+    @Transactional(readOnly = true)
     @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
     List<Subscription> findAllActiveByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
-
-    /**
-     * Find a non-null value for {@link Subscription#stripeCustomerId stripeCustomerId} for the
-     * given user.
-     *
-     * @param ownerId id of the user that the {@code stripeCustomerId} should belong to.
-     * @return the {@code stripeCustomerId} if one exists.
-     */
-    @NonNull
-    @Query("select e.stripeCustomerId from Subscription e where e.ownerId = ?1 and e.stripeCustomerId is not null and" + WHERE_ACTIVE_CLAUSE)
-    Optional<String> findActiveStripeCustomerIdByOwner(@NonNull Long ownerId);
 }
