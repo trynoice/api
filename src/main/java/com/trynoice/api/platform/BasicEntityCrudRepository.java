@@ -61,9 +61,8 @@ public interface BasicEntityCrudRepository<T extends BasicEntity<ID>, ID extends
      */
     @Override
     @Transactional(readOnly = true)
-    default boolean existsById(@NonNull ID id) {
-        return findById(id).isPresent();
-    }
+    @Query("select case when count(e) > 0 then true else false end from #{#entityName} e where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    boolean existsById(@NonNull ID id);
 
     /**
      * Returns all undeleted instances of the type.
