@@ -6,6 +6,7 @@ import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
+import com.trynoice.api.identity.models.UpdateProfileParams;
 import lombok.val;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -151,9 +153,9 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
+    @ParameterizedTest(name = "{displayName} - tokenType={0} responseStatus={1}")
     @MethodSource("signOutTestCases")
-    void signOut_withHeader(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
+    void signOut_withHeader(JwtType tokenType, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
         var refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
@@ -164,7 +166,7 @@ class AccountControllerTest {
                     .header(AccountController.REFRESH_TOKEN_HEADER, refreshJwt))
             .andExpect(status().is(expectedResponseStatus));
 
-        if (expectedResponseStatus == HttpStatus.OK.value()) {
+        if (expectedResponseStatus == HttpStatus.NO_CONTENT.value()) {
             // retry request with the same access token
             refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
             mockMvc.perform(
@@ -175,9 +177,9 @@ class AccountControllerTest {
         }
     }
 
-    @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
+    @ParameterizedTest(name = "{displayName} - tokenType={0} responseStatus={1}")
     @MethodSource("signOutTestCases")
-    void signOut_withCookie(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
+    void signOut_withCookie(JwtType tokenType, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
         val authUser = createAuthUser(entityManager);
         var refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
@@ -188,7 +190,7 @@ class AccountControllerTest {
                     .cookie(new Cookie(CookieAuthFilter.REFRESH_TOKEN_COOKIE, refreshJwt)))
             .andExpect(status().is(expectedResponseStatus));
 
-        if (expectedResponseStatus == HttpStatus.OK.value()) {
+        if (expectedResponseStatus == HttpStatus.NO_CONTENT.value()) {
             // retry request with the same access token
             refreshJwt = createSignedRefreshJwt(entityManager, hmacSecret, authUser, tokenType);
             mockMvc.perform(
@@ -201,13 +203,13 @@ class AccountControllerTest {
 
     static Stream<Arguments> signOutTestCases() {
         return Stream.of(
-            // tokenType, userAgent, expectedResponseStatus
-            arguments(JwtType.EMPTY, "test-user-agent", HttpStatus.BAD_REQUEST.value()),
-            arguments(JwtType.VALID, "", HttpStatus.OK.value()),
-            arguments(JwtType.INVALID, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
-            arguments(JwtType.EXPIRED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
-            arguments(JwtType.REUSED, "test-user-agent", HttpStatus.UNAUTHORIZED.value()),
-            arguments(JwtType.VALID, "test-user-agent", HttpStatus.OK.value())
+            // tokenType, expectedResponseStatus
+            arguments(JwtType.EMPTY, HttpStatus.BAD_REQUEST.value()),
+            arguments(JwtType.VALID, HttpStatus.NO_CONTENT.value()),
+            arguments(JwtType.INVALID, HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.EXPIRED, HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.REUSED, HttpStatus.UNAUTHORIZED.value()),
+            arguments(JwtType.VALID, HttpStatus.NO_CONTENT.value())
         );
     }
 
@@ -299,5 +301,30 @@ class AccountControllerTest {
         assertEquals(authUser.getId(), profile.findValue("accountId").asLong());
         assertEquals(authUser.getName(), profile.findValue("name").asText());
         assertEquals(authUser.getEmail(), profile.findValue("email").asText());
+    }
+
+    @ParameterizedTest(name = "{displayName} - updatedName={0} updatedEmail={1} responseStatus={2}")
+    @MethodSource("updateProfileTestCases")
+    void updateProfile(String updatedName, String updatedEmail, int expectedResponseStatus) throws Exception {
+        val authUser = createAuthUser(entityManager);
+        val accessToken = createSignedAccessJwt(hmacSecret, authUser, JwtType.VALID);
+        mockMvc.perform(
+                patch("/v1/accounts/profile")
+                    .header("Authorization", "bearer " + accessToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsBytes(new UpdateProfileParams(updatedEmail, updatedName))))
+            .andExpect(status().is(expectedResponseStatus));
+    }
+
+    static Stream<Arguments> updateProfileTestCases() {
+        return Stream.of(
+            // updatedName, updatedEmail, responseStatus
+            arguments(null, null, HttpStatus.NO_CONTENT.value()),
+            arguments("", null, HttpStatus.BAD_REQUEST.value()),
+            arguments(null, "", HttpStatus.BAD_REQUEST.value()),
+            arguments("New Name", null, HttpStatus.NO_CONTENT.value()),
+            arguments(null, "new-email@api.test", HttpStatus.NO_CONTENT.value()),
+            arguments("New Name", "new-email@api.test", HttpStatus.NO_CONTENT.value())
+        );
     }
 }

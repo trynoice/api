@@ -113,7 +113,7 @@ public class SoundControllerTest {
             premiumBitrateRequest.header("Authorization", "Bearer " + accessToken);
         }
 
-        mockMvc.perform(freeSegmentRequest).andExpect(status().is(HttpStatus.OK.value()));
+        mockMvc.perform(freeSegmentRequest).andExpect(status().is(HttpStatus.NO_CONTENT.value()));
         mockMvc.perform(premiumSegmentRequest).andExpect(status().is(expectedResponseStatus));
         mockMvc.perform(premiumBitrateRequest).andExpect(status().is(expectedResponseStatus));
     }
@@ -124,8 +124,8 @@ public class SoundControllerTest {
             arguments(false, null, HttpStatus.UNAUTHORIZED.value()),
             arguments(true, Subscription.Status.CREATED, HttpStatus.FORBIDDEN.value()),
             arguments(true, Subscription.Status.INACTIVE, HttpStatus.FORBIDDEN.value()),
-            arguments(true, Subscription.Status.PENDING, HttpStatus.OK.value()),
-            arguments(true, Subscription.Status.ACTIVE, HttpStatus.OK.value())
+            arguments(true, Subscription.Status.PENDING, HttpStatus.NO_CONTENT.value()),
+            arguments(true, Subscription.Status.ACTIVE, HttpStatus.NO_CONTENT.value())
         );
     }
 

@@ -199,7 +199,7 @@ class SubscriptionController {
      */
     @Operation(summary = "Cancel subscription")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "subscription cancelled"),
+        @ApiResponse(responseCode = "204", description = "subscription cancelled"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "401", description = "access token is invalid"),
         @ApiResponse(responseCode = "409", description = "referenced subscription is not ongoing (active)"),
@@ -213,7 +213,7 @@ class SubscriptionController {
     ) {
         try {
             subscriptionService.cancelSubscription(principalId, subscriptionId);
-            return ResponseEntity.ok(null);
+            return ResponseEntity.noContent().build();
         } catch (SubscriptionNotFoundException e) {
             return ResponseEntity.badRequest().build();
         } catch (SubscriptionStateException e) {

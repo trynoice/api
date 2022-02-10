@@ -46,7 +46,7 @@ class SoundController {
      * @param segmentId    id of the requested segment.
      * @param audioBitrate bitrate of the requested hls playlist or segment, e.g. 32k or 128k.
      * @return <ul>
-     * <li>{@code HTTP 200} if request is authorized.</li>
+     * <li>{@code HTTP 204} if request is authorized.</li>
      * <li>{@code HTTP 400} if request is not valid.</li>
      * <li>{@code HTTP 401} if user requested a premium segment but is not signed-in.</li>
      * <li>{@code HTTP 403} if user requested a premium segment but doesn't have an active subscription.</li>
@@ -65,7 +65,7 @@ class SoundController {
     ) {
         try {
             soundService.authorizeSegmentRequest(principalId, soundId, segmentId, audioBitrate);
-            return ResponseEntity.ok(null);
+            return ResponseEntity.noContent().build();
         } catch (SegmentAccessDeniedException e) {
             log.trace("segment request denied", e);
             return ResponseEntity.status(principalId == null ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN).build();
