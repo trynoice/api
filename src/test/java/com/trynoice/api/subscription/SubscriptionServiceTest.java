@@ -90,15 +90,15 @@ public class SubscriptionServiceTest {
         stripePlan.setId((short) 2);
 
         lenient()
-            .when(subscriptionPlanRepository.findAllActive())
+            .when(subscriptionPlanRepository.findAll())
             .thenReturn(List.of(googlePlayPlan, stripePlan));
 
         lenient()
-            .when(subscriptionPlanRepository.findAllActiveByProvider(SubscriptionPlan.Provider.GOOGLE_PLAY))
+            .when(subscriptionPlanRepository.findAllByProvider(SubscriptionPlan.Provider.GOOGLE_PLAY))
             .thenReturn(List.of(googlePlayPlan));
 
         lenient()
-            .when(subscriptionPlanRepository.findAllActiveByProvider(SubscriptionPlan.Provider.STRIPE))
+            .when(subscriptionPlanRepository.findAllByProvider(SubscriptionPlan.Provider.STRIPE))
             .thenReturn(List.of(stripePlan));
 
         val testCases = new HashMap<SubscriptionPlan.Provider, List<SubscriptionPlan>>();
@@ -140,7 +140,7 @@ public class SubscriptionServiceTest {
     @Test
     void createSubscription_withExistingActiveSubscription() {
         val userId = 1L;
-        when(subscriptionPlanRepository.findActiveById((short) 1))
+        when(subscriptionPlanRepository.findById((short) 1))
             .thenReturn(Optional.of(buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id")));
 
         when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
@@ -155,7 +155,7 @@ public class SubscriptionServiceTest {
         val userId = 1L;
         val planId = (short) 1;
         val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
-        when(subscriptionPlanRepository.findActiveById(planId)).thenReturn(Optional.empty());
+        when(subscriptionPlanRepository.findById(planId)).thenReturn(Optional.empty());
         assertThrows(SubscriptionPlanNotFoundException.class, () -> service.createSubscription(userId, params));
     }
 
@@ -169,7 +169,7 @@ public class SubscriptionServiceTest {
         val planId = (short) 1;
         val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
 
-        when(subscriptionPlanRepository.findActiveById(planId))
+        when(subscriptionPlanRepository.findById(planId))
             .thenReturn(Optional.of(plan));
 
         when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
@@ -193,7 +193,7 @@ public class SubscriptionServiceTest {
         val planId = (short) 1;
         val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
 
-        when(subscriptionPlanRepository.findActiveById(planId))
+        when(subscriptionPlanRepository.findById(planId))
             .thenReturn(Optional.of(plan));
 
         when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
@@ -259,7 +259,7 @@ public class SubscriptionServiceTest {
         @NonNull Long principalId,
         Class<T> expectedException
     ) throws IOException, StripeException {
-        when(subscriptionRepository.findActiveById(subscription.getId()))
+        when(subscriptionRepository.findById(subscription.getId()))
             .thenReturn(Optional.of(subscription));
 
         if (expectedException != null) {

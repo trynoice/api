@@ -85,7 +85,7 @@ class AccountService implements SubscriptionAccountServiceContract {
      */
     @Transactional(rollbackFor = Throwable.class)
     public void signUp(@NonNull SignUpParams params) throws TooManySignInAttemptsException {
-        val user = authUserRepository.findActiveByEmail(params.getEmail())
+        val user = authUserRepository.findByEmail(params.getEmail())
             .orElseGet(() -> authUserRepository.save(
                 AuthUser.builder()
                     .email(params.getEmail())
@@ -106,7 +106,7 @@ class AccountService implements SubscriptionAccountServiceContract {
      */
     @Transactional(rollbackFor = Throwable.class)
     public void signIn(@NonNull SignInParams params) throws AccountNotFoundException, TooManySignInAttemptsException {
-        val user = authUserRepository.findActiveByEmail(params.getEmail())
+        val user = authUserRepository.findByEmail(params.getEmail())
             .orElseThrow(() -> {
                 val msg = String.format("account with email '%s' doesn't exist", params.getEmail());
                 return new AccountNotFoundException(msg);
@@ -205,7 +205,7 @@ class AccountService implements SubscriptionAccountServiceContract {
             throw new RefreshTokenVerificationException("refresh token verification failed", e);
         }
 
-        val token = refreshTokenRepository.findActiveById(jwtId)
+        val token = refreshTokenRepository.findById(jwtId)
             .orElseThrow(() -> new RefreshTokenVerificationException("refresh token doesn't exist in database"));
 
         // if token ordinal is different, it implies that an old refresh token is being re-used.
@@ -226,7 +226,7 @@ class AccountService implements SubscriptionAccountServiceContract {
      */
     @NonNull
     Profile getProfile(@NonNull Long userId) {
-        val authUser = authUserRepository.findActiveById(userId).orElseThrow();
+        val authUser = authUserRepository.findById(userId).orElseThrow();
         return Profile.builder()
             .accountId(authUser.getId())
             .name(authUser.getName())
@@ -237,7 +237,7 @@ class AccountService implements SubscriptionAccountServiceContract {
     @Override
     @NonNull
     public Optional<String> findEmailByUser(@NonNull Long userId) {
-        return authUserRepository.findActiveEmailById(userId);
+        return authUserRepository.findEmailById(userId);
     }
 
     /**

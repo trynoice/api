@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static java.lang.Long.parseLong;
 
@@ -82,7 +83,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      */
     @NonNull
     List<SubscriptionPlanView> getPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
-        final List<SubscriptionPlan> plans;
+        final Iterable<SubscriptionPlan> plans;
         if (provider != null) {
             final SubscriptionPlan.Provider p;
             try {
@@ -91,12 +92,12 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 throw new UnsupportedSubscriptionPlanProviderException(e);
             }
 
-            plans = subscriptionPlanRepository.findAllActiveByProvider(p);
+            plans = subscriptionPlanRepository.findAllByProvider(p);
         } else {
-            plans = subscriptionPlanRepository.findAllActive();
+            plans = subscriptionPlanRepository.findAll();
         }
 
-        return plans.stream()
+        return StreamSupport.stream(plans.spliterator(), false)
             .map(SubscriptionService::buildSubscriptionPlanView)
             .collect(Collectors.toUnmodifiableList());
     }
@@ -124,7 +125,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         @NonNull Long ownerId,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
-        val plan = subscriptionPlanRepository.findActiveById(params.getPlanId())
+        val plan = subscriptionPlanRepository.findById(params.getPlanId())
             .orElseThrow(SubscriptionPlanNotFoundException::new);
 
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
@@ -224,7 +225,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         @NonNull Long ownerId,
         @NonNull Long subscriptionId
     ) throws SubscriptionNotFoundException, SubscriptionStateException {
-        val subscription = subscriptionRepository.findActiveById(subscriptionId)
+        val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new SubscriptionNotFoundException("subscription doesn't exist"));
 
         if (!subscription.getOwnerId().equals(ownerId)) {
@@ -325,7 +326,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             throw new SubscriptionWebhookEventException("failed to parse 'obfuscatedExternalProfileId' in subscription purchase", e);
         }
 
-        val subscription = subscriptionRepository.findActiveById(subscriptionId)
+        val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> {
                 val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
                 return new SubscriptionWebhookEventException(errMsg);
@@ -454,7 +455,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         try {
             val subscriptionId = parseLong(session.getClientReferenceId());
-            val subscription = subscriptionRepository.findActiveById(subscriptionId)
+            val subscription = subscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> {
                     val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
                     return new SubscriptionWebhookEventException(errMsg);
@@ -490,7 +491,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
             subscription.setPlan(
-                subscriptionPlanRepository.findActiveByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
+                subscriptionPlanRepository.findByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
                     .orElseThrow(() -> new SubscriptionWebhookEventException("updated provider plan id not recognised")));
         }
 

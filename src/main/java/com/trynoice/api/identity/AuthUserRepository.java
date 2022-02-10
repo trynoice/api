@@ -16,16 +16,16 @@ import java.util.Optional;
 interface AuthUserRepository extends BasicEntityCrudRepository<AuthUser, Long> {
 
     /**
-     * Finds an "active" auth user using their email.
+     * Finds an auth user using their email.
      *
      * @param email a non-null search key for email column
      * @return a non-null {@link Optional}<{@link AuthUser}>.
      */
     @NonNull
     @Query("select e from AuthUser e where e.email = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<AuthUser> findActiveByEmail(@NonNull String email);
+    Optional<AuthUser> findByEmail(@NonNull String email);
 
     @NonNull
     @Query("select e.email from AuthUser e where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<String> findActiveEmailById(@NonNull Long id);
+    Optional<String> findEmailById(@NonNull Long id);
 }
