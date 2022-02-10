@@ -1,12 +1,14 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
+import com.trynoice.api.identity.exceptions.DuplicateEmailException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
+import com.trynoice.api.identity.models.UpdateProfileParams;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,6 +28,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -158,7 +161,7 @@ class AccountController {
      */
     @Operation(summary = "Revokes valid credentials")
     @ApiResponses({
-        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "204", description = "sign-out successful"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "401", description = "refresh token is invalid, expired or re-used"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
@@ -181,7 +184,7 @@ class AccountController {
             val refreshToken = requireNonNullElse(refreshTokenCookie, refreshTokenHeader);
             val accessToken = (String) authentication.getCredentials();
             accountService.signOut(refreshToken, accessToken);
-            return ResponseEntity.ok(null);
+            return ResponseEntity.noContent().build();
         } catch (RefreshTokenVerificationException e) {
             log.trace("failed to revoke refresh token", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -234,5 +237,32 @@ class AccountController {
     @GetMapping(value = "/profile")
     ResponseEntity<Profile> getProfile(@NonNull @AuthenticationPrincipal Long principalId) {
         return ResponseEntity.ok(accountService.getProfile(principalId));
+    }
+
+    /**
+     * Updates the profile fields of the auth user. It accepts partial updates, i.e., all {@literal
+     * null} fields in the request body are ignored.
+     */
+    @Operation(summary = "Update profile of the auth user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "profile update successfully"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
+        @ApiResponse(responseCode = "401", description = "access token is invalid"),
+        @ApiResponse(responseCode = "409", description = "updated email belongs to another existing account"),
+        @ApiResponse(responseCode = "500", description = "internal server error"),
+    })
+    @NonNull
+    @PatchMapping(value = "/profile")
+    ResponseEntity<Void> updateProfile(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotNull @RequestBody UpdateProfileParams params
+    ) {
+        try {
+            accountService.updateProfile(principalId, params);
+            return ResponseEntity.noContent().build();
+        } catch (DuplicateEmailException e) {
+            log.trace("failed to update user profile", e);
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
     }
 }

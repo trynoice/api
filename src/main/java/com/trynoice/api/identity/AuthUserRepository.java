@@ -17,18 +17,34 @@ import java.util.Optional;
 interface AuthUserRepository extends BasicEntityCrudRepository<AuthUser, Long> {
 
     /**
-     * Finds an auth user using their email.
+     * Retrieves a user by its email.
      *
-     * @param email a non-null search key for email column
-     * @return a non-null {@link Optional}<{@link AuthUser}>.
+     * @param email must not be {@literal null}.
+     * @return the user with the given email or {@literal Optional#empty()} if none found.
      */
     @NonNull
     @Transactional(readOnly = true)
     @Query("select e from AuthUser e where e.email = ?1 and" + WHERE_ACTIVE_CLAUSE)
     Optional<AuthUser> findByEmail(@NonNull String email);
 
+    /**
+     * Retrieves a user's email by its id.
+     *
+     * @param id must not be {@literal null}.
+     * @return the email for the given user id or {@literal Optional#empty()} if none found.
+     */
     @NonNull
     @Transactional(readOnly = true)
     @Query("select e.email from AuthUser e where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
     Optional<String> findEmailById(@NonNull Long id);
+
+    /**
+     * Returns whether a user with the given email exists.
+     *
+     * @param email must not be {@literal null}.
+     * @return {@literal true} if a user with the given email exists, {@literal false} otherwise.
+     */
+    @Transactional(readOnly = true)
+    @Query("select case when count(e) > 0 then true else false end from #{#entityName} e where e.email = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    boolean existsByEmail(@NonNull String email);
 }

@@ -10,6 +10,7 @@ import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.BearerJwtAuthenticationException;
+import com.trynoice.api.identity.exceptions.DuplicateEmailException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
@@ -17,6 +18,7 @@ import com.trynoice.api.identity.models.AuthCredentials;
 import com.trynoice.api.identity.models.Profile;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
+import com.trynoice.api.identity.models.UpdateProfileParams;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -232,6 +234,32 @@ class AccountService implements SubscriptionAccountServiceContract {
             .name(authUser.getName())
             .email(authUser.getEmail())
             .build();
+    }
+
+    /**
+     * Updates the profile of the user with given {@literal userId}. The {@literal null} fields in
+     * {@literal params} are ignored during the update.
+     *
+     * @param userId a not null id of a user.
+     * @param params a not null instance containing updated profile data.
+     * @throws DuplicateEmailException if the updated email belongs to another existing account.
+     */
+    @Transactional(rollbackFor = Throwable.class)
+    public void updateProfile(@NonNull Long userId, @NonNull UpdateProfileParams params) throws DuplicateEmailException {
+        val authUser = authUserRepository.findById(userId).orElseThrow();
+        if (params.getEmail() != null) {
+            if (!authUser.getEmail().equals(params.getEmail()) && authUserRepository.existsByEmail(params.getEmail())) {
+                throw new DuplicateEmailException();
+            }
+
+            authUser.setEmail(params.getEmail());
+        }
+
+        if (params.getName() != null) {
+            authUser.setName(params.getName());
+        }
+
+        authUserRepository.save(authUser);
     }
 
     @Override

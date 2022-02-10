@@ -6,10 +6,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
+import com.trynoice.api.identity.exceptions.DuplicateEmailException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
 import com.trynoice.api.identity.models.SignInParams;
 import com.trynoice.api.identity.models.SignUpParams;
+import com.trynoice.api.identity.models.UpdateProfileParams;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -274,6 +276,53 @@ class AccountServiceTest {
         assertEquals(authUser.getId(), profile.getAccountId());
         assertEquals(authUser.getName(), profile.getName());
         assertEquals(authUser.getEmail(), profile.getEmail());
+    }
+
+    @Test
+    void updateProfile_withConflictingEmails() {
+        val authUser = buildAuthUser();
+        val updatedEmail = "test-name-2@api.test";
+        when(authUserRepository.findById(authUser.getId()))
+            .thenReturn(Optional.of(authUser));
+
+        when(authUserRepository.existsByEmail(updatedEmail)).thenReturn(true);
+        assertThrows(
+            DuplicateEmailException.class,
+            () -> service.updateProfile(authUser.getId(), new UpdateProfileParams(updatedEmail, null)));
+
+        verify(authUserRepository, times(0)).save(any());
+    }
+
+    @Test
+    void updateProfile_withNoChange() {
+        val authUser = buildAuthUser();
+        when(authUserRepository.findById(authUser.getId()))
+            .thenReturn(Optional.of(authUser));
+
+        //noinspection CodeBlock2Expr
+        assertDoesNotThrow(() -> {
+            service.updateProfile(authUser.getId(), new UpdateProfileParams(authUser.getEmail(), authUser.getName()));
+        });
+
+        verify(authUserRepository, times(1)).save(authUser);
+    }
+
+    @Test
+    void updateProfile_withUpdatedFields() {
+        val authUser = buildAuthUser();
+        val updatedEmail = "new-name@api.test";
+        val updatedName = "New Name";
+        when(authUserRepository.findById(authUser.getId()))
+            .thenReturn(Optional.of(authUser));
+
+        //noinspection CodeBlock2Expr
+        assertDoesNotThrow(() -> {
+            service.updateProfile(authUser.getId(), new UpdateProfileParams(updatedEmail, updatedName));
+        });
+
+        verify(authUserRepository, times(1)).save(authUser);
+        assertEquals(updatedEmail, authUser.getEmail());
+        assertEquals(updatedName, authUser.getName());
     }
 
     @Test

@@ -297,7 +297,7 @@ public class SubscriptionControllerTest {
                     .header("Authorization", "Bearer " + actualOwnerAccessToken))
             .andExpect(status().is(expectedResponseCode));
 
-        if (expectedResponseCode == HttpStatus.OK.value()) {
+        if (expectedResponseCode == HttpStatus.NO_CONTENT.value()) {
             assertEquals(Subscription.Status.INACTIVE, subscription.getStatus());
 
             switch (provider) {
@@ -321,10 +321,10 @@ public class SubscriptionControllerTest {
     static Stream<Arguments> cancelSubscriptionTestCases() {
         return Stream.of(
             // subscription provider, subscription status, expected response code
-            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.ACTIVE, HttpStatus.OK.value()),
-            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.ACTIVE, HttpStatus.OK.value()),
-            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.PENDING, HttpStatus.OK.value()),
-            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.PENDING, HttpStatus.OK.value()),
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.ACTIVE, HttpStatus.NO_CONTENT.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.ACTIVE, HttpStatus.NO_CONTENT.value()),
+            arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.PENDING, HttpStatus.NO_CONTENT.value()),
+            arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.PENDING, HttpStatus.NO_CONTENT.value()),
             arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.CREATED, HttpStatus.CONFLICT.value()),
             arguments(SubscriptionPlan.Provider.STRIPE, Subscription.Status.CREATED, HttpStatus.CONFLICT.value()),
             arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, Subscription.Status.INACTIVE, HttpStatus.CONFLICT.value()),
