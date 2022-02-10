@@ -1,7 +1,6 @@
 package com.trynoice.api.subscription.entities;
 
 
-import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.BasicEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,8 +29,7 @@ import java.time.ZoneId;
 public class Subscription extends BasicEntity<Long> {
 
     @NonNull
-    @ManyToOne(optional = false)
-    private AuthUser owner;
+    private Long ownerId;
 
     @NonNull
     @ManyToOne(optional = false)

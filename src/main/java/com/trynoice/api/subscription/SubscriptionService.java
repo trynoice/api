@@ -6,7 +6,8 @@ import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
-import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.contracts.SoundSubscriptionServiceContract;
+import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
@@ -38,12 +39,13 @@ import static java.lang.Long.parseLong;
  * {@link SubscriptionService} implements operations related to subscription management.
  */
 @Service
-public class SubscriptionService {
+class SubscriptionService implements SoundSubscriptionServiceContract {
 
     private final SubscriptionConfiguration subscriptionConfig;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final ObjectMapper objectMapper;
+    private final SubscriptionAccountServiceContract accountServiceContract;
     private final AndroidPublisherApi androidPublisherApi;
     private final StripeApi stripeApi;
 
@@ -53,6 +55,7 @@ public class SubscriptionService {
         @NonNull SubscriptionPlanRepository subscriptionPlanRepository,
         @NonNull SubscriptionRepository subscriptionRepository,
         @NonNull ObjectMapper objectMapper,
+        @NonNull SubscriptionAccountServiceContract accountServiceContract,
         @NonNull AndroidPublisherApi androidPublisherApi,
         @NonNull StripeApi stripeApi
     ) {
@@ -60,6 +63,7 @@ public class SubscriptionService {
         this.subscriptionPlanRepository = subscriptionPlanRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.objectMapper = objectMapper;
+        this.accountServiceContract = accountServiceContract;
         this.androidPublisherApi = androidPublisherApi;
         this.stripeApi = stripeApi;
     }
@@ -108,8 +112,8 @@ public class SubscriptionService {
      * returns a non-null {@link SubscriptionFlowResult#getStripeCheckoutSessionUrl()}. The clients
      * must redirect user to the checkout session url to conclude the subscription flow.</p>
      *
-     * @param owner  user that initiated the subscription flow.
-     * @param params subscription flow parameters.
+     * @param ownerId id of the user that initiated the subscription flow.
+     * @param params  subscription flow parameters.
      * @return a non-null {@link SubscriptionFlowResult}.
      * @throws SubscriptionPlanNotFoundException if the specified plan doesn't exist.
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
@@ -117,7 +121,7 @@ public class SubscriptionService {
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
     public SubscriptionFlowResult createSubscription(
-        @NonNull AuthUser owner,
+        @NonNull Long ownerId,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
         val plan = subscriptionPlanRepository.findActiveById(params.getPlanId())
@@ -138,7 +142,7 @@ public class SubscriptionService {
         // status. Otherwise, if the user has attempted to start a subscription previously, they
         // must own an entity with created status.
         val subscription = subscriptionRepository.findActiveByOwnerAndStatus(
-            owner,
+            ownerId,
             Subscription.Status.CREATED,
             Subscription.Status.ACTIVE,
             Subscription.Status.PENDING);
@@ -150,7 +154,7 @@ public class SubscriptionService {
         val subscriptionId = subscription.orElseGet(
                 () -> subscriptionRepository.save(
                     Subscription.builder()
-                        .owner(owner)
+                        .ownerId(ownerId)
                         .plan(plan)
                         .build()))
             .getId();
@@ -165,8 +169,8 @@ public class SubscriptionService {
                             params.getCancelUrl(),
                             plan.getProviderPlanId(),
                             subscriptionId.toString(),
-                            owner.getEmail(),
-                            subscriptionRepository.findActiveStripeCustomerIdByOwner(owner).orElse(null),
+                            accountServiceContract.findEmailByUser(ownerId).orElse(null),
+                            subscriptionRepository.findActiveStripeCustomerIdByOwner(ownerId).orElse(null),
                             Long.valueOf(plan.getTrialPeriodDays()))
                         .getUrl());
             } catch (StripeException e) {
@@ -178,22 +182,23 @@ public class SubscriptionService {
     }
 
     /**
+     * @param ownerId         id of the owning auth user for the subscriptions.
      * @param onlyActive      return on the active subscription (if any).
      * @param stripeReturnUrl optional redirect URL on exiting Stripe Customer portal (only used
      *                        when an active subscription exists and is provided by Stripe).
-     * @return a list of active and inactive subscriptions owned by the given {@code owner}.
+     * @return a list of active and inactive subscriptions owned by the given {@code ownerId}.
      */
     @NonNull
-    List<SubscriptionView> getSubscriptions(@NonNull AuthUser owner, @NonNull Boolean onlyActive, String stripeReturnUrl) {
+    List<SubscriptionView> getSubscriptions(@NonNull Long ownerId, @NonNull Boolean onlyActive, String stripeReturnUrl) {
         final List<Subscription> subscriptions;
         if (onlyActive) {
             subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
-                owner,
+                ownerId,
                 Subscription.Status.ACTIVE,
                 Subscription.Status.PENDING);
         } else {
             subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
-                owner,
+                ownerId,
                 Subscription.Status.ACTIVE,
                 Subscription.Status.PENDING,
                 Subscription.Status.INACTIVE);
@@ -209,20 +214,20 @@ public class SubscriptionService {
      * Cancels the given subscription by marking it as inactive in app's internal state and
      * requesting its cancellation from its provider.
      *
-     * @param owner          expected owner of the subscription (authenticated user).
+     * @param ownerId        id of the expected owner of the subscription (authenticated user).
      * @param subscriptionId id of the subscription to be cancelled.
      * @throws SubscriptionNotFoundException if subscription with given id and owner doesn't exist.
      * @throws SubscriptionStateException    if subscription is not currently active.
      */
     @Transactional(rollbackFor = Throwable.class)
     public void cancelSubscription(
-        @NonNull AuthUser owner,
+        @NonNull Long ownerId,
         @NonNull Long subscriptionId
     ) throws SubscriptionNotFoundException, SubscriptionStateException {
         val subscription = subscriptionRepository.findActiveById(subscriptionId)
             .orElseThrow(() -> new SubscriptionNotFoundException("subscription doesn't exist"));
 
-        if (!subscription.getOwner().equals(owner)) {
+        if (!subscription.getOwnerId().equals(ownerId)) {
             throw new SubscriptionNotFoundException("given owner doesn't own this subscription");
         }
 
@@ -518,11 +523,12 @@ public class SubscriptionService {
     }
 
     /**
-     * @return if the given {@code user} owns an active subscription.
+     * @return if the user with given {@code userId} owns an active subscription.
      */
-    public boolean isUserSubscribed(@NonNull AuthUser user) {
+    @Override
+    public boolean isUserSubscribed(@NonNull Long userId) {
         return subscriptionRepository.findActiveByOwnerAndStatus(
-                user,
+                userId,
                 Subscription.Status.PENDING,
                 Subscription.Status.ACTIVE)
             .isPresent();

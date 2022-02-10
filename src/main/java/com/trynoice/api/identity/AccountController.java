@@ -1,6 +1,5 @@
 package com.trynoice.api.identity;
 
-import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
@@ -233,7 +232,7 @@ class AccountController {
     })
     @NonNull
     @GetMapping(value = "/profile")
-    ResponseEntity<Profile> getProfile(@NonNull @AuthenticationPrincipal AuthUser principal) {
-        return ResponseEntity.ok(accountService.getProfile(principal));
+    ResponseEntity<Profile> getProfile(@NonNull @AuthenticationPrincipal Long principalId) {
+        return ResponseEntity.ok(accountService.getProfile(principalId));
     }
 }

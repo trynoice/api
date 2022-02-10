@@ -1,7 +1,6 @@
 package com.trynoice.api.sound;
 
 
-import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -59,17 +58,17 @@ class SoundController {
     @NonNull
     @GetMapping("/{soundId}/segments/{segmentId}/authorize")
     ResponseEntity<Void> authorizeSegmentRequest(
-        @AuthenticationPrincipal AuthUser principal,
+        @AuthenticationPrincipal Long principalId,
         @Valid @NotBlank @PathVariable String soundId,
         @Valid @NotBlank @PathVariable String segmentId,
         @RequestParam(required = false) String audioBitrate
     ) {
         try {
-            soundService.authorizeSegmentRequest(principal, soundId, segmentId, audioBitrate);
+            soundService.authorizeSegmentRequest(principalId, soundId, segmentId, audioBitrate);
             return ResponseEntity.ok(null);
         } catch (SegmentAccessDeniedException e) {
             log.trace("segment request denied", e);
-            return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN).build();
+            return ResponseEntity.status(principalId == null ? HttpStatus.UNAUTHORIZED : HttpStatus.FORBIDDEN).build();
         }
     }
 }

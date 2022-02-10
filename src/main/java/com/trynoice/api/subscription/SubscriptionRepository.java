@@ -1,6 +1,5 @@
 package com.trynoice.api.subscription;
 
-import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.BasicEntityCrudRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import lombok.NonNull;
@@ -30,33 +29,33 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     /**
      * Find a {@link Subscription} entity by its owner and {@link Subscription.Status}.
      *
-     * @param owner    owner of the subscription.
+     * @param ownerId  id of the subscription owner.
      * @param statuses expected status of the subscription
      * @return an optional {@link Subscription} entity.
      */
     @NonNull
-    @Query("select e from Subscription e where e.owner = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<Subscription> findActiveByOwnerAndStatus(@NonNull AuthUser owner, @NonNull Subscription.Status... statuses);
+    @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
+    Optional<Subscription> findActiveByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
 
     /**
      * Find all {@link Subscription} entities by its owner and {@link Subscription.Status}.
      *
-     * @param owner    owner of the subscription.
+     * @param ownerId  id of the subscription owner.
      * @param statuses expected status of the subscription
      * @return a list of {@link Subscription} entities.
      */
     @NonNull
-    @Query("select e from Subscription e where e.owner = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
-    List<Subscription> findAllActiveByOwnerAndStatus(@NonNull AuthUser owner, @NonNull Subscription.Status... statuses);
+    @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
+    List<Subscription> findAllActiveByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
 
     /**
      * Find a non-null value for {@link Subscription#stripeCustomerId stripeCustomerId} for the
-     * given {@link AuthUser owner}.
+     * given user.
      *
-     * @param owner the {@link AuthUser} that the {@code stripeCustomerId} should belong to.
+     * @param ownerId id of the user that the {@code stripeCustomerId} should belong to.
      * @return the {@code stripeCustomerId} if one exists.
      */
     @NonNull
-    @Query("select e.stripeCustomerId from Subscription e where e.owner = ?1 and e.stripeCustomerId is not null and" + WHERE_ACTIVE_CLAUSE)
-    Optional<String> findActiveStripeCustomerIdByOwner(@NonNull AuthUser owner);
+    @Query("select e.stripeCustomerId from Subscription e where e.ownerId = ?1 and e.stripeCustomerId is not null and" + WHERE_ACTIVE_CLAUSE)
+    Optional<String> findActiveStripeCustomerIdByOwner(@NonNull Long ownerId);
 }

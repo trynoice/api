@@ -2,7 +2,6 @@ package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.stripe.exception.SignatureVerificationException;
-import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
@@ -154,13 +153,13 @@ class SubscriptionController {
     @PostMapping
     ResponseEntity<Void> createSubscription(
         @NonNull HttpServletRequest request,
-        @NonNull @AuthenticationPrincipal AuthUser principal,
+        @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
         try {
-            val result = subscriptionService.createSubscription(principal, params);
-            return ResponseEntity.created(
-                    URI.create(String.format("%s/%d", request.getRequestURL(), result.getSubscriptionId())))
+            val result = subscriptionService.createSubscription(principalId, params);
+            val location = String.format("%s/%d", request.getRequestURL(), result.getSubscriptionId());
+            return ResponseEntity.created(URI.create(location))
                 .header(SUBSCRIPTION_ID_HEADER, result.getSubscriptionId().toString())
                 .header(STRIPE_CHECKOUT_SESSION_URL_HEADER, result.getStripeCheckoutSessionUrl())
                 .build();
@@ -188,11 +187,11 @@ class SubscriptionController {
     @NonNull
     @GetMapping
     ResponseEntity<List<SubscriptionView>> getSubscriptions(
-        @NonNull @AuthenticationPrincipal AuthUser principal,
+        @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl
     ) {
-        return ResponseEntity.ok(subscriptionService.getSubscriptions(principal, onlyActive, stripeReturnUrl));
+        return ResponseEntity.ok(subscriptionService.getSubscriptions(principalId, onlyActive, stripeReturnUrl));
     }
 
     /**
@@ -209,11 +208,11 @@ class SubscriptionController {
     @NonNull
     @DeleteMapping("/{subscriptionId}")
     ResponseEntity<Void> cancelSubscription(
-        @NonNull @AuthenticationPrincipal AuthUser principal,
+        @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @Min(1) @PathVariable Long subscriptionId
     ) {
         try {
-            subscriptionService.cancelSubscription(principal, subscriptionId);
+            subscriptionService.cancelSubscription(principalId, subscriptionId);
             return ResponseEntity.ok(null);
         } catch (SubscriptionNotFoundException e) {
             return ResponseEntity.badRequest().build();

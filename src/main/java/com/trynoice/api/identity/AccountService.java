@@ -5,6 +5,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
@@ -31,13 +32,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Long.min;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;
-import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
 /**
@@ -45,7 +46,7 @@ import static java.util.Objects.requireNonNullElse;
  */
 @Service
 @Slf4j
-class AccountService {
+class AccountService implements SubscriptionAccountServiceContract {
 
     private static final long MIN_SIGN_IN_REATTEMPT_DELAY_SECONDS = TimeUnit.SECONDS.toSeconds(3);
 
@@ -224,7 +225,8 @@ class AccountService {
      * @return a non-null {@link Profile}.
      */
     @NonNull
-    Profile getProfile(@NonNull AuthUser authUser) {
+    Profile getProfile(@NonNull Long userId) {
+        val authUser = authUserRepository.findActiveById(userId).orElseThrow();
         return Profile.builder()
             .accountId(authUser.getId())
             .name(authUser.getName())
@@ -232,9 +234,15 @@ class AccountService {
             .build();
     }
 
+    @Override
+    @NonNull
+    public Optional<String> findEmailByUser(@NonNull Long userId) {
+        return authUserRepository.findActiveEmailById(userId);
+    }
+
     /**
-     * Verifies if the provided JWT is valid. If the provided JWT is valid, clients can lazy-fetch
-     * {@link AuthUser} using {@link Authentication#getPrincipal()}.
+     * Verifies if the provided JWT is valid. If the provided JWT is valid, clients can get the
+     * {@code id} of the {@link AuthUser} using {@link Authentication#getPrincipal()}.
      *
      * @param token jwt to verify
      * @return a non-null {@link Authentication} if the provided token is valid. {@code null} if the
@@ -282,8 +290,7 @@ class AccountService {
 
         @Override
         public Object getPrincipal() {
-            return authUserRepository.findActiveById(requireNonNull(principalId))
-                .orElseThrow(() -> new BearerJwtAuthenticationException("account doesn't exist; it may have been closed!"));
+            return principalId;
         }
 
         @Override

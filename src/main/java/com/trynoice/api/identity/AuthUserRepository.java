@@ -24,4 +24,8 @@ interface AuthUserRepository extends BasicEntityCrudRepository<AuthUser, Long> {
     @NonNull
     @Query("select e from AuthUser e where e.email = ?1 and" + WHERE_ACTIVE_CLAUSE)
     Optional<AuthUser> findActiveByEmail(@NonNull String email);
+
+    @NonNull
+    @Query("select e.email from AuthUser e where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    Optional<String> findActiveEmailById(@NonNull Long id);
 }
