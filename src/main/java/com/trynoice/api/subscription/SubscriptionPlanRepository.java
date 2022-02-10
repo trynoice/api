@@ -24,7 +24,7 @@ interface SubscriptionPlanRepository extends BasicEntityCrudRepository<Subscript
      */
     @NonNull
     @Query("select e from SubscriptionPlan e where e.provider = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    List<SubscriptionPlan> findAllActiveByProvider(@NonNull SubscriptionPlan.Provider provider);
+    List<SubscriptionPlan> findAllByProvider(@NonNull SubscriptionPlan.Provider provider);
 
     /**
      * Find a subscription plan by its provider plan id.
@@ -35,5 +35,5 @@ interface SubscriptionPlanRepository extends BasicEntityCrudRepository<Subscript
      */
     @NonNull
     @Query("select e from SubscriptionPlan e where e.provider = ?1 and e.providerPlanId = ?2 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<SubscriptionPlan> findActiveByProviderPlanId(@NonNull SubscriptionPlan.Provider provider, @NonNull String planId);
+    Optional<SubscriptionPlan> findByProviderPlanId(@NonNull SubscriptionPlan.Provider provider, @NonNull String planId);
 }

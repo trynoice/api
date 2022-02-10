@@ -76,7 +76,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
+        when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
         service.signUp(new SignUpParams(authUser.getEmail(), authUser.getName()));
 
@@ -95,7 +95,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.empty());
+        when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
         service.signUp(new SignUpParams(authUser.getEmail(), authUser.getName()));
@@ -116,7 +116,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         authUser.setLastSignInAttemptAt(LocalDateTime.now());
         authUser.setIncompleteSignInAttempts((short) 5);
-        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.empty());
+        when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
 
         assertThrows(TooManySignInAttemptsException.class, () ->
@@ -128,7 +128,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
 
-        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
+        when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
         service.signIn(new SignInParams(authUser.getEmail()));
 
@@ -145,7 +145,7 @@ class AccountServiceTest {
     @Test
     void signIn_withNonExistingAccount() {
         val testEmail = "test@test.org";
-        when(authUserRepository.findActiveByEmail(testEmail)).thenReturn(Optional.empty());
+        when(authUserRepository.findByEmail(testEmail)).thenReturn(Optional.empty());
 
         assertThrows(AccountNotFoundException.class, () -> service.signIn(new SignInParams(testEmail)));
         verify(refreshTokenRepository, times(0)).save(any());
@@ -157,7 +157,7 @@ class AccountServiceTest {
         val authUser = buildAuthUser();
         authUser.setLastSignInAttemptAt(LocalDateTime.now());
         authUser.setIncompleteSignInAttempts((short) 5);
-        when(authUserRepository.findActiveByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
+        when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(new SignInParams(authUser.getEmail())));
     }
 
@@ -182,7 +182,7 @@ class AccountServiceTest {
         usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
         val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
 
-        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
+        when(refreshTokenRepository.findById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
 
         assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(signedJwt, "valid-acess-jwt"));
@@ -194,7 +194,7 @@ class AccountServiceTest {
         val signedJwt = refreshToken.getJwt(jwtAlgorithm);
         val accessToken = "valid-acess-jwt";
 
-        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
+        when(refreshTokenRepository.findById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
 
         // error without block: java: incompatible types: inference variable T has incompatible bounds
@@ -231,7 +231,7 @@ class AccountServiceTest {
         usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
         val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
 
-        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
+        when(refreshTokenRepository.findById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
 
         assertThrows(RefreshTokenVerificationException.class, () ->
@@ -251,7 +251,7 @@ class AccountServiceTest {
 
         when(refreshTokenRepository.save(refreshToken))
             .thenReturn(refreshToken);
-        when(refreshTokenRepository.findActiveById(refreshToken.getId()))
+        when(refreshTokenRepository.findById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
 
         val credentials = service.issueAuthCredentials(token, "test-user-agent");
@@ -267,7 +267,7 @@ class AccountServiceTest {
     @Test
     void getProfile() {
         val authUser = buildAuthUser();
-        when(authUserRepository.findActiveById(authUser.getId()))
+        when(authUserRepository.findById(authUser.getId()))
             .thenReturn(Optional.of(authUser));
 
         val profile = service.getProfile(authUser.getId());

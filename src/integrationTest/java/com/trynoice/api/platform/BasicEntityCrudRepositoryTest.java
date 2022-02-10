@@ -13,8 +13,6 @@ import java.util.Stack;
 import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,125 +41,89 @@ public class BasicEntityCrudRepositoryTest {
     }
 
     @Test
-    void findAllActive() {
-        assertEquals(activeEntityStack, repository.findAllActive());
+    void findAll() {
+        assertEquals(activeEntityStack, repository.findAll());
     }
 
     @Test
-    void findAllInactive() {
-        assertEquals(inactiveEntityStack, repository.findAllInactive());
-    }
-
-    @Test
-    void findActiveById() {
-        var result = repository.findActiveById(activeEntityStack.peek().getId());
+    void findById() {
+        var result = repository.findById(activeEntityStack.peek().getId());
         assertTrue(result.isPresent());
         assertEquals(activeEntityStack.peek(), result.get());
 
-        result = repository.findActiveById(inactiveEntityStack.peek().getId());
+        result = repository.findById(inactiveEntityStack.peek().getId());
         assertFalse(result.isPresent());
     }
 
     @Test
-    void findInactiveById() {
-        var result = repository.findInactiveById(inactiveEntityStack.peek().getId());
-        assertTrue(result.isPresent());
-        assertEquals(inactiveEntityStack.peek(), result.get());
-
-        result = repository.findInactiveById(activeEntityStack.peek().getId());
-        assertFalse(result.isPresent());
+    void count() {
+        assertEquals(activeEntityStack.size(), repository.count());
     }
 
     @Test
-    void countActive() {
-        assertEquals(activeEntityStack.size(), repository.countActive());
-    }
-
-    @Test
-    void countInactive() {
-        assertEquals(inactiveEntityStack.size(), repository.countInactive());
-    }
-
-    @Test
-    void existsActiveById() {
-        assertTrue(repository.existsActiveById(activeEntityStack.peek().getId()));
-        assertFalse(repository.existsActiveById(inactiveEntityStack.peek().getId()));
-    }
-
-    @Test
-    void existsInactiveById() {
-        assertTrue(repository.existsInactiveById(inactiveEntityStack.peek().getId()));
-        assertFalse(repository.existsInactiveById(activeEntityStack.peek().getId()));
+    void existsById() {
+        assertTrue(repository.existsById(activeEntityStack.peek().getId()));
+        assertFalse(repository.existsById(inactiveEntityStack.peek().getId()));
     }
 
     @Test
     void deleteById() {
         val entity = activeEntityStack.pop();
         repository.deleteById(entity.getId());
-        assertInactive(entity.getId());
+        assertFalse(repository.existsById(entity.getId()));
     }
 
     @Test
     void undeleteByID() {
         val entity = inactiveEntityStack.pop();
         repository.undeleteByID(entity.getId());
-        assertActive(entity.getId());
+        assertTrue(repository.existsById(entity.getId()));
     }
 
     @Test
     void delete() {
         val entity = activeEntityStack.pop();
         repository.delete(entity);
-        assertInactive(entity.getId());
+        assertFalse(repository.existsById(entity.getId()));
     }
 
     @Test
     void undelete() {
         val entity = inactiveEntityStack.pop();
         repository.undelete(entity);
-        assertActive(entity.getId());
+        assertTrue(repository.existsById(entity.getId()));
     }
 
     @Test
     void deleteAll() {
         val entities = asList(activeEntityStack.pop(), activeEntityStack.pop());
         repository.deleteAll(entities);
-        entities.forEach(entity -> assertInactive(entity.getId()));
+        entities.forEach(e -> assertFalse(repository.existsById(e.getId())));
     }
 
     @Test
     void undeleteAll() {
         val entities = asList(inactiveEntityStack.pop(), inactiveEntityStack.pop());
         repository.undeleteAll(entities);
-        entities.forEach(entity -> assertActive(entity.getId()));
+        entities.forEach(e -> assertTrue(repository.existsById(e.getId())));
     }
 
     @Test
     void deleteAllById() {
         val ids = asList(activeEntityStack.pop().getId(), activeEntityStack.pop().getId());
         repository.deleteAllById(ids);
-        ids.forEach(this::assertInactive);
+        ids.forEach(id -> assertFalse(repository.existsById(id)));
     }
 
     @Test
     void undeleteAllById() {
         val ids = asList(inactiveEntityStack.pop().getId(), inactiveEntityStack.pop().getId());
         repository.undeleteAllById(ids);
-        ids.forEach(this::assertActive);
+        ids.forEach(id -> assertTrue(repository.existsById(id)));
     }
 
     @Test
     void deleteAll_global() {
         assertThrows(UnsupportedOperationException.class, () -> repository.deleteAll());
-    }
-
-    private void assertActive(int entityId) {
-        val dbEntity = repository.findById(entityId).orElseThrow();
-        assertNull(dbEntity.getDeletedAt());
-    }
-
-    private void assertInactive(int entityId) {
-        val dbEntity = repository.findById(entityId).orElseThrow();
-        assertNotNull(dbEntity.getDeletedAt());
     }
 }
