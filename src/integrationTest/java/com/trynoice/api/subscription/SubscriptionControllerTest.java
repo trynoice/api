@@ -12,6 +12,7 @@ import com.stripe.model.SubscriptionItem;
 import com.stripe.model.SubscriptionItemCollection;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
@@ -82,6 +83,9 @@ public class SubscriptionControllerTest {
     private EntityManager entityManager;
 
     @Autowired
+    private CustomerRepository customerRepository;
+
+    @Autowired
     private SubscriptionPlanRepository subscriptionPlanRepository;
 
     @Autowired
@@ -139,6 +143,8 @@ public class SubscriptionControllerTest {
         int expectedResponseStatus
     ) throws Exception {
         val providerPlanId = "provider-plan-id";
+        val successUrl = "https://api.test/success";
+        val cancelUrl = "https://api.test/cancel";
         val authUser = createAuthUser(entityManager);
         val plan = buildSubscriptionPlan(provider, providerPlanId);
         buildSubscription(authUser, plan, existingSubscriptionStatus);
@@ -146,8 +152,17 @@ public class SubscriptionControllerTest {
         val mockSession = mock(Session.class);
         val sessionUrl = "/checkout-session-url";
         if (provider == SubscriptionPlan.Provider.STRIPE) {
+            val customer = buildCustomer(authUser);
             when(mockSession.getUrl()).thenReturn(sessionUrl);
-            when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any(), any()))
+            when(
+                stripeApi.createCheckoutSession(
+                    eq(successUrl),
+                    eq(cancelUrl),
+                    eq(plan.getProviderPlanId()),
+                    any(),
+                    eq(authUser.getEmail()),
+                    eq(customer.getStripeId()),
+                    any()))
                 .thenReturn(mockSession);
         }
 
@@ -156,7 +171,7 @@ public class SubscriptionControllerTest {
                     .header("Authorization", "bearer " + createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(
-                        new SubscriptionFlowParams(plan.getId(), "https://api.test/success", "https://api.test/cancel"))))
+                        new SubscriptionFlowParams(plan.getId(), successUrl, cancelUrl))))
             .andExpect(status().is(expectedResponseStatus));
 
         if (expectedResponseStatus == HttpStatus.CREATED.value()) {
@@ -211,11 +226,12 @@ public class SubscriptionControllerTest {
             val mockSession = mock(com.stripe.model.billingportal.Session.class);
             lenient().when(mockSession.getUrl()).thenReturn(testCustomerPortalUrl);
 
+            val customer = buildCustomer(entry.getKey());
             entry.getValue().stream()
                 .filter(s -> s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE)
                 .forEach(s -> {
                     try {
-                        lenient().when(stripeApi.createCustomerPortalSession(s.getStripeCustomerId(), testReturnUrl))
+                        lenient().when(stripeApi.createCustomerPortalSession(customer.getStripeId(), testReturnUrl))
                             .thenReturn(mockSession);
                     } catch (StripeException e) {
                         throw new RuntimeException(e);
@@ -540,7 +556,15 @@ public class SubscriptionControllerTest {
                 .providerSubscriptionId(UUID.randomUUID().toString())
                 .status(status)
                 .startAt(LocalDateTime.now())
-                .stripeCustomerId(plan.getProvider() == SubscriptionPlan.Provider.STRIPE ? UUID.randomUUID().toString() : null)
+                .build());
+    }
+
+    @NonNull
+    private Customer buildCustomer(@NonNull AuthUser user) {
+        return customerRepository.save(
+            Customer.builder()
+                .userId(user.getId())
+                .stripeId(UUID.randomUUID().toString())
                 .build());
     }
 
