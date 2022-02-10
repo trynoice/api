@@ -30,8 +30,10 @@ public class StripeApi {
      * @param cancelUrl         url where user will be redirected on cancelling the checkout.
      * @param priceId           price id of the subscription.
      * @param clientReferenceId a reference id to identify customer internally.
-     * @param customerEmail     customer's email.
-     * @param stripeCustomerId  customer id assigned by Stripe to the subscription owner (optional)
+     * @param customerEmail     customer's email. If it is {@code null}, Stripe will explicitly ask
+     *                          for it during the checkout.
+     * @param stripeCustomerId  customer id assigned by Stripe to the subscription owner. If it is
+     *                          {@code null}, Stripe will create a new Customer entity.
      * @return a new checkout session
      * @throws StripeException on api call error
      */
@@ -41,7 +43,7 @@ public class StripeApi {
         @NonNull String cancelUrl,
         @NonNull String priceId,
         @NonNull String clientReferenceId,
-        @NonNull String customerEmail,
+        String customerEmail,
         String stripeCustomerId,
         @NonNull Long trialPeriodDays
     ) throws StripeException {

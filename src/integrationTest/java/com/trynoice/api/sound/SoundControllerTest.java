@@ -132,7 +132,7 @@ public class SoundControllerTest {
     @NonNull
     private Subscription buildSubscription(@NonNull AuthUser owner, @NonNull Subscription.Status status) {
         val subscription = Subscription.builder()
-            .owner(owner)
+            .ownerId(owner.getId())
             .plan(buildSubscriptionPlan())
             .providerSubscriptionId(UUID.randomUUID().toString())
             .status(status)

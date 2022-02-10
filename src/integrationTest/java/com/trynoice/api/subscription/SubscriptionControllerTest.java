@@ -535,7 +535,7 @@ public class SubscriptionControllerTest {
     private Subscription buildSubscription(@NonNull AuthUser owner, @NonNull SubscriptionPlan plan, @NonNull Subscription.Status status) {
         return subscriptionRepository.save(
             Subscription.builder()
-                .owner(owner)
+                .ownerId(owner.getId())
                 .plan(plan)
                 .providerSubscriptionId(UUID.randomUUID().toString())
                 .status(status)

@@ -1,8 +1,7 @@
 package com.trynoice.api.sound;
 
-import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.contracts.SoundSubscriptionServiceContract;
 import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
-import com.trynoice.api.subscription.SubscriptionService;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,7 +29,7 @@ public class SoundServiceTest {
     private LibraryManifestRepository libraryManifestRepository;
 
     @Mock
-    private SubscriptionService subscriptionService;
+    private SoundSubscriptionServiceContract subscriptionServiceContract;
 
     @Mock
     private SoundConfiguration soundConfig;
@@ -41,13 +39,13 @@ public class SoundServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(soundConfig.getFreeBitrates()).thenReturn(Set.of("32k", "128k"));
-        service = new SoundService(soundConfig, libraryManifestRepository, subscriptionService);
+        service = new SoundService(soundConfig, libraryManifestRepository, subscriptionServiceContract);
     }
 
     @ParameterizedTest(name = "{displayName} - isSubscribed={1} isRequestingPremiumSegment={2} requestedAudioBitrate={3} hasAccess={4}")
     @MethodSource("authorizeSegmentRequestTestCases")
     void authorizeSegmentRequest(
-        AuthUser principal,
+        Long principalId,
         boolean isPrincipalSubscribed,
         boolean isRequestingPremiumSegment,
         @NonNull String requestedAudioBitrate,
@@ -61,8 +59,8 @@ public class SoundServiceTest {
         when(libraryManifestRepository.getPremiumSegmentMappings())
             .thenReturn(premiumSegmentMappings);
 
-        if (principal != null) {
-            lenient().when(subscriptionService.isUserSubscribed(principal))
+        if (principalId != null) {
+            lenient().when(subscriptionServiceContract.isUserSubscribed(principalId))
                 .thenReturn(isPrincipalSubscribed);
         }
 
@@ -70,28 +68,27 @@ public class SoundServiceTest {
         if (shouldAllowAccess) {
             //noinspection CodeBlock2Expr
             assertDoesNotThrow(() -> {
-                service.authorizeSegmentRequest(principal, soundId, requestedSegmentId, requestedAudioBitrate);
+                service.authorizeSegmentRequest(principalId, soundId, requestedSegmentId, requestedAudioBitrate);
             });
         } else {
             //noinspection CodeBlock2Expr
             assertThrows(SegmentAccessDeniedException.class, () -> {
-                service.authorizeSegmentRequest(principal, soundId, requestedSegmentId, requestedAudioBitrate);
+                service.authorizeSegmentRequest(principalId, soundId, requestedSegmentId, requestedAudioBitrate);
             });
         }
     }
 
     static Stream<Arguments> authorizeSegmentRequestTestCases() {
-        val principal = mock(AuthUser.class);
         return Stream.of(
-            // principal, isPrincipalSubscribed, isRequestingPremiumSegment, requestedAudioBitrate, shouldAllowAccess
+            // principalId, isPrincipalSubscribed, isRequestingPremiumSegment, requestedAudioBitrate, shouldAllowAccess
             arguments(null, false, false, "32k", true),
             arguments(null, false, false, "320k", false),
             arguments(null, false, true, "32k", false),
-            arguments(principal, false, false, "32k", true),
-            arguments(principal, false, false, "320k", false),
-            arguments(principal, false, true, "32k", false),
-            arguments(principal, true, true, "32k", true),
-            arguments(principal, true, false, "320k", true)
+            arguments(0L, false, false, "32k", true),
+            arguments(0L, false, false, "320k", false),
+            arguments(0L, false, true, "32k", false),
+            arguments(0L, true, true, "32k", true),
+            arguments(0L, true, false, "320k", true)
         );
     }
 }

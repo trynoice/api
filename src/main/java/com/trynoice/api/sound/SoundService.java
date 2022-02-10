@@ -1,8 +1,7 @@
 package com.trynoice.api.sound;
 
-import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.contracts.SoundSubscriptionServiceContract;
 import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
-import com.trynoice.api.subscription.SubscriptionService;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,34 +18,35 @@ class SoundService {
 
     private final LibraryManifestRepository libraryManifestRepository;
     private final Set<String> freeAudioBitrates;
-    private final SubscriptionService subscriptionService;
+    private final SoundSubscriptionServiceContract subscriptionServiceContract;
 
     @Autowired
     SoundService(
         @NonNull SoundConfiguration soundConfig,
         @NonNull LibraryManifestRepository libraryManifestRepository,
-        @NonNull SubscriptionService subscriptionService
+        @NonNull SoundSubscriptionServiceContract subscriptionServiceContract
     ) {
         this.libraryManifestRepository = libraryManifestRepository;
         this.freeAudioBitrates = soundConfig.getFreeBitrates();
-        this.subscriptionService = subscriptionService;
+        this.subscriptionServiceContract = subscriptionServiceContract;
     }
 
     /**
      * Authorizes a request for the given {@code segmentId} of the given {@code soundId}. If the
-     * requested segment is premium, {@code principal} must be non-null, and must have an active
-     * subscription. Throws {@link SegmentAccessDeniedException} if {@code principal} is not
-     * authorized to access the requested segment.
+     * requested segment is premium, {@code principalId} must be non-null, and the user with the
+     * given {@code principalId} must have an active subscription. Throws {@link
+     * SegmentAccessDeniedException} if {@code principalId} is not authorized to access the
+     * requested segment.
      *
-     * @param principal an {@code nullable} {@link AuthUser} that made this request.
-     * @param soundId   the id of the sound being requested.
-     * @param segmentId the id of the segment being requested.
-     * @throws SegmentAccessDeniedException if {@code principal} requests a premium segment but
+     * @param principalId an {@code nullable} id of the user that made this request.
+     * @param soundId     the id of the sound being requested.
+     * @param segmentId   the id of the segment being requested.
+     * @throws SegmentAccessDeniedException if {@code principalId} requests a premium segment but
      *                                      isn't signed-in ({@code null}) or doesn't have an active
      *                                      subscription.
      */
     void authorizeSegmentRequest(
-        AuthUser principal,
+        Long principalId,
         @NonNull String soundId,
         @NonNull String segmentId,
         String audioBitrate
@@ -68,11 +68,11 @@ class SoundService {
             return;
         }
 
-        if (principal == null) {
+        if (principalId == null) {
             throw new SegmentAccessDeniedException("user is not signed-in");
         }
 
-        if (!subscriptionService.isUserSubscribed(principal)) {
+        if (!subscriptionServiceContract.isUserSubscribed(principalId)) {
             throw new SegmentAccessDeniedException("user doesn't have an active subscription");
         }
     }

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
-import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
@@ -59,6 +59,9 @@ public class SubscriptionServiceTest {
     private SubscriptionRepository subscriptionRepository;
 
     @Mock
+    private SubscriptionAccountServiceContract accountServiceContract;
+
+    @Mock
     private AndroidPublisherApi androidPublisherApi;
 
     @Mock
@@ -73,6 +76,7 @@ public class SubscriptionServiceTest {
             subscriptionPlanRepository,
             subscriptionRepository,
             new ObjectMapper(),
+            accountServiceContract,
             androidPublisherApi,
             stripeApi);
     }
@@ -135,32 +139,32 @@ public class SubscriptionServiceTest {
 
     @Test
     void createSubscription_withExistingActiveSubscription() {
-        val authUser = buildAuthUser();
+        val userId = 1L;
         when(subscriptionPlanRepository.findActiveById((short) 1))
             .thenReturn(Optional.of(buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id")));
 
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.of(mock(Subscription.class)));
 
         val params = new SubscriptionFlowParams((short) 1, "success-url", "cancel-url");
-        assertThrows(DuplicateSubscriptionException.class, () -> service.createSubscription(authUser, params));
+        assertThrows(DuplicateSubscriptionException.class, () -> service.createSubscription(userId, params));
     }
 
     @Test
     void createSubscription_withInvalidPlanId() {
-        val authUser = buildAuthUser();
+        val userId = 1L;
         val planId = (short) 1;
         val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
         when(subscriptionPlanRepository.findActiveById(planId)).thenReturn(Optional.empty());
-        assertThrows(SubscriptionPlanNotFoundException.class, () -> service.createSubscription(authUser, params));
+        assertThrows(SubscriptionPlanNotFoundException.class, () -> service.createSubscription(userId, params));
     }
 
     @Test
     void createSubscription_withStripeApiError() throws Exception {
-        val authUser = buildAuthUser();
+        val userId = 1L;
         val stripePriceId = "stripe-price-id-1";
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, stripePriceId);
-        val subscription = buildSubscription(authUser, plan, Subscription.Status.CREATED);
+        val subscription = buildSubscription(userId, plan, Subscription.Status.CREATED);
 
         val planId = (short) 1;
         val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
@@ -168,22 +172,23 @@ public class SubscriptionServiceTest {
         when(subscriptionPlanRepository.findActiveById(planId))
             .thenReturn(Optional.of(plan));
 
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.of(subscription));
 
         when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any(), any()))
             .thenThrow(new ApiConnectionException("test-error"));
 
-        assertThrows(RuntimeException.class, () -> service.createSubscription(authUser, params));
+        assertThrows(RuntimeException.class, () -> service.createSubscription(userId, params));
     }
 
     @Test
     void createSubscription_withValidParams() throws Exception {
-        val authUser = buildAuthUser();
+        val userId = 1L;
+        val authUserEmail = "test@api.test";
         val stripePriceId = "stripe-price-id-1";
         val stripeCustomerId = "stripe-customer-id";
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, stripePriceId);
-        val subscription = buildSubscription(authUser, plan, Subscription.Status.CREATED);
+        val subscription = buildSubscription(userId, plan, Subscription.Status.CREATED);
 
         val planId = (short) 1;
         val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
@@ -191,10 +196,13 @@ public class SubscriptionServiceTest {
         when(subscriptionPlanRepository.findActiveById(planId))
             .thenReturn(Optional.of(plan));
 
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.of(subscription));
 
-        when(subscriptionRepository.findActiveStripeCustomerIdByOwner(authUser))
+        when(accountServiceContract.findEmailByUser(userId))
+            .thenReturn(Optional.of(authUserEmail));
+
+        when(subscriptionRepository.findActiveStripeCustomerIdByOwner(userId))
             .thenReturn(Optional.of(stripeCustomerId));
 
         val redirectUrl = "test-redirect-url";
@@ -207,12 +215,12 @@ public class SubscriptionServiceTest {
                 eq(params.getCancelUrl()),
                 eq(stripePriceId),
                 eq(subscription.getId().toString()),
-                eq(authUser.getEmail()),
+                eq(authUserEmail),
                 eq(stripeCustomerId),
                 any()))
             .thenReturn(mockSession);
 
-        val result = service.createSubscription(authUser, params);
+        val result = service.createSubscription(userId, params);
         assertNotNull(result);
         assertEquals(subscription.getId(), result.getSubscriptionId());
         assertEquals(redirectUrl, result.getStripeCheckoutSessionUrl());
@@ -220,26 +228,26 @@ public class SubscriptionServiceTest {
 
     @Test
     void getSubscriptions() throws StripeException {
-        val authUser1 = buildAuthUser();
-        val authUser2 = buildAuthUser();
+        val userId1 = 1L;
+        val userId2 = 2L;
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
-        val subscription1 = buildSubscription(authUser1, plan, Subscription.Status.ACTIVE);
-        val subscription2 = buildSubscription(authUser2, plan, Subscription.Status.INACTIVE);
+        val subscription1 = buildSubscription(userId1, plan, Subscription.Status.ACTIVE);
+        val subscription2 = buildSubscription(userId2, plan, Subscription.Status.INACTIVE);
 
-        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(authUser1), any()))
+        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(userId1), any()))
             .thenReturn(List.of(subscription1));
 
-        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(authUser2), any()))
+        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(userId2), any()))
             .thenReturn(List.of(subscription2));
 
         lenient().when(stripeApi.createCustomerPortalSession(any(), any()))
             .thenReturn(mock(com.stripe.model.billingportal.Session.class));
 
-        val result1 = service.getSubscriptions(authUser1, false, null);
+        val result1 = service.getSubscriptions(userId1, false, null);
         assertEquals(1, result1.size());
         assertEquals(subscription1.getId(), result1.get(0).getId());
 
-        val result2 = service.getSubscriptions(authUser2, false, null);
+        val result2 = service.getSubscriptions(userId2, false, null);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
     }
@@ -248,16 +256,16 @@ public class SubscriptionServiceTest {
     @MethodSource("cancelSubscriptionTestCases")
     <T extends Throwable> void cancelSubscription(
         @NonNull Subscription subscription,
-        @NonNull AuthUser principal,
+        @NonNull Long principalId,
         Class<T> expectedException
     ) throws IOException, StripeException {
         when(subscriptionRepository.findActiveById(subscription.getId()))
             .thenReturn(Optional.of(subscription));
 
         if (expectedException != null) {
-            assertThrows(expectedException, () -> service.cancelSubscription(principal, subscription.getId()));
+            assertThrows(expectedException, () -> service.cancelSubscription(principalId, subscription.getId()));
         } else {
-            assertDoesNotThrow(() -> service.cancelSubscription(principal, subscription.getId()));
+            assertDoesNotThrow(() -> service.cancelSubscription(principalId, subscription.getId()));
 
             switch (subscription.getPlan().getProvider()) {
                 case GOOGLE_PLAY:
@@ -278,19 +286,19 @@ public class SubscriptionServiceTest {
     }
 
     static Stream<Arguments> cancelSubscriptionTestCases() {
-        val authUser1 = buildAuthUser();
-        val authUser2 = buildAuthUser();
+        val userId1 = 1L;
+        val userId2 = 2L;
         val googlePlayPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
         val stripePlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
 
         return Stream.of(
-            // subscription, principal, expected exception
-            arguments(buildSubscription(authUser1, googlePlayPlan, Subscription.Status.ACTIVE), authUser1, null),
-            arguments(buildSubscription(authUser1, stripePlan, Subscription.Status.ACTIVE), authUser1, null),
-            arguments(buildSubscription(authUser2, googlePlayPlan, Subscription.Status.ACTIVE), authUser1, SubscriptionNotFoundException.class),
-            arguments(buildSubscription(authUser1, stripePlan, Subscription.Status.ACTIVE), authUser2, SubscriptionNotFoundException.class),
-            arguments(buildSubscription(authUser1, googlePlayPlan, Subscription.Status.CREATED), authUser1, SubscriptionStateException.class),
-            arguments(buildSubscription(authUser1, stripePlan, Subscription.Status.INACTIVE), authUser1, SubscriptionStateException.class)
+            // subscription, principalId, expected exception
+            arguments(buildSubscription(userId1, googlePlayPlan, Subscription.Status.ACTIVE), userId1, null),
+            arguments(buildSubscription(userId1, stripePlan, Subscription.Status.ACTIVE), userId1, null),
+            arguments(buildSubscription(userId2, googlePlayPlan, Subscription.Status.ACTIVE), userId1, SubscriptionNotFoundException.class),
+            arguments(buildSubscription(userId1, stripePlan, Subscription.Status.ACTIVE), userId2, SubscriptionNotFoundException.class),
+            arguments(buildSubscription(userId1, googlePlayPlan, Subscription.Status.CREATED), userId1, SubscriptionStateException.class),
+            arguments(buildSubscription(userId1, stripePlan, Subscription.Status.INACTIVE), userId1, SubscriptionStateException.class)
         );
     }
 
@@ -307,34 +315,23 @@ public class SubscriptionServiceTest {
 
     @ParameterizedTest(name = "{displayName} - isUserSubscribed={2}")
     @MethodSource("isUserSubscribedTestCases")
-    void isUserSubscribed(@NonNull AuthUser authUser, Subscription subscription, boolean isUserSubscribed) {
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(authUser), any()))
+    void isUserSubscribed(@NonNull Long userId, Subscription subscription, boolean isUserSubscribed) {
+        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.ofNullable(subscription));
 
-        assertEquals(isUserSubscribed, service.isUserSubscribed(authUser));
+        assertEquals(isUserSubscribed, service.isUserSubscribed(userId));
     }
 
     static Stream<Arguments> isUserSubscribedTestCases() {
-        val authUser = buildAuthUser();
+        val userId = 1L;
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
 
         return Stream.of(
             // subscription, expected response
-            arguments(authUser, null, false),
-            arguments(authUser, buildSubscription(authUser, plan, Subscription.Status.ACTIVE), true),
-            arguments(authUser, buildSubscription(authUser, plan, Subscription.Status.PENDING), true)
+            arguments(userId, null, false),
+            arguments(userId, buildSubscription(userId, plan, Subscription.Status.ACTIVE), true),
+            arguments(userId, buildSubscription(userId, plan, Subscription.Status.PENDING), true)
         );
-    }
-
-    @NonNull
-    private static AuthUser buildAuthUser() {
-        val authUser = AuthUser.builder()
-            .name("test-name")
-            .email("test-name@api.test")
-            .build();
-
-        authUser.setId(Math.round(Math.random() * 10000));
-        return authUser;
     }
 
     @NonNull
@@ -353,12 +350,12 @@ public class SubscriptionServiceTest {
 
     @NonNull
     private static Subscription buildSubscription(
-        @NonNull AuthUser owner,
+        @NonNull Long ownerId,
         @NonNull SubscriptionPlan plan,
         @NonNull Subscription.Status status
     ) {
         val subscription = Subscription.builder()
-            .owner(owner)
+            .ownerId(ownerId)
             .plan(plan)
             .providerSubscriptionId(UUID.randomUUID().toString())
             .status(status)

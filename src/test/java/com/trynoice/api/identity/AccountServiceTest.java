@@ -30,7 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -268,7 +267,10 @@ class AccountServiceTest {
     @Test
     void getProfile() {
         val authUser = buildAuthUser();
-        val profile = service.getProfile(authUser);
+        when(authUserRepository.findActiveById(authUser.getId()))
+            .thenReturn(Optional.of(authUser));
+
+        val profile = service.getProfile(authUser.getId());
         assertEquals(authUser.getId(), profile.getAccountId());
         assertEquals(authUser.getName(), profile.getName());
         assertEquals(authUser.getEmail(), profile.getEmail());
@@ -287,13 +289,9 @@ class AccountServiceTest {
             .withSubject("" + principalId)
             .sign(Algorithm.HMAC256(TEST_HMAC_SECRET));
 
-        when(authUserRepository.findActiveById(principalId))
-            .thenReturn(Optional.of(mock(AuthUser.class)));
-
         val auth = service.verifyAccessToken(validToken);
         assertNotNull(auth);
         assertNotNull(auth.getPrincipal());
-        verify(authUserRepository, times(1)).findActiveById(principalId);
     }
 
     @Test
