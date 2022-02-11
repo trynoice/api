@@ -78,7 +78,7 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-web"
     implementation "org.springdoc:springdoc-openapi-javadoc:1.5.12"
     implementation "org.springdoc:springdoc-openapi-security:1.6.6" // https://github.com/springdoc/springdoc-openapi/issues/198
-    implementation "org.springdoc:springdoc-openapi-ui:1.5.12"
+    implementation "org.springdoc:springdoc-openapi-ui:1.6.6"
     implementation "org.postgresql:postgresql"
 
     implementation platform("software.amazon.awssdk:bom:2.17.128")
