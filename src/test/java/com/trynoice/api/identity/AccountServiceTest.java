@@ -199,7 +199,6 @@ class AccountServiceTest {
         when(refreshTokenRepository.findById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
 
-        // error without block: java: incompatible types: inference variable T has incompatible bounds
         //noinspection CodeBlock2Expr
         assertDoesNotThrow(() -> {
             service.signOut(signedJwt, accessToken);
@@ -356,8 +355,12 @@ class AccountServiceTest {
         assertNull(service.verifyAccessToken(validToken));
     }
 
+    private void assertValidJwt(@NonNull String token) {
+        JWT.require(jwtAlgorithm).build().verify(token);
+    }
+
     @NonNull
-    private AuthUser buildAuthUser() {
+    private static AuthUser buildAuthUser() {
         val authUser = AuthUser.builder()
             .email("test-name@api.test")
             .name("test-name")
@@ -369,7 +372,7 @@ class AccountServiceTest {
     }
 
     @NonNull
-    private RefreshToken buildRefreshToken(@NonNull AuthUser authUser) {
+    private static RefreshToken buildRefreshToken(@NonNull AuthUser authUser) {
         val refreshToken = RefreshToken.builder()
             .owner(authUser)
             .userAgent("test-user-agent")
@@ -379,9 +382,5 @@ class AccountServiceTest {
         refreshToken.setId(1L);
         refreshToken.setCreatedAt(LocalDateTime.now());
         return refreshToken;
-    }
-
-    private void assertValidJwt(@NonNull String token) {
-        JWT.require(jwtAlgorithm).build().verify(token);
     }
 }
