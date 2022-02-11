@@ -129,8 +129,7 @@ public class SoundControllerTest {
         );
     }
 
-    @NonNull
-    private Subscription buildSubscription(@NonNull AuthUser owner, @NonNull Subscription.Status status) {
+    private void buildSubscription(@NonNull AuthUser owner, @NonNull Subscription.Status status) {
         val subscription = Subscription.builder()
             .ownerId(owner.getId())
             .plan(buildSubscriptionPlan())
@@ -140,7 +139,6 @@ public class SoundControllerTest {
             .build();
 
         entityManager.persist(subscription);
-        return subscription;
     }
 
     @NonNull

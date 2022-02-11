@@ -119,9 +119,9 @@ public class SubscriptionControllerTest {
 
             assertNotEquals(0, plans.length);
             if (provider != null) {
-                for (val plan : plans) {
-                    assertEquals(provider.toLowerCase(), plan.getProvider().toLowerCase());
-                }
+                assertTrue(
+                    Arrays.stream(plans)
+                        .allMatch(p -> provider.equalsIgnoreCase(p.getProvider())));
             }
         }
     }
@@ -299,7 +299,6 @@ public class SubscriptionControllerTest {
 
         if (expectedResponseCode == HttpStatus.NO_CONTENT.value()) {
             assertEquals(Subscription.Status.INACTIVE, subscription.getStatus());
-
             switch (provider) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
@@ -570,7 +569,7 @@ public class SubscriptionControllerTest {
 
     @NonNull
     private static Event buildStripeEvent(@NonNull String type, @NonNull StripeObject dataObject) {
-        // TODO: find a fix in free time.
+        // TODO: maybe find a fix in free time.
         // mock because event data object serialization/deserialization is confusing and all my
         // attempts failed.
         val event = mock(Event.class);
