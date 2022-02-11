@@ -23,7 +23,6 @@ import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.subscription.models.SubscriptionView;
 import lombok.NonNull;
 import lombok.val;
-import org.postgresql.util.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -311,7 +311,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         final JsonNode event;
         try {
-            event = objectMapper.readTree(Base64.decode(data.asText()));
+            event = objectMapper.readTree(Base64.getDecoder().decode(data.asText()));
         } catch (IOException e) {
             throw new SubscriptionWebhookEventException("failed to parse 'message.data' as json", e);
         }
