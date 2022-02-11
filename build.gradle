@@ -76,8 +76,8 @@ dependencies {
     implementation "org.springframework.boot:spring-boot-starter-security"
     implementation "org.springframework.boot:spring-boot-starter-validation"
     implementation "org.springframework.boot:spring-boot-starter-web"
-    implementation "org.springdoc:springdoc-openapi-javadoc:1.5.12"
-    implementation "org.springdoc:springdoc-openapi-security:1.5.12" // https://github.com/springdoc/springdoc-openapi/issues/198
+    implementation "org.springdoc:springdoc-openapi-javadoc:1.6.6"
+    implementation "org.springdoc:springdoc-openapi-security:1.6.6" // https://github.com/springdoc/springdoc-openapi/issues/198
     implementation "org.springdoc:springdoc-openapi-ui:1.5.12"
     implementation "org.postgresql:postgresql"
 
@@ -98,5 +98,5 @@ dependencies {
     integrationTestCompileOnly "org.projectlombok:lombok"
 
     integrationTestImplementation "org.springframework.boot:spring-boot-starter-test"
-    integrationTestImplementation "org.testcontainers:postgresql:1.16.0"
+    integrationTestImplementation "org.testcontainers:postgresql:1.16.3"
 }
