@@ -248,7 +248,7 @@ public class SubscriptionControllerTest {
             val expectedIds = entry.getValue()
                 .stream()
                 .filter(s -> s.getStatus() != Subscription.Status.CREATED)
-                .map(s -> s.getId().toString())
+                .map(s -> String.valueOf(s.getId()))
                 .sorted()
                 .collect(Collectors.toList());
 
@@ -368,7 +368,7 @@ public class SubscriptionControllerTest {
         subscription.setProviderSubscriptionId(null);
         subscriptionRepository.save(subscription);
 
-        purchase.setObfuscatedExternalProfileId(subscription.getId().toString());
+        purchase.setObfuscatedExternalProfileId(String.valueOf(subscription.getId()));
 
         val linkedSubscription = buildSubscription(authUser, plan, Subscription.Status.ACTIVE);
         purchase.setLinkedPurchaseToken(linkedSubscription.getProviderSubscriptionId());
@@ -448,7 +448,7 @@ public class SubscriptionControllerTest {
             Subscription.Status.CREATED);
 
         val checkoutSession = buildStripeCheckoutSession(sessionStatus, sessionPaymentStatus);
-        checkoutSession.setClientReferenceId(subscription.getId().toString());
+        checkoutSession.setClientReferenceId(String.valueOf(subscription.getId()));
 
         val event = buildStripeEvent("checkout.session.completed", checkoutSession);
         val signature = "dummy-signature";

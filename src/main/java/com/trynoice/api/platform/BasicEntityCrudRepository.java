@@ -5,13 +5,10 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.NoRepositoryBean;
-import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Serializable;
 import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * <p>
@@ -30,7 +27,7 @@ import java.util.stream.StreamSupport;
  * @param <ID> type of the ID for {@link BasicEntity}.
  */
 @NoRepositoryBean
-public interface BasicEntityCrudRepository<T extends BasicEntity<ID>, ID extends Serializable>
+public interface BasicEntityCrudRepository<T extends BasicEntity, ID extends Serializable>
     extends CrudRepository<T, ID> {
 
     String WHERE_ACTIVE_CLAUSE = " e." + BasicEntity.SOFT_DELETE_FIELD + " is null ";
@@ -131,8 +128,8 @@ public interface BasicEntityCrudRepository<T extends BasicEntity<ID>, ID extends
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e.id = :#{#p.id} and" + WHERE_ACTIVE_CLAUSE)
-    void delete(@Param("p") @NonNull T entity);
+    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    void delete(@NonNull T entity);
 
     /**
      * Marks the given entity as undeleted.
@@ -141,8 +138,8 @@ public interface BasicEntityCrudRepository<T extends BasicEntity<ID>, ID extends
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e.id = :#{#p.id} and" + WHERE_INACTIVE_CLAUSE)
-    void undelete(@Param("p") @NonNull T entity);
+    @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e = ?1 and" + WHERE_INACTIVE_CLAUSE)
+    void undelete(@NonNull T entity);
 
     /**
      * Marks all instances of the type {@code T} with the given IDs as deleted.
@@ -173,12 +170,8 @@ public interface BasicEntityCrudRepository<T extends BasicEntity<ID>, ID extends
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    default void deleteAll(@NonNull Iterable<? extends T> entities) {
-        deleteAllById(
-            StreamSupport.stream(entities.spliterator(), false)
-                .map(BasicEntity::getId)
-                .collect(Collectors.toUnmodifiableSet()));
-    }
+    @Query("update #{#entityName} e set" + SET_INACTIVE_CLAUSE + "where e in ?1 and" + WHERE_ACTIVE_CLAUSE)
+    void deleteAll(@NonNull Iterable<? extends T> entities);
 
     /**
      * Marks the given entities as undeleted.
@@ -187,12 +180,8 @@ public interface BasicEntityCrudRepository<T extends BasicEntity<ID>, ID extends
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    default void undeleteAll(@NonNull Iterable<? extends T> entities) {
-        undeleteAllById(
-            StreamSupport.stream(entities.spliterator(), false)
-                .map(BasicEntity::getId)
-                .collect(Collectors.toUnmodifiableSet()));
-    }
+    @Query("update #{#entityName} e set" + SET_ACTIVE_CLAUSE + "where e in ?1 and" + WHERE_INACTIVE_CLAUSE)
+    void undeleteAll(@NonNull Iterable<? extends T> entities);
 
     @Override
     default void deleteAll() {

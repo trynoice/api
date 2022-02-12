@@ -218,7 +218,7 @@ public class SubscriptionServiceTest {
                 eq(params.getSuccessUrl()),
                 eq(params.getCancelUrl()),
                 eq(stripePriceId),
-                eq(subscription.getId().toString()),
+                eq(String.valueOf(subscription.getId())),
                 eq(authUserEmail),
                 eq(stripeCustomerId),
                 any()))
