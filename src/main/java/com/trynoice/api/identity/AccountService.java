@@ -59,6 +59,7 @@ class AccountService implements SubscriptionAccountServiceContract {
     private final Algorithm jwtAlgorithm;
     private final JWTVerifier jwtVerifier;
     private final Cache<String, Boolean> revokedAccessJwtCache;
+    private final Cache<Long, Boolean> deletedUserIdCache;
 
     @Autowired
     AccountService(
@@ -66,13 +67,15 @@ class AccountService implements SubscriptionAccountServiceContract {
         @NonNull RefreshTokenRepository refreshTokenRepository,
         @NonNull AuthConfiguration authConfig,
         @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy,
-        @NonNull @Qualifier(AuthConfiguration.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache
+        @NonNull @Qualifier(AuthConfiguration.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache,
+        @NonNull @Qualifier(AuthConfiguration.DELETED_USER_ID_CACHE) Cache<Long, Boolean> deletedUserIdCache
     ) {
         this.authUserRepository = authUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.authConfig = authConfig;
         this.signInTokenDispatchStrategy = signInTokenDispatchStrategy;
         this.revokedAccessJwtCache = revokedAccessJwtCache;
+        this.deletedUserIdCache = deletedUserIdCache;
         this.jwtAlgorithm = Algorithm.HMAC256(authConfig.getHmacSecret());
         this.jwtVerifier = JWT.require(this.jwtAlgorithm).build();
     }
@@ -262,6 +265,18 @@ class AccountService implements SubscriptionAccountServiceContract {
         authUserRepository.save(authUser);
     }
 
+    /**
+     * Deletes the account belong to the user with the given {@literal userId}.
+     *
+     * @param userId must not be {@literal null}.
+     */
+    @Transactional(rollbackFor = Throwable.class)
+    public void deleteAccount(@NonNull Long userId) {
+        refreshTokenRepository.deleteAllByOwnerId(userId);
+        authUserRepository.deleteById(userId);
+        deletedUserIdCache.put(userId, Boolean.TRUE);
+    }
+
     @Override
     @NonNull
     public Optional<String> findEmailByUser(@NonNull Long userId) {
@@ -284,7 +299,12 @@ class AccountService implements SubscriptionAccountServiceContract {
         }
 
         try {
-            return new BearerJWT(token);
+            val auth = new BearerJWT(token);
+            if (!requireNonNullElse(deletedUserIdCache.getIfPresent(auth.principalId), false)) {
+                return auth;
+            }
+
+            log.trace("attempted authentication for a delete user account");
         } catch (BearerJwtAuthenticationException e) {
             log.trace("access token verification failed", e);
         }

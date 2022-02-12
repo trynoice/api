@@ -26,17 +26,21 @@ import javax.persistence.EntityManager;
 import javax.servlet.http.Cookie;
 import javax.transaction.Transactional;
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.JwtType;
 import static com.trynoice.api.testing.AuthTestUtils.assertValidJWT;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
+import static com.trynoice.api.testing.AuthTestUtils.createRefreshToken;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedRefreshJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,6 +48,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -326,5 +331,38 @@ class AccountControllerTest {
             arguments(null, "new-email@api.test", HttpStatus.NO_CONTENT.value()),
             arguments("New Name", "new-email@api.test", HttpStatus.NO_CONTENT.value())
         );
+    }
+
+    @Test
+    void deleteAccount() throws Exception {
+        val user = createAuthUser(entityManager);
+        val accessToken = createSignedAccessJwt(hmacSecret, user, JwtType.VALID);
+        val anotherUser = createAuthUser(entityManager);
+        val urlFmt = "/v1/accounts/%d";
+
+        val refreshTokens = IntStream.range(0, 5)
+            .mapToObj(i -> createRefreshToken(entityManager, user))
+            .collect(Collectors.toUnmodifiableList());
+
+        // try deleting someone else's account
+        mockMvc.perform(
+                delete(String.format(urlFmt, anotherUser.getId()))
+                    .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().is(HttpStatus.BAD_REQUEST.value()));
+
+        // delete auth user's account
+        mockMvc.perform(
+                delete(String.format(urlFmt, user.getId()))
+                    .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().is(HttpStatus.NO_CONTENT.value()));
+
+        // validate that all existing refresh tokens have been revoked.
+        assertTrue(refreshTokens.stream().noneMatch(t -> t.getDeletedAt() != null));
+
+        // perform the request again to ensure access token no longer works
+        mockMvc.perform(
+                delete(String.format(urlFmt, anotherUser.getId()))
+                    .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().is(HttpStatus.UNAUTHORIZED.value()));
     }
 }

@@ -27,8 +27,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -36,6 +38,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -264,5 +267,32 @@ class AccountController {
             log.trace("failed to update user profile", e);
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
+    }
+
+    /**
+     * Deletes the account of an authenticated user. If the account with the given {@literal
+     * accountId} does not belong to the authenticated user, it returns {@literal HTTP 400}.
+     *
+     * @param accountId must be the account id of the authenticated user.
+     */
+    @Operation(summary = "Delete account of the auth user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "account deleted successfully"),
+        @ApiResponse(responseCode = "400", description = "request is not valid"),
+        @ApiResponse(responseCode = "401", description = "access token is invalid"),
+        @ApiResponse(responseCode = "500", description = "internal server error"),
+    })
+    @NonNull
+    @DeleteMapping(value = "/{accountId}")
+    ResponseEntity<Void> deleteAccount(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotNull @Min(1L) @PathVariable Long accountId
+    ) {
+        if (!principalId.equals(accountId)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        accountService.deleteAccount(accountId);
+        return ResponseEntity.noContent().build();
     }
 }

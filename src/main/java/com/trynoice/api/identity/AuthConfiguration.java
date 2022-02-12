@@ -31,6 +31,7 @@ import java.time.Duration;
 class AuthConfiguration {
 
     static final String REVOKED_ACCESS_JWT_CACHE = "revokedAccessJwts";
+    static final String DELETED_USER_ID_CACHE = "deletedUserIds";
 
     /**
      * HMAC secret to sign refresh and access tokens.
@@ -123,6 +124,15 @@ class AuthConfiguration {
         return Caffeine.newBuilder()
             .expireAfterWrite(accessTokenExpiry)
             .maximumSize(10_000) // an arbitrary upper-limit for sanity.
+            .build();
+    }
+
+    @NonNull
+    @Bean(DELETED_USER_ID_CACHE)
+    public Cache<Long, Boolean> deleteUserIdCache() {
+        return Caffeine.newBuilder()
+            .expireAfterWrite(accessTokenExpiry)
+            .maximumSize(1000) // an arbitrary upper-limit for sanity.
             .build();
     }
 
