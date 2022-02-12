@@ -57,6 +57,9 @@ class AccountServiceTest {
     @Mock
     private Cache<String, Boolean> revokedAccessTokenCache;
 
+    @Mock
+    private Cache<Long, Boolean> deleteUserIdCache;
+
     private Algorithm jwtAlgorithm;
     private AccountService service;
 
@@ -70,7 +73,8 @@ class AccountServiceTest {
             refreshTokenRepository,
             authConfiguration,
             signInTokenDispatchStrategy,
-            revokedAccessTokenCache);
+            revokedAccessTokenCache,
+            deleteUserIdCache);
     }
 
     @Test
