@@ -1,10 +1,11 @@
 package com.trynoice.api.subscription.entities;
 
+import com.trynoice.api.platform.BasicEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
@@ -17,11 +18,11 @@ import javax.persistence.Id;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Customer {
+@EqualsAndHashCode(callSuper = true)
+public class Customer extends BasicEntity {
 
-    @NonNull
     @Id
-    private Long userId;
+    private long userId;
 
     private String stripeId;
 }

@@ -7,22 +7,16 @@ import lombok.NonNull;
 import lombok.Setter;
 
 import javax.persistence.Column;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.PrePersist;
-import javax.persistence.Version;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
  * <p>
  * {@link BasicEntity} is a {@link MappedSuperclass mapped superclass} that contains the following
- * common fields that <i>should</i> be present in all non-join tables.
+ * common fields that <i>should</i> be present in all child entities.
  * </p>
  * <ol>
- *     <li>{@link BasicEntity#id} - an incrementing (sequence) primary key of the table</li>
  *     <li>{@link BasicEntity#createdAt} - the creation timestamp of the row</li>
  *     <li>{@link BasicEntity#deletedAt} - the deletion timestamp of the row</li>
  *     <li>{@link BasicEntity#version} - optimistic lock used by the JPA during update queries</li>
@@ -39,7 +33,12 @@ import java.time.LocalDateTime;
  * <pre>
  *     {@code
  *     @Entity
- *     class User extends BasicEntity<Integer> {
+ *     class User extends BasicEntity {
+ *
+ *         @Id
+ *         @GeneratedValue(strategy = GenerationType.IDENTITY)
+ *         private Integer id;
+ *
  *         private String email;
  *         // other properties ...
  *     }
@@ -49,24 +48,13 @@ import java.time.LocalDateTime;
  *     }
  * </pre>
  * </p>
- *
- * @param <ID> a serializable type representing the primary key of the table, typically {@link Long}
- *             or {@link Integer}.
  */
 @MappedSuperclass
 @Data
 @NoArgsConstructor
-public class BasicEntity<ID extends Serializable> {
+public class BasicEntity {
 
     static final String SOFT_DELETE_FIELD = "deletedAt";
-
-    /**
-     * Primary key of the database table.
-     */
-    @NonNull
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private ID id;
 
     /**
      * Creation timestamp of this row in the table.
@@ -84,9 +72,7 @@ public class BasicEntity<ID extends Serializable> {
     /**
      * Optimistic lock used by the JPA operations.
      */
-    @NonNull
-    @Version
-    private Long version;
+    private long version;
 
     @PrePersist
     void setCreatedAt() {

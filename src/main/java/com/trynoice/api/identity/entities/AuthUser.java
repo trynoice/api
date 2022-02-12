@@ -11,6 +11,9 @@ import lombok.NonNull;
 import lombok.Setter;
 
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
 import java.time.LocalDateTime;
@@ -24,7 +27,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class AuthUser extends BasicEntity<Long> {
+public class AuthUser extends BasicEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
 
     @NonNull
     private String email;
@@ -37,9 +44,7 @@ public class AuthUser extends BasicEntity<Long> {
     @Setter(AccessLevel.NONE)
     private LocalDateTime lastActiveAt = LocalDateTime.now();
 
-    @NonNull
-    @Builder.Default
-    private Short incompleteSignInAttempts = 0;
+    private short incompleteSignInAttempts;
 
     private LocalDateTime lastSignInAttemptAt;
 

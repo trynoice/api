@@ -173,10 +173,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                             params.getSuccessUrl(),
                             params.getCancelUrl(),
                             plan.getProviderPlanId(),
-                            subscriptionId.toString(),
+                            String.valueOf(subscriptionId),
                             accountServiceContract.findEmailByUser(ownerId).orElse(null),
                             customerRepository.findStripeIdByUserId(ownerId).orElse(null),
-                            Long.valueOf(plan.getTrialPeriodDays()))
+                            (long) plan.getTrialPeriodDays())
                         .getUrl());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to create stripe checkout session", e);
@@ -251,7 +251,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new SubscriptionNotFoundException("subscription doesn't exist"));
 
-        if (!subscription.getOwnerId().equals(ownerId)) {
+        if (!ownerId.equals(subscription.getOwnerId())) {
             throw new SubscriptionNotFoundException("given owner doesn't own this subscription");
         }
 

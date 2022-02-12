@@ -11,6 +11,9 @@ import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 import javax.persistence.ManyToOne;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -25,9 +28,13 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class RefreshToken extends BasicEntity<Long> {
+public class RefreshToken extends BasicEntity {
 
     public static final String ORD_JWT_CLAIM = "ord";
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
 
     @NonNull
     @ManyToOne(optional = false)
@@ -37,9 +44,7 @@ public class RefreshToken extends BasicEntity<Long> {
     @Builder.Default
     private String userAgent = "";
 
-    @NonNull
-    @Builder.Default
-    private Long ordinal = 0L;
+    private long ordinal;
 
     @NonNull
     private LocalDateTime expiresAt;
@@ -57,7 +62,7 @@ public class RefreshToken extends BasicEntity<Long> {
     @NonNull
     public String getJwt(@NonNull Algorithm signingAlgorithm) {
         return JWT.create()
-            .withJWTId(getId().toString())
+            .withJWTId(String.valueOf(getId()))
             .withIssuedAt(convertLocalDateTimeToDate(getCreatedAt()))
             .withExpiresAt(convertLocalDateTimeToDate(expiresAt))
             .withClaim(ORD_JWT_CLAIM, ordinal)

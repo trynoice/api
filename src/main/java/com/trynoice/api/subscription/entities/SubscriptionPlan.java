@@ -11,6 +11,9 @@ import lombok.NonNull;
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 
 /**
  * A data access object that maps to the {@code subscription_plan} table in the database.
@@ -21,7 +24,11 @@ import javax.persistence.Enumerated;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class SubscriptionPlan extends BasicEntity<Short> {
+public class SubscriptionPlan extends BasicEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private short id;
 
     @NonNull
     @Enumerated(EnumType.STRING)
@@ -30,14 +37,11 @@ public class SubscriptionPlan extends BasicEntity<Short> {
     @NonNull
     private String providerPlanId;
 
-    @NonNull
-    private Short billingPeriodMonths;
+    private short billingPeriodMonths;
 
-    @NonNull
-    private Short trialPeriodDays;
+    private short trialPeriodDays;
 
-    @NonNull
-    private Integer priceInIndianPaise;
+    private int priceInIndianPaise;
 
     public enum Provider {
         GOOGLE_PLAY,
