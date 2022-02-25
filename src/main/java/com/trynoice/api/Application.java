@@ -145,7 +145,7 @@ public class Application {
 
         @Override
         public void run(ApplicationArguments args) {
-            log.info("Running {} version: {}", buildProperties.getName(), buildProperties.getVersion());
+            log.info("Running {} version: v{}", buildProperties.getName(), buildProperties.getVersion());
         }
     }
 }

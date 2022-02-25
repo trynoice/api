@@ -56,7 +56,7 @@ jobs:
 
       - name: Build API jar
         run: |
-          export BUILD_VERSION="${GITHUB_REF/'refs/tags/'/''}-${GITHUB_SHA::7}"
+          export BUILD_VERSION="${GITHUB_REF/'refs/tags/v'/''}-${GITHUB_SHA::7}"
           ./gradlew bootJar --no-daemon --stacktrace
 
       - name: Prepare 'api.properties' and 'android-publisher-api-key.json'
