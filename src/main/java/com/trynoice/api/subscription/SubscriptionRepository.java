@@ -26,7 +26,7 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     @NonNull
     @Transactional(readOnly = true)
     @Query("select e from Subscription e where e.providerSubscriptionId = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<Subscription> findActiveByProviderSubscriptionId(@NonNull String providerSubscriptionId);
+    Optional<Subscription> findByProviderSubscriptionId(@NonNull String providerSubscriptionId);
 
     /**
      * Find a {@link Subscription} entity by its owner and {@link Subscription.Status}.
@@ -38,7 +38,7 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     @NonNull
     @Transactional(readOnly = true)
     @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<Subscription> findActiveByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
+    Optional<Subscription> findByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
 
     /**
      * Find all {@link Subscription} entities by its owner and {@link Subscription.Status}.
@@ -50,5 +50,5 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     @NonNull
     @Transactional(readOnly = true)
     @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
-    List<Subscription> findAllActiveByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
+    List<Subscription> findAllByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
 }

@@ -146,7 +146,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         // status. If user already owns a subscription, an entity must be in active or pending
         // status. Otherwise, if the user has attempted to start a subscription previously, they
         // must own an entity with created status.
-        val subscription = subscriptionRepository.findActiveByOwnerAndStatus(
+        val subscription = subscriptionRepository.findByOwnerAndStatus(
             ownerId,
             Subscription.Status.CREATED,
             Subscription.Status.ACTIVE,
@@ -197,12 +197,12 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     List<SubscriptionView> getSubscriptions(@NonNull Long ownerId, @NonNull Boolean onlyActive, String stripeReturnUrl) {
         final List<Subscription> subscriptions;
         if (onlyActive) {
-            subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
+            subscriptions = subscriptionRepository.findAllByOwnerAndStatus(
                 ownerId,
                 Subscription.Status.ACTIVE,
                 Subscription.Status.PENDING);
         } else {
-            subscriptions = subscriptionRepository.findAllActiveByOwnerAndStatus(
+            subscriptions = subscriptionRepository.findAllByOwnerAndStatus(
                 ownerId,
                 Subscription.Status.ACTIVE,
                 Subscription.Status.PENDING,
@@ -387,7 +387,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         // invalidate old (linked) subscription.
         // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
-        subscriptionRepository.findActiveByProviderSubscriptionId(purchase.getLinkedPurchaseToken())
+        subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken())
             .ifPresent(linkedSubscription -> {
                 linkedSubscription.setStatus(Subscription.Status.INACTIVE);
                 linkedSubscription.setEndAt(LocalDateTime.now());
@@ -517,7 +517,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         }
 
         val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
-        val subscription = subscriptionRepository.findActiveByProviderSubscriptionId(stripeSubscription.getId())
+        val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscription.getId())
             .orElseThrow(() -> {
                 val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
                 return new SubscriptionWebhookEventException(errMsg);
@@ -562,7 +562,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      */
     @Override
     public boolean isUserSubscribed(@NonNull Long userId) {
-        return subscriptionRepository.findActiveByOwnerAndStatus(
+        return subscriptionRepository.findByOwnerAndStatus(
                 userId,
                 Subscription.Status.PENDING,
                 Subscription.Status.ACTIVE)
