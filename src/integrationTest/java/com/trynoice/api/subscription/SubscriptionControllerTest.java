@@ -16,6 +16,7 @@ import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
+import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.testing.AuthTestUtils;
 import lombok.NonNull;
@@ -53,6 +54,7 @@ import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
@@ -65,7 +67,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -166,26 +167,23 @@ public class SubscriptionControllerTest {
                 .thenReturn(mockSession);
         }
 
-        val resultActions = mockMvc.perform(
+        val result = mockMvc.perform(
                 post("/v1/subscriptions")
                     .header("Authorization", "bearer " + createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(
                         new SubscriptionFlowParams(plan.getId(), successUrl, cancelUrl))))
-            .andExpect(status().is(expectedResponseStatus));
+            .andExpect(status().is(expectedResponseStatus)).andReturn();
 
         if (expectedResponseStatus == HttpStatus.CREATED.value()) {
-            resultActions.andExpect(header().exists("Location"))
-                .andExpect(header().exists(SubscriptionController.SUBSCRIPTION_ID_HEADER));
+            val subscriptionFlowResult = objectMapper.readValue(
+                result.getResponse().getContentAsByteArray(),
+                SubscriptionFlowResult.class);
 
+            assertNotNull(subscriptionFlowResult.getSubscriptionId());
             if (provider == SubscriptionPlan.Provider.STRIPE) {
-                resultActions.andExpect(
-                    header().string(SubscriptionController.STRIPE_CHECKOUT_SESSION_URL_HEADER, sessionUrl));
+                assertNotNull(subscriptionFlowResult.getStripeCheckoutSessionUrl());
             }
-        } else {
-            resultActions.andExpect(header().doesNotExist("Location"))
-                .andExpect(header().doesNotExist(SubscriptionController.SUBSCRIPTION_ID_HEADER))
-                .andExpect(header().doesNotExist(SubscriptionController.STRIPE_CHECKOUT_SESSION_URL_HEADER));
         }
     }
 
