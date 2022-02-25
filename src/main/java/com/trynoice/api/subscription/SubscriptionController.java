@@ -10,12 +10,11 @@ import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
+import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.subscription.models.SubscriptionView;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -43,7 +42,6 @@ import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-import java.net.URI;
 import java.util.List;
 
 /**
@@ -55,9 +53,6 @@ import java.util.List;
 @Slf4j
 @Tag(name = "subscription")
 class SubscriptionController {
-
-    static final String SUBSCRIPTION_ID_HEADER = "X-Subscription-Id";
-    static final String STRIPE_CHECKOUT_SESSION_URL_HEADER = "X-Stripe-Checkout-Session-Url";
 
     private final SubscriptionService subscriptionService;
 
@@ -104,21 +99,15 @@ class SubscriptionController {
     /**
      * <p>
      * Initiates the subscription flow for the authenticated user. The flow might vary with payment
-     * providers. It creates a new subscription entity. On success, it returns HTTP 201 with the
-     * following headers.</p>
-     *
-     * <ul>
-     *     <li>{@code Location}: the url of the new subscription entity.</li>
-     *     <li>{@code X-Subscription-Id}: id of the new subscription entity.</li>
-     *     <li>{@code X-Stripe-Checkout-Session-HttpUrl}: payment url for Stripe plans.</li>
-     * </ul>
+     * providers. It creates a new subscription entity. On success, it returns HTTP 201 with a
+     * response body.</p>
      *
      * <p>To conclude the subscription flow and make this subscription active</p>
      *
      * <ul>
      *     <li>for Google Play plans, the clients must link {@code subscriptionId} with the
-     *     subscription purchase by specifying it as 'obfuscatedProfileId' in Google Play billing
-     *     flow params.</li>
+     *     subscription purchase by specifying it as {@code obfuscatedProfileId} in Google Play
+     *     billing flow params.</li>
      *     <li>for Stripe plans, the clients must redirect the user to the provided url to make the
      *     payment and complete the checkout session.</li>
      * </ul>
@@ -127,42 +116,22 @@ class SubscriptionController {
      */
     @Operation(summary = "Initiate the subscription flow")
     @ApiResponses({
-        @ApiResponse(
-            responseCode = "201",
-            description = "subscription flow successfully initiated",
-            headers = {
-                @Header(
-                    name = "Location",
-                    description = "url of the created subscription (always present)",
-                    required = true,
-                    schema = @Schema(type = "string")),
-                @Header(name = SUBSCRIPTION_ID_HEADER,
-                    description = "id of the created subscription (always present)",
-                    required = true,
-                    schema = @Schema(type = "string")),
-                @Header(name = STRIPE_CHECKOUT_SESSION_URL_HEADER,
-                    description = "checkout session url if the plan is provided by Stripe",
-                    schema = @Schema(type = "string"))
-            }),
-        @ApiResponse(responseCode = "400", description = "request is not valid"),
-        @ApiResponse(responseCode = "401", description = "access token is invalid"),
-        @ApiResponse(responseCode = "409", description = "user already has an active subscription"),
-        @ApiResponse(responseCode = "500", description = "internal server error"),
+        @ApiResponse(responseCode = "201", description = "subscription flow successfully initiated"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "409", description = "user already has an active subscription", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
     @NonNull
     @PostMapping
-    ResponseEntity<Void> createSubscription(
+    ResponseEntity<SubscriptionFlowResult> createSubscription(
         @NonNull HttpServletRequest request,
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
         try {
             val result = subscriptionService.createSubscription(principalId, params);
-            val location = String.format("%s/%d", request.getRequestURL(), result.getSubscriptionId());
-            return ResponseEntity.created(URI.create(location))
-                .header(SUBSCRIPTION_ID_HEADER, result.getSubscriptionId().toString())
-                .header(STRIPE_CHECKOUT_SESSION_URL_HEADER, result.getStripeCheckoutSessionUrl())
-                .build();
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
         } catch (SubscriptionPlanNotFoundException e) {
             return ResponseEntity.badRequest().build();
         } catch (DuplicateSubscriptionException e) {
