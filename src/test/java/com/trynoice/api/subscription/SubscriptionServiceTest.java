@@ -147,7 +147,7 @@ public class SubscriptionServiceTest {
         when(subscriptionPlanRepository.findById((short) 1))
             .thenReturn(Optional.of(buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id")));
 
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
+        when(subscriptionRepository.findByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.of(mock(Subscription.class)));
 
         val params = new SubscriptionFlowParams((short) 1, "success-url", "cancel-url");
@@ -176,7 +176,7 @@ public class SubscriptionServiceTest {
         when(subscriptionPlanRepository.findById(planId))
             .thenReturn(Optional.of(plan));
 
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
+        when(subscriptionRepository.findByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.of(subscription));
 
         when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any(), any()))
@@ -200,7 +200,7 @@ public class SubscriptionServiceTest {
         when(subscriptionPlanRepository.findById(planId))
             .thenReturn(Optional.of(plan));
 
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
+        when(subscriptionRepository.findByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.of(subscription));
 
         when(accountServiceContract.findEmailByUser(userId))
@@ -238,10 +238,10 @@ public class SubscriptionServiceTest {
         val subscription1 = buildSubscription(userId1, plan, Subscription.Status.ACTIVE);
         val subscription2 = buildSubscription(userId2, plan, Subscription.Status.INACTIVE);
 
-        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(userId1), any()))
+        lenient().when(subscriptionRepository.findAllByOwnerAndStatus(eq(userId1), any()))
             .thenReturn(List.of(subscription1));
 
-        lenient().when(subscriptionRepository.findAllActiveByOwnerAndStatus(eq(userId2), any()))
+        lenient().when(subscriptionRepository.findAllByOwnerAndStatus(eq(userId2), any()))
             .thenReturn(List.of(subscription2));
 
         lenient().when(stripeApi.createCustomerPortalSession(any(), any()))
@@ -320,7 +320,7 @@ public class SubscriptionServiceTest {
     @ParameterizedTest(name = "{displayName} - isUserSubscribed={2}")
     @MethodSource("isUserSubscribedTestCases")
     void isUserSubscribed(@NonNull Long userId, Subscription subscription, boolean isUserSubscribed) {
-        when(subscriptionRepository.findActiveByOwnerAndStatus(eq(userId), any()))
+        when(subscriptionRepository.findByOwnerAndStatus(eq(userId), any()))
             .thenReturn(Optional.ofNullable(subscription));
 
         assertEquals(isUserSubscribed, service.isUserSubscribed(userId));
