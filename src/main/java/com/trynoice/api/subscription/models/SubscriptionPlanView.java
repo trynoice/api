@@ -21,7 +21,11 @@ public class SubscriptionPlanView {
     @NonNull
     private Short id;
 
-    @Schema(required = true, description = "provider of the subscription plan, e.g. google_play or stripe")
+    @Schema(
+        required = true,
+        allowableValues = {"google_play", "stripe"},
+        description = "provider of the subscription plan (case-insensitive)"
+    )
     @NonNull
     private String provider;
 

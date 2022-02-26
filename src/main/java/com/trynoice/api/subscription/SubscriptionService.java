@@ -14,7 +14,6 @@ import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
-import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
@@ -108,17 +107,22 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
     /**
      * <p>
-     * Creates a new subscription entity in {@link Subscription.Status#CREATED} state and initiates
-     * the subscription flow. Any given user can have at-most one subscription with non-{@link
-     * Subscription.Status#INACTIVE INACTIVE} status.</p>
+     * Initiates the subscription flow by creating a new {@code incomplete} subscription entity.</p>
      *
      * <p>
      * If the requested plan is provided by {@link SubscriptionPlan.Provider#STRIPE}, it also
-     * returns a non-null {@link SubscriptionFlowResult#getStripeCheckoutSessionUrl()}. The clients
-     * must redirect user to the checkout session url to conclude the subscription flow.</p>
+     * returns a non-null {@link SubscriptionFlowResult#getStripeCheckoutSessionUrl() checkout
+     * session url}. The clients must redirect user to the checkout session url to conclude the
+     * subscription flow.</p>
      *
-     * @param ownerId id of the user that initiated the subscription flow.
-     * @param params  subscription flow parameters.
+     * <p>
+     * If the requested plan is provided by {@link SubscriptionPlan.Provider#GOOGLE_PLAY}, the
+     * clients must link the returned {@link SubscriptionFlowResult#getSubscriptionId() subscription
+     * id} to the Google Play subscription purchase by specifying it as {@code obfuscatedProfileId}
+     * in Google Play billing flow parameters.</p>
+     *
+     * @param customerId id of the customer (user) that initiated the subscription flow.
+     * @param params     subscription flow parameters.
      * @return a non-null {@link SubscriptionFlowResult}.
      * @throws SubscriptionPlanNotFoundException if the specified plan doesn't exist.
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
@@ -126,7 +130,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
     public SubscriptionFlowResult createSubscription(
-        @NonNull Long ownerId,
+        @NonNull Long customerId,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
         val plan = subscriptionPlanRepository.findById(params.getPlanId())
@@ -142,30 +146,24 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             }
         }
 
-        // At any given time, at most one subscription entity can exist per user with a non-inactive
-        // status. If user already owns a subscription, an entity must be in active or pending
-        // status. Otherwise, if the user has attempted to start a subscription previously, they
-        // must own an entity with created status.
-        val subscription = subscriptionRepository.findByOwnerAndStatus(
-            ownerId,
-            Subscription.Status.CREATED,
-            Subscription.Status.ACTIVE,
-            Subscription.Status.PENDING);
-
-        if (subscription.isPresent() && subscription.get().getStatus() != Subscription.Status.CREATED) {
+        if (subscriptionRepository.existsActiveByCustomerUserId(customerId)) {
             throw new DuplicateSubscriptionException();
         }
 
-        val subscriptionId = subscription.orElseGet(
-                () -> subscriptionRepository.save(
-                    Subscription.builder()
-                        .ownerId(ownerId)
-                        .plan(plan)
-                        .build()))
-            .getId();
+        val customer = customerRepository.findById(customerId)
+            .orElseGet(() -> customerRepository.save(
+                Customer.builder()
+                    .userId(customerId)
+                    .build()));
+
+        val subscription = subscriptionRepository.save(
+            Subscription.builder()
+                .customer(customer)
+                .plan(plan)
+                .build());
 
         val result = new SubscriptionFlowResult();
-        result.setSubscriptionId(subscriptionId);
+        result.setSubscriptionId(subscription.getId());
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
             try {
                 result.setStripeCheckoutSessionUrl(
@@ -173,9 +171,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                             params.getSuccessUrl(),
                             params.getCancelUrl(),
                             plan.getProviderPlanId(),
-                            String.valueOf(subscriptionId),
-                            accountServiceContract.findEmailByUser(ownerId).orElse(null),
-                            customerRepository.findStripeIdByUserId(ownerId).orElse(null),
+                            String.valueOf(subscription.getId()),
+                            accountServiceContract.findEmailByUser(customerId).orElse(null),
+                            customer.getStripeId(),
                             (long) plan.getTrialPeriodDays())
                         .getUrl());
             } catch (StripeException e) {
@@ -187,76 +185,68 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     }
 
     /**
-     * @param ownerId         id of the owning auth user for the subscriptions.
-     * @param onlyActive      return on the active subscription (if any).
+     * Lists all subscriptions purchased by a customer with given {@code customerId}.  If {@code
+     * onlyActive} is {@literal true}, it lists the currently active subscription purchase (at most
+     * one).
+     *
+     * @param customerId      id of the customer (user) that purchased the subscriptions.
+     * @param onlyActive      return only the active subscription (if any).
      * @param stripeReturnUrl optional redirect URL on exiting Stripe Customer portal (only used
      *                        when an active subscription exists and is provided by Stripe).
-     * @return a list of active and inactive subscriptions owned by the given {@code ownerId}.
+     * @return a list of subscription purchased by the given {@code customerId}.
      */
     @NonNull
-    List<SubscriptionView> getSubscriptions(@NonNull Long ownerId, @NonNull Boolean onlyActive, String stripeReturnUrl) {
+    List<SubscriptionView> listSubscriptions(@NonNull Long customerId, @NonNull Boolean onlyActive, String stripeReturnUrl) {
         final List<Subscription> subscriptions;
         if (onlyActive) {
-            subscriptions = subscriptionRepository.findAllByOwnerAndStatus(
-                ownerId,
-                Subscription.Status.ACTIVE,
-                Subscription.Status.PENDING);
+            subscriptions = subscriptionRepository.findActiveByCustomerUserId(customerId)
+                .stream()
+                .collect(Collectors.toUnmodifiableList());
         } else {
-            subscriptions = subscriptionRepository.findAllByOwnerAndStatus(
-                ownerId,
-                Subscription.Status.ACTIVE,
-                Subscription.Status.PENDING,
-                Subscription.Status.INACTIVE);
+            subscriptions = subscriptionRepository.findAllByCustomerUserId(customerId);
         }
 
         val stripeCustomerPortalUrl = subscriptions.stream()
-            .anyMatch(s -> s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
-                && (s.getStatus() == Subscription.Status.ACTIVE || s.getStatus() == Subscription.Status.PENDING))
-            ? createStripeCustomerSession(ownerId, stripeReturnUrl)
+            .anyMatch(s -> s.isActive() && s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE)
+            ? createStripeCustomerSession(subscriptions.get(0).getCustomer(), stripeReturnUrl)
             : null;
 
-        // not listing subscriptions in created state.
         return subscriptions.stream()
             .map(subscription -> buildSubscriptionView(subscription, stripeCustomerPortalUrl))
             .collect(Collectors.toUnmodifiableList());
     }
 
-    private String createStripeCustomerSession(@NonNull Long userId, String returnUrl) {
-        val customerStripeId = customerRepository.findStripeIdByUserId(userId);
-        if (customerStripeId.isEmpty()) {
+    private String createStripeCustomerSession(@NonNull Customer customer, String returnUrl) {
+        if (customer.getStripeId() == null) {
             return null;
         }
 
         try {
-            return stripeApi.createCustomerPortalSession(customerStripeId.get(), returnUrl).getUrl();
+            return stripeApi.createCustomerPortalSession(customer.getStripeId(), returnUrl).getUrl();
         } catch (StripeException e) {
             throw new RuntimeException("stripe api error", e);
         }
     }
 
     /**
-     * Cancels the given subscription by marking it as inactive in app's internal state and
-     * requesting its cancellation from its provider.
+     * Cancels the given subscription by requesting its cancellation from its provider and marking
+     * it as inactive in our internal state.
      *
-     * @param ownerId        id of the expected owner of the subscription (authenticated user).
+     * @param customerId     id of the customer (user) that purchased the subscription.
      * @param subscriptionId id of the subscription to be cancelled.
-     * @throws SubscriptionNotFoundException if subscription with given id and owner doesn't exist.
-     * @throws SubscriptionStateException    if subscription is not currently active.
+     * @throws SubscriptionNotFoundException if an active subscription with given id and owner doesn't exist.
      */
     @Transactional(rollbackFor = Throwable.class)
-    public void cancelSubscription(
-        @NonNull Long ownerId,
-        @NonNull Long subscriptionId
-    ) throws SubscriptionNotFoundException, SubscriptionStateException {
+    public void cancelSubscription(@NonNull Long customerId, @NonNull Long subscriptionId) throws SubscriptionNotFoundException {
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new SubscriptionNotFoundException("subscription doesn't exist"));
 
-        if (!ownerId.equals(subscription.getOwnerId())) {
+        if (!customerId.equals(subscription.getCustomer().getUserId())) {
             throw new SubscriptionNotFoundException("given owner doesn't own this subscription");
         }
 
-        if (subscription.getStatus() != Subscription.Status.ACTIVE && subscription.getStatus() != Subscription.Status.PENDING) {
-            throw new SubscriptionStateException("subscription status is neither active nor pending");
+        if (!subscription.isActive()) {
+            throw new SubscriptionNotFoundException("given subscription is not currently active");
         }
 
         switch (subscription.getPlan().getProvider()) {
@@ -283,7 +273,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 throw new IllegalStateException("unsupported provider used in subscription plan");
         }
 
-        subscription.setStatus(Subscription.Status.INACTIVE);
+        subscription.setPaymentPending(false);
         subscription.setEndAt(LocalDateTime.now());
         subscriptionRepository.save(subscription);
     }
@@ -375,12 +365,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             subscription.setEndAtMillis(purchase.getExpiryTimeMillis());
         }
 
-        subscription.setStatus(Subscription.Status.INACTIVE);
-        if (subscription.getEndAt().isAfter(LocalDateTime.now())) {
-            subscription.setStatus(
-                Integer.valueOf(0).equals(purchase.getPaymentState())
-                    ? Subscription.Status.PENDING
-                    : Subscription.Status.ACTIVE);
+        if (subscription.isActive()) {
+            subscription.setPaymentPending(Integer.valueOf(0).equals(purchase.getPaymentState()));
         }
 
         subscriptionRepository.save(subscription);
@@ -389,7 +375,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
         subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken())
             .ifPresent(linkedSubscription -> {
-                linkedSubscription.setStatus(Subscription.Status.INACTIVE);
+                linkedSubscription.setPaymentPending(false);
                 linkedSubscription.setEndAt(LocalDateTime.now());
                 subscriptionRepository.save(linkedSubscription);
             });
@@ -432,13 +418,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 val session = (Session) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get session object from the event payload"));
 
-                if (session.getSubscription() == null) {
-                    throw new SubscriptionWebhookEventException("checkout session subscription id is null");
-                }
-
                 try {
                     handleStripeCheckoutSessionEvent(session);
-                } catch (SubscriptionWebhookEventException e) {
+                } catch (SubscriptionWebhookEventException outer) {
                     try {
                         // cancel subscription if we cannot handle the checkout session since
                         // SubscriptionWebhookEventException only occurs if Session is not how we
@@ -449,9 +431,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                         throw new RuntimeException("failed to cancel stripe subscription", inner);
                     }
 
-                    throw e;
+                    throw outer;
                 }
-
                 break;
             case "customer.subscription.updated":
             case "customer.subscription.deleted":
@@ -468,6 +449,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     private void handleStripeCheckoutSessionEvent(@NonNull Session session) throws SubscriptionWebhookEventException {
         if (!"subscription".equals(session.getMode())) {
             throw new SubscriptionWebhookEventException("checkout session mode is not subscription");
+        } else if (session.getSubscription() == null) {
+            throw new SubscriptionWebhookEventException("checkout session subscription id is null");
         } else if (!"complete".equals(session.getStatus())) {
             throw new SubscriptionWebhookEventException("checkout session status is not complete");
         } else if (!"paid".equals(session.getPaymentStatus())) {
@@ -483,6 +466,13 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             throw new SubscriptionWebhookEventException("failed to parse the client reference id in checkout session");
         }
 
+        final com.stripe.model.Subscription stripeSubscription;
+        try {
+            stripeSubscription = stripeApi.getSubscription(session.getSubscription());
+        } catch (StripeException e) {
+            throw new SubscriptionWebhookEventException("failed to get subscription object from stripe api", e);
+        }
+
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> {
                 val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
@@ -490,15 +480,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             });
 
         subscription.setProviderSubscriptionId(session.getSubscription());
-        subscription.setStatus(Subscription.Status.ACTIVE);
-        subscription.setStartAt(LocalDateTime.now());
+        updateSubscriptionDetailsFromStripeObject(subscription, stripeSubscription);
         subscriptionRepository.save(subscription);
 
-        val customer = customerRepository.findById(subscription.getOwnerId())
-            .orElseGet(() -> Customer.builder()
-                .userId(subscription.getOwnerId())
-                .build());
-
+        val customer = subscription.getCustomer();
         if (customer.getStripeId() == null || !customer.getStripeId().equals(session.getCustomer())) {
             customer.setStripeId(session.getCustomer());
             customerRepository.save(customer);
@@ -506,6 +491,20 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     }
 
     private void handleStripeSubscriptionEvent(
+        @NonNull com.stripe.model.Subscription stripeSubscription
+    ) throws SubscriptionWebhookEventException {
+        val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscription.getId())
+            .orElseThrow(() -> {
+                val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
+                return new SubscriptionWebhookEventException(errMsg);
+            });
+
+        updateSubscriptionDetailsFromStripeObject(subscription, stripeSubscription);
+        subscriptionRepository.save(subscription);
+    }
+
+    private void updateSubscriptionDetailsFromStripeObject(
+        @NonNull Subscription subscription,
         @NonNull com.stripe.model.Subscription stripeSubscription
     ) throws SubscriptionWebhookEventException {
         if (stripeSubscription.getItems() == null
@@ -517,12 +516,6 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         }
 
         val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
-        val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscription.getId())
-            .orElseThrow(() -> {
-                val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
-                return new SubscriptionWebhookEventException(errMsg);
-            });
-
         if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
             subscription.setPlan(
                 subscriptionPlanRepository.findByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
@@ -535,22 +528,19 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             subscription.setStartAtSeconds(stripeSubscription.getCurrentPeriodStart());
         }
 
-        if (stripeSubscription.getEndedAt() != null) {
-            subscription.setEndAtSeconds(stripeSubscription.getEndedAt());
-        } else if (stripeSubscription.getCurrentPeriodEnd() != null) {
-            subscription.setEndAtSeconds(stripeSubscription.getCurrentPeriodEnd());
-        }
-
+        subscription.setPaymentPending("past_due".equals(stripeSubscription.getStatus()));
         switch (stripeSubscription.getStatus()) {
             case "trialing":
             case "active":
-                subscription.setStatus(Subscription.Status.ACTIVE);
-                break;
             case "past_due":
-                subscription.setStatus(Subscription.Status.PENDING);
+                if (stripeSubscription.getEndedAt() != null) {
+                    subscription.setEndAtSeconds(stripeSubscription.getEndedAt());
+                } else if (stripeSubscription.getCurrentPeriodEnd() != null) {
+                    subscription.setEndAtSeconds(stripeSubscription.getCurrentPeriodEnd());
+                }
                 break;
             default:
-                subscription.setStatus(Subscription.Status.INACTIVE);
+                subscription.setEndAt(LocalDateTime.now());
                 break;
         }
 
@@ -562,11 +552,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      */
     @Override
     public boolean isUserSubscribed(@NonNull Long userId) {
-        return subscriptionRepository.findByOwnerAndStatus(
-                userId,
-                Subscription.Status.PENDING,
-                Subscription.Status.ACTIVE)
-            .isPresent();
+        return subscriptionRepository.existsActiveByCustomerUserId(userId);
     }
 
     @NonNull
@@ -586,20 +572,20 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
     @NonNull
     private static SubscriptionView buildSubscriptionView(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
-        val isPaymentPending = subscription.getStatus() == Subscription.Status.PENDING;
-        val isActive = isPaymentPending || subscription.getStatus() == Subscription.Status.ACTIVE;
-        val endedAt = subscription.getEndAt() != null && subscription.getEndAt().isBefore(LocalDateTime.now())
-            ? subscription.getEndAt() : null;
-
         return SubscriptionView.builder()
             .id(subscription.getId())
             .plan(buildSubscriptionPlanView(subscription.getPlan()))
-            .isActive(isActive)
-            .isPaymentPending(isPaymentPending)
+            .status(
+                subscription.isActive() ? subscription.isPaymentPending()
+                    ? SubscriptionView.STATUS_PENDING
+                    : SubscriptionView.STATUS_ACTIVE
+                    : SubscriptionView.STATUS_INACTIVE)
             .startedAt(subscription.getStartAt())
-            .endedAt(endedAt)
+            .endedAt(
+                subscription.getEndAt() != null && subscription.getEndAt().isBefore(LocalDateTime.now())
+                    ? subscription.getEndAt() : null)
             .stripeCustomerPortalUrl(
-                isActive && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
+                subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
                     ? stripeCustomerPortalUrl : null)
             .build();
     }

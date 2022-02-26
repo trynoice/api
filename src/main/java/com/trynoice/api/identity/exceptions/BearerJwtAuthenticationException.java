@@ -10,8 +10,4 @@ public class BearerJwtAuthenticationException extends AuthenticationException {
     public BearerJwtAuthenticationException(String msg, Throwable cause) {
         super(msg, cause);
     }
-
-    public BearerJwtAuthenticationException(String msg) {
-        super(msg);
-    }
 }
