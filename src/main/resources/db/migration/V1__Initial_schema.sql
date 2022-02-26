@@ -60,23 +60,6 @@ INSERT INTO subscription_plan (created_at, version, provider, provider_plan_id, 
     (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORPUdnVRBx', 6, 14, 105000),
     (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORenAfLOCj', 12, 14, 180000);
 
-CREATE TABLE subscription (
-  id bigserial NOT NULL PRIMARY KEY,
-  created_at timestamp with time zone NOT NULL,
-  deleted_at timestamp with time zone,
-  version bigint NOT NULL,
-  owner_id bigint NOT NULL,
-  plan_id smallint NOT NULL,
-  provider_subscription_id varchar(255),
-  status varchar(24) NOT NULL,
-  start_at timestamp with time zone,
-  end_at timestamp with time zone
-);
-
-CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)
-WHERE
-  deleted_at IS NULL AND provider_subscription_id IS NOT NULL;
-
 CREATE TABLE customer (
   user_id bigint NOT NULL PRIMARY KEY,
   created_at timestamp with time zone NOT NULL,
@@ -84,3 +67,24 @@ CREATE TABLE customer (
   version bigint NOT NULL,
   stripe_id varchar(255)
 );
+
+CREATE TABLE subscription (
+  id bigserial NOT NULL PRIMARY KEY,
+  created_at timestamp with time zone NOT NULL,
+  deleted_at timestamp with time zone,
+  version bigint NOT NULL,
+  customer_user_id bigint NOT NULL,
+  plan_id smallint NOT NULL,
+  provider_subscription_id varchar(255),
+  is_payment_pending boolean NOT NULL,
+  start_at timestamp with time zone,
+  end_at timestamp with time zone
+);
+
+CREATE INDEX subscription__customer_user_id__idx ON subscription USING btree (customer_user_id)
+WHERE
+  deleted_at IS NULL;
+
+CREATE UNIQUE INDEX subscription__provider_subscription_id__unique_idx ON subscription (provider_subscription_id)
+WHERE
+  deleted_at IS NULL AND provider_subscription_id IS NOT NULL;

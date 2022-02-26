@@ -6,7 +6,6 @@ import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
-import com.trynoice.api.subscription.exceptions.SubscriptionStateException;
 import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
@@ -15,6 +14,7 @@ import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.subscription.models.SubscriptionView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -87,7 +87,9 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping("/plans")
-    ResponseEntity<List<SubscriptionPlanView>> getPlans(@RequestParam(value = "provider", required = false) String provider) {
+    ResponseEntity<List<SubscriptionPlanView>> getPlans(
+        @Schema(allowableValues = {"google_play", "stripe"}) @RequestParam(value = "provider", required = false) String provider
+    ) {
         try {
             return ResponseEntity.ok(subscriptionService.getPlans(provider));
         } catch (UnsupportedSubscriptionPlanProviderException e) {
@@ -99,10 +101,10 @@ class SubscriptionController {
     /**
      * <p>
      * Initiates the subscription flow for the authenticated user. The flow might vary with payment
-     * providers. It creates a new subscription entity. On success, it returns HTTP 201 with a
-     * response body.</p>
+     * providers. It creates a new {@code incomplete} subscription entity. On success, it returns
+     * {@literal HTTP 201} with a response body.</p>
      *
-     * <p>To conclude the subscription flow and make this subscription active</p>
+     * <p>To conclude this flow and transition the subscription entity to {@code active} state:</p>
      *
      * <ul>
      *     <li>for Google Play plans, the clients must link {@code subscriptionId} with the
@@ -140,7 +142,8 @@ class SubscriptionController {
     }
 
     /**
-     * Lists all subscriptions (active/inactive) ever purchased by the authenticated user.
+     * Lists all subscriptions purchased by the authenticated user. If {@code onlyActive} is
+     * {@literal true}, it lists the currently active subscription purchase (at most one).
      *
      * @param onlyActive      return only the active subscription (single instance).
      * @param stripeReturnUrl redirect URL for exiting Stripe customer portal.
@@ -155,12 +158,12 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping
-    ResponseEntity<List<SubscriptionView>> getSubscriptions(
+    ResponseEntity<List<SubscriptionView>> listSubscriptions(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl
     ) {
-        return ResponseEntity.ok(subscriptionService.getSubscriptions(principalId, onlyActive, stripeReturnUrl));
+        return ResponseEntity.ok(subscriptionService.listSubscriptions(principalId, onlyActive, stripeReturnUrl));
     }
 
     /**
@@ -171,7 +174,7 @@ class SubscriptionController {
         @ApiResponse(responseCode = "204", description = "subscription cancelled"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
         @ApiResponse(responseCode = "401", description = "access token is invalid"),
-        @ApiResponse(responseCode = "409", description = "referenced subscription is not ongoing (active)"),
+        @ApiResponse(responseCode = "404", description = "no such active subscription exists that is owned by the auth user"),
         @ApiResponse(responseCode = "500", description = "internal server error"),
     })
     @NonNull
@@ -184,9 +187,7 @@ class SubscriptionController {
             subscriptionService.cancelSubscription(principalId, subscriptionId);
             return ResponseEntity.noContent().build();
         } catch (SubscriptionNotFoundException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (SubscriptionStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            return ResponseEntity.notFound().build();
         }
     }
 

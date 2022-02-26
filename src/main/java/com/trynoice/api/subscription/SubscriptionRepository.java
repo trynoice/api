@@ -29,26 +29,38 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
     Optional<Subscription> findByProviderSubscriptionId(@NonNull String providerSubscriptionId);
 
     /**
-     * Find a {@link Subscription} entity by its owner and {@link Subscription.Status}.
+     * Checks whether an active subscription ({@code startAt < now() < endAt}) exists with the given
+     * {@code customerUserId}.
      *
-     * @param ownerId  id of the subscription owner.
-     * @param statuses expected status of the subscription
-     * @return an optional {@link Subscription} entity.
+     * @param customerUserId a not {@literal null} user id of the subscription owner.
+     * @return whether the customer with given {@code customerUserId} has an active subscription.
      */
-    @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<Subscription> findByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
+    @Query("select case when count(e) > 0 then true else false end from Subscription e where " +
+        "e.customer.userId = ?1 and e.startAt < now() and e.endAt > now() and" + WHERE_ACTIVE_CLAUSE)
+    boolean existsActiveByCustomerUserId(@NonNull Long customerUserId);
 
     /**
-     * Find all {@link Subscription} entities by its owner and {@link Subscription.Status}.
+     * Retrieves all {@link Subscription} instances that belong to a given {@code customerUserId}.
      *
-     * @param ownerId  id of the subscription owner.
-     * @param statuses expected status of the subscription
-     * @return a list of {@link Subscription} entities.
+     * @param customerUserId a not {@literal null} user id of the subscription owner.
+     * @return a guaranteed to be not {@literal null} {@link List} of {@link Subscription} instances.
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.ownerId = ?1 and e.status in ?2 and" + WHERE_ACTIVE_CLAUSE)
-    List<Subscription> findAllByOwnerAndStatus(@NonNull Long ownerId, @NonNull Subscription.Status... statuses);
+    @Query("select e from Subscription e where e.customer.userId = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    List<Subscription> findAllByCustomerUserId(@NonNull Long customerUserId);
+
+    /**
+     * Retrieves an {@link Optional} {@link Subscription} instance that is both active ({@code
+     * startAt < now() < endAt}) and belongs to a given {@code customerUserId}.
+     *
+     * @param customerUserId a not {@literal null} user id of the subscription owner.
+     * @return a not {@literal null} {@link Optional} of the {@link Subscription} instance.
+     */
+    @NonNull
+    @Transactional(readOnly = true)
+    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt < now() and " +
+        "e.endAt > now() and" + WHERE_ACTIVE_CLAUSE)
+    Optional<Subscription> findActiveByCustomerUserId(@NonNull Long customerUserId);
 }

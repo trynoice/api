@@ -8,10 +8,9 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
+import lombok.val;
 
 import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
@@ -35,7 +34,9 @@ public class Subscription extends BasicEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private long ownerId;
+    @NonNull
+    @ManyToOne(optional = false)
+    private Customer customer;
 
     @NonNull
     @ManyToOne(optional = false)
@@ -43,10 +44,7 @@ public class Subscription extends BasicEntity {
 
     private String providerSubscriptionId;
 
-    @NonNull
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private Status status = Status.CREATED;
+    private boolean isPaymentPending;
 
     private LocalDateTime startAt, endAt;
 
@@ -78,31 +76,8 @@ public class Subscription extends BasicEntity {
         this.endAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
     }
 
-    /**
-     * Indicates the current subscription status.
-     */
-    public enum Status {
-        /**
-         * Subscription has yet to be activated, but the user has initiated the subscription flow.
-         * The user shouldn't be granted access to its entitlements, unless subscription transitions
-         * to {@link Status#PENDING PENDING} or {@link Status#ACTIVE ACTIVE} status.
-         */
-        CREATED,
-
-        /**
-         * Subscription payment is pending or delayed, but the user still has access to its
-         * entitlements.
-         */
-        PENDING,
-
-        /**
-         * Subscription is active and user has access to its entitlements.
-         */
-        ACTIVE,
-
-        /**
-         * Subscription has ended, expired or on hold, and user has lost access to its entitlements.
-         */
-        INACTIVE
+    public boolean isActive() {
+        val now = LocalDateTime.now();
+        return startAt != null && startAt.isBefore(now) && endAt != null && endAt.isAfter(now);
     }
 }

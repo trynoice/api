@@ -1,6 +1,7 @@
 package com.trynoice.api.sound;
 
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.testing.AuthTestUtils;
@@ -55,9 +56,14 @@ public class SoundControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @ParameterizedTest(name = "{displayName} - isSignedIn={0} subscriptionStatus={1} responseStatus={2}")
+    @ParameterizedTest(name = "{displayName} - isSignedIn={0} isSubscribed={1} isPaymentPending={2} responseStatus={3}")
     @MethodSource("authorizeSegmentRequestTestCases")
-    void authorizeSegmentRequest(boolean isSignedIn, Subscription.Status subscriptionStatus, int expectedResponseStatus) throws Exception {
+    void authorizeSegmentRequest(
+        boolean isSignedIn,
+        Boolean isSubscribed,
+        Boolean isPaymentPending,
+        int expectedResponseStatus
+    ) throws Exception {
         val soundId = "test";
         val freeSegmentId = "test_free";
         val premiumSegmentId = "test_premium";
@@ -98,8 +104,8 @@ public class SoundControllerTest {
                     new ByteArrayInputStream(testManifestJson.getBytes(StandardCharsets.UTF_8)))));
 
         val authUser = createAuthUser(entityManager);
-        if (subscriptionStatus != null) {
-            buildSubscription(authUser, subscriptionStatus);
+        if (isSubscribed != null) {
+            buildSubscription(authUser, isSubscribed, isPaymentPending);
         }
 
         val requestUrlFmt = "/v1/sounds/%s/segments/%s/authorize?audioBitrate=%s";
@@ -120,22 +126,29 @@ public class SoundControllerTest {
 
     static Stream<Arguments> authorizeSegmentRequestTestCases() {
         return Stream.of(
-            // isSignedIn, subscriptionStatus, expectedResponseCode
-            arguments(false, null, HttpStatus.UNAUTHORIZED.value()),
-            arguments(true, Subscription.Status.CREATED, HttpStatus.FORBIDDEN.value()),
-            arguments(true, Subscription.Status.INACTIVE, HttpStatus.FORBIDDEN.value()),
-            arguments(true, Subscription.Status.PENDING, HttpStatus.NO_CONTENT.value()),
-            arguments(true, Subscription.Status.ACTIVE, HttpStatus.NO_CONTENT.value())
+            // isSignedIn, isSubscribed, isPaymentPending, expectedResponseCode
+            arguments(false, null, null, HttpStatus.UNAUTHORIZED.value()),
+            arguments(true, false, false, HttpStatus.FORBIDDEN.value()),
+            arguments(true, true, true, HttpStatus.NO_CONTENT.value()),
+            arguments(true, true, false, HttpStatus.NO_CONTENT.value())
         );
     }
 
-    private void buildSubscription(@NonNull AuthUser owner, @NonNull Subscription.Status status) {
+    private void buildSubscription(@NonNull AuthUser owner, boolean isActive, boolean isPaymentPending) {
+        val customer = Customer.builder()
+            .userId(owner.getId())
+            .stripeId(UUID.randomUUID().toString())
+            .build();
+
+        entityManager.persist(customer);
+
         val subscription = Subscription.builder()
-            .ownerId(owner.getId())
+            .customer(customer)
             .plan(buildSubscriptionPlan())
             .providerSubscriptionId(UUID.randomUUID().toString())
-            .status(status)
-            .startAt(LocalDateTime.now())
+            .isPaymentPending(isPaymentPending)
+            .startAt(LocalDateTime.now().plusHours(-2))
+            .endAt(LocalDateTime.now().plusHours(isActive ? 2 : -1))
             .build();
 
         entityManager.persist(subscription);
