@@ -142,18 +142,22 @@ class SubscriptionController {
     }
 
     /**
-     * Lists all subscriptions purchased by the authenticated user. If {@code onlyActive} is
-     * {@literal true}, it lists the currently active subscription purchase (at most one).
+     * Lists a {@code page} of subscriptions purchased by the authenticated user. Each {@code page}
+     * contains at-most 20 entries. If {@code onlyActive} is {@literal true}, it lists the currently
+     * active subscription purchase (at most one).
      *
      * @param onlyActive      return only the active subscription (single instance).
      * @param stripeReturnUrl redirect URL for exiting Stripe customer portal.
-     * @return a list of subscription purchases.
+     * @param page            0-indexed page number. Causes {@literal HTTP 404} on exceeding the
+     *                        available limit.
+     * @return a page of subscription purchases.
      */
     @Operation(summary = "List subscriptions")
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
         @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
         @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "404", description = "the requested page number is higher than available", content = @Content),
         @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
     @NonNull
@@ -161,9 +165,13 @@ class SubscriptionController {
     ResponseEntity<List<SubscriptionView>> listSubscriptions(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
-        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl
+        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
+        @Valid @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
     ) {
-        return ResponseEntity.ok(subscriptionService.listSubscriptions(principalId, onlyActive, stripeReturnUrl));
+        val subscriptions = subscriptionService.listSubscriptions(principalId, onlyActive, stripeReturnUrl, page);
+        return page > 0 && subscriptions.isEmpty()
+            ? ResponseEntity.notFound().build()
+            : ResponseEntity.ok(subscriptions);
     }
 
     /**

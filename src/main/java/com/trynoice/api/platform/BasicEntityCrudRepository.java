@@ -1,10 +1,14 @@
 package com.trynoice.api.platform;
 
 import lombok.NonNull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.NoRepositoryBean;
+import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Serializable;
@@ -28,7 +32,7 @@ import java.util.Optional;
  */
 @NoRepositoryBean
 public interface BasicEntityCrudRepository<T extends BasicEntity, ID extends Serializable>
-    extends CrudRepository<T, ID> {
+    extends PagingAndSortingRepository<T, ID> {
 
     String WHERE_ACTIVE_CLAUSE = " e." + BasicEntity.SOFT_DELETE_FIELD + " is null ";
 
@@ -71,6 +75,31 @@ public interface BasicEntityCrudRepository<T extends BasicEntity, ID extends Ser
     @Transactional(readOnly = true)
     @Query("select e from #{#entityName} e where" + WHERE_ACTIVE_CLAUSE)
     Iterable<T> findAll();
+
+    /**
+     * Returns all undeleted instances sorted by the given options.
+     *
+     * @param sort sort options for the query.
+     * @return all entities sorted by the given options.
+     */
+    @Override
+    @NonNull
+    @Transactional(readOnly = true)
+    @Query("select e from #{#entityName} e where" + WHERE_ACTIVE_CLAUSE)
+    Iterable<T> findAll(@NonNull Sort sort);
+
+    /**
+     * Returns a {@link Page} of undeleted instances meeting the paging restriction provided in the
+     * {@code Pageable} object.
+     *
+     * @param pageable pagination options for the query.
+     * @return a page of entities
+     */
+    @Override
+    @NonNull
+    @Transactional(readOnly = true)
+    @Query("select e from #{#entityName} e where" + WHERE_ACTIVE_CLAUSE)
+    Page<T> findAll(@NonNull Pageable pageable);
 
     /**
      * Returns all undeleted instances of the type {@code T} with the given IDs.
