@@ -25,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
+import org.springframework.data.domain.PageImpl;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -245,20 +246,20 @@ public class SubscriptionServiceTest {
         val subscription1 = buildSubscription(userId1, plan, true, true);
         val subscription2 = buildSubscription(userId2, plan, false, false);
 
-        lenient().when(subscriptionRepository.findAllByCustomerUserId(userId1))
-            .thenReturn(List.of(subscription1));
+        lenient().when(subscriptionRepository.findAllByCustomerUserId(eq(userId1), any()))
+            .thenReturn(new PageImpl<>(List.of(subscription1)));
 
-        lenient().when(subscriptionRepository.findAllByCustomerUserId(userId2))
-            .thenReturn(List.of(subscription2));
+        lenient().when(subscriptionRepository.findAllByCustomerUserId(eq(userId2), any()))
+            .thenReturn(new PageImpl<>(List.of(subscription2)));
 
         lenient().when(stripeApi.createCustomerPortalSession(any(), any()))
             .thenReturn(mock(com.stripe.model.billingportal.Session.class));
 
-        val result1 = service.listSubscriptions(userId1, false, null);
+        val result1 = service.listSubscriptions(userId1, false, null, 0);
         assertEquals(1, result1.size());
         assertEquals(subscription1.getId(), result1.get(0).getId());
 
-        val result2 = service.listSubscriptions(userId2, false, null);
+        val result2 = service.listSubscriptions(userId2, false, null, 0);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
     }

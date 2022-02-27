@@ -25,6 +25,8 @@ import com.trynoice.api.subscription.models.SubscriptionView;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -187,25 +189,33 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     }
 
     /**
-     * Lists all subscriptions purchased by a customer with given {@code customerId}.  If {@code
-     * onlyActive} is {@literal true}, it lists the currently active subscription purchase (at most
-     * one).
+     * Lists a page of subscriptions purchased by a customer with given {@code customerId}. Each
+     * page contains at-most 20 entries. If the {@code pageNumber} is higher than the available
+     * pages, it returns an empty list. If {@code onlyActive} is {@literal true}, it lists the
+     * currently active subscription purchase (at most one).
      *
      * @param customerId      id of the customer (user) that purchased the subscriptions.
      * @param onlyActive      return only the active subscription (if any).
      * @param stripeReturnUrl optional redirect URL on exiting Stripe Customer portal (only used
      *                        when an active subscription exists and is provided by Stripe).
+     * @param pageNumber      a not {@literal null} 0-indexed page number.
      * @return a list of subscription purchased by the given {@code customerId}.
      */
     @NonNull
-    List<SubscriptionView> listSubscriptions(@NonNull Long customerId, @NonNull Boolean onlyActive, String stripeReturnUrl) {
+    List<SubscriptionView> listSubscriptions(
+        @NonNull Long customerId,
+        @NonNull Boolean onlyActive,
+        String stripeReturnUrl,
+        @NonNull Integer pageNumber
+    ) {
         final List<Subscription> subscriptions;
         if (onlyActive) {
             subscriptions = subscriptionRepository.findActiveByCustomerUserId(customerId)
                 .stream()
                 .collect(Collectors.toUnmodifiableList());
         } else {
-            subscriptions = subscriptionRepository.findAllByCustomerUserId(customerId);
+            val pageable = PageRequest.of(pageNumber, 20, Sort.by(Sort.Order.desc("createdAt")));
+            subscriptions = subscriptionRepository.findAllByCustomerUserId(customerId, pageable).toList();
         }
 
         val stripeCustomerPortalUrl = subscriptions.stream()

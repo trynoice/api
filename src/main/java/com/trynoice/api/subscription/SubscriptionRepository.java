@@ -3,6 +3,8 @@ package com.trynoice.api.subscription;
 import com.trynoice.api.platform.BasicEntityCrudRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import lombok.NonNull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,12 +46,13 @@ interface SubscriptionRepository extends BasicEntityCrudRepository<Subscription,
      * Retrieves all {@link Subscription} instances that belong to a given {@code customerUserId}.
      *
      * @param customerUserId a not {@literal null} user id of the subscription owner.
+     * @param pageable       pagination options for the query.
      * @return a guaranteed to be not {@literal null} {@link List} of {@link Subscription} instances.
      */
     @NonNull
     @Transactional(readOnly = true)
     @Query("select e from Subscription e where e.customer.userId = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    List<Subscription> findAllByCustomerUserId(@NonNull Long customerUserId);
+    Page<Subscription> findAllByCustomerUserId(@NonNull Long customerUserId, @NonNull Pageable pageable);
 
     /**
      * Retrieves an {@link Optional} {@link Subscription} instance that is both active ({@code

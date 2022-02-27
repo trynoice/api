@@ -44,8 +44,8 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -206,13 +206,12 @@ public class SubscriptionControllerTest {
     @Test
     void listSubscriptions() throws Exception {
         val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
-        val random = new Random();
         val data = new HashMap<AuthUser, List<Subscription>>();
         for (int i = 0; i < 5; i++) {
             val authUser = createAuthUser(entityManager);
             val subscriptions = new ArrayList<Subscription>(5);
             for (int j = 0; j < 5; j++) {
-                subscriptions.add(buildSubscription(authUser, subscriptionPlan, random.nextBoolean(), random.nextBoolean()));
+                subscriptions.add(buildSubscription(authUser, subscriptionPlan, true, false));
             }
 
             data.put(authUser, subscriptions);
@@ -267,6 +266,30 @@ public class SubscriptionControllerTest {
                 }
             }
         }
+    }
+
+    @Test
+    void listSubscriptions_pagination() throws Exception {
+        val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
+        val owner = createAuthUser(entityManager);
+        for (int j = 0; j < 25; j++) {
+            buildSubscription(owner, subscriptionPlan, true, false);
+        }
+
+        val pageSizes = Map.of(0, 20, 1, 5);
+        val accessToken = createSignedAccessJwt(hmacSecret, owner, AuthTestUtils.JwtType.VALID);
+        for (var entry : pageSizes.entrySet()) {
+            mockMvc.perform(
+                    get("/v1/subscriptions?page=" + entry.getKey())
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().is(HttpStatus.OK.value()))
+                .andExpect(jsonPath("$.length()").value(entry.getValue()));
+        }
+
+        mockMvc.perform(
+                get("/v1/subscriptions?page=" + 2)
+                    .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
     }
 
     @Test

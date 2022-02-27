@@ -6,13 +6,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.Stack;
 
 import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,6 +47,23 @@ public class BasicEntityCrudRepositoryTest {
     @Test
     void findAll() {
         assertEquals(activeEntityStack, repository.findAll());
+    }
+
+    @Test
+    void findAll_withSortOptions() {
+        val actual = new Stack<TestEntity>();
+        repository.findAll(Sort.by(Sort.Order.desc("id"))).forEach(actual::push);
+        assertNotEquals(activeEntityStack, actual);
+        actual.sort(Comparator.comparing(TestEntity::getId));
+        assertEquals(activeEntityStack, actual);
+    }
+
+    @Test
+    void findAll_withPaginationOptions() {
+        val pageRequest = PageRequest.of(2, 2);
+        val page = repository.findAll(pageRequest).toList();
+        assertEquals(1, page.size());
+        assertEquals(activeEntityStack.pop(), page.stream().findFirst().orElse(null));
     }
 
     @Test
