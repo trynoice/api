@@ -167,6 +167,35 @@ class SubscriptionController {
     }
 
     /**
+     * Get a subscription purchased by the authenticated user by its {@code subscriptionId}.
+     *
+     * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
+     * @return the requested subscription.
+     */
+    @Operation(summary = "Get subscription")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "404", description = "subscription with given id doesn't exist", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @GetMapping("/{subscriptionId}")
+    ResponseEntity<SubscriptionView> getSubscription(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotNull @Min(1) @PathVariable Long subscriptionId,
+        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl
+    ) {
+        try {
+            val subscription = subscriptionService.getSubscription(principalId, subscriptionId, stripeReturnUrl);
+            return ResponseEntity.ok(subscription);
+        } catch (SubscriptionNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
      * Cancels the given subscription if it is currently ongoing (active).
      */
     @Operation(summary = "Cancel subscription")

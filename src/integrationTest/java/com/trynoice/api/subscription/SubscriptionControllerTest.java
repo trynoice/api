@@ -68,6 +68,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -266,6 +267,27 @@ public class SubscriptionControllerTest {
                 }
             }
         }
+    }
+
+    @Test
+    void getSubscription() throws Exception {
+        val owner = createAuthUser(entityManager);
+        val impersonator = createAuthUser(entityManager);
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
+        val subscription = buildSubscription(owner, plan, false, false);
+
+        val impersonatorToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
+        mockMvc.perform(
+                get("/v1/subscriptions/" + subscription.getId())
+                    .header("Authorization", "Bearer " + impersonatorToken))
+            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
+
+        val ownerAccessToken = createSignedAccessJwt(hmacSecret, owner, AuthTestUtils.JwtType.VALID);
+        mockMvc.perform(
+                get("/v1/subscriptions/" + subscription.getId())
+                    .header("Authorization", "Bearer " + ownerAccessToken))
+            .andExpect(status().is(HttpStatus.OK.value()))
+            .andExpect(jsonPath("$.id").value(subscription.getId()));
     }
 
     @ParameterizedTest(name = "{displayName} - provider={0} isSubscriptionActive={1} expectedResponseStatus={2}")
