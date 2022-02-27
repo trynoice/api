@@ -238,7 +238,7 @@ public class SubscriptionServiceTest {
     }
 
     @Test
-    void getSubscriptions() throws StripeException {
+    void listSubscriptions() throws StripeException {
         val userId1 = 1L;
         val userId2 = 2L;
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
@@ -261,6 +261,11 @@ public class SubscriptionServiceTest {
         val result2 = service.listSubscriptions(userId2, false, null);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
+    }
+
+    @Test
+    void getSubscription() {
+        // skipped unit tests, wrote integration tests instead.
     }
 
     @ParameterizedTest(name = "{displayName} #{index}")

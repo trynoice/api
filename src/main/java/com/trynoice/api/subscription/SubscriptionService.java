@@ -231,6 +231,35 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     }
 
     /**
+     * Get a subscription purchased by a customer by its {@code subscriptionId}.
+     *
+     * @param customerId      must not be {@literal null}.
+     * @param subscriptionId  must not be {@literal null}.
+     * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
+     * @return the requested subscription, guaranteed to be not {@literal null}.
+     * @throws SubscriptionNotFoundException if such a subscription doesn't exist.
+     */
+    @NonNull
+    public SubscriptionView getSubscription(
+        @NonNull Long customerId,
+        @NonNull Long subscriptionId,
+        String stripeReturnUrl
+    ) throws SubscriptionNotFoundException {
+        val subscription = subscriptionRepository.findById(subscriptionId)
+            .orElseThrow(() -> new SubscriptionNotFoundException("subscription with given id doesn't exist"));
+
+        if (!customerId.equals(subscription.getCustomer().getUserId())) {
+            throw new SubscriptionNotFoundException("subscription with given id is not owned by the customer");
+        }
+
+        return buildSubscriptionView(
+            subscription,
+            subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
+                ? createStripeCustomerSession(subscription.getCustomer(), stripeReturnUrl)
+                : null);
+    }
+
+    /**
      * Cancels the given subscription by requesting its cancellation from its provider and marking
      * it as inactive in our internal state.
      *
