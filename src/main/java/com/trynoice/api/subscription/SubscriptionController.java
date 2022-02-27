@@ -1,13 +1,13 @@
 package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.stripe.exception.SignatureVerificationException;
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
-import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
+import com.trynoice.api.subscription.exceptions.WebhookEventException;
+import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
@@ -208,7 +208,8 @@ class SubscriptionController {
      *
      * @return <ul>
      * <li>{@code HTTP 200} on successfully processing the event.</li>
-     * <li>{@code HTTP 400} if the request is not valid.</li>
+     * <li>{@code HTTP 400} if the server was unable to parse the event payload.</li>
+     * <li>{@code HTTP 422} if the server was unable to process the event.</li>
      * <li>{@code HTTP 500} on internal server errors.</li>
      * </ul>
      */
@@ -218,15 +219,14 @@ class SubscriptionController {
     ResponseEntity<Void> googlePlayWebhook(@Valid @NotNull @RequestBody JsonNode requestBody) {
         try {
             subscriptionService.handleGooglePlayWebhookEvent(requestBody);
-        } catch (SubscriptionWebhookEventException e) {
-            log.info("failed to process the google play webhook event", e);
+            return ResponseEntity.ok(null);
+        } catch (WebhookPayloadException e) {
+            log.info("failed to parse the event payload", e);
+            return ResponseEntity.badRequest().build();
+        } catch (WebhookEventException e) {
+            log.info("failed to process the event payload", e);
+            return ResponseEntity.unprocessableEntity().build();
         }
-
-        // always return 200 because if we return an HTTP error response code on not being able to
-        // correctly process the event payload, then Google Cloud Pub/Sub will retry its delivery.
-        // Since we couldn't correctly process the payload the first-time, it's highly unlikely that
-        // we'd be able to process it correctly on redelivery.
-        return ResponseEntity.ok(null);
     }
 
     /**
@@ -251,7 +251,8 @@ class SubscriptionController {
      *
      * @return <ul>
      * <li>{@code HTTP 200} on successfully processing the event.</li>
-     * <li>{@code HTTP 400} if the request is not valid.</li>
+     * <li>{@code HTTP 400} if the server was unable to parse the event payload.</li>
+     * <li>{@code HTTP 422} if the server was unable to process the event.</li>
      * <li>{@code HTTP 500} on internal server errors.</li>
      * </ul>
      */
@@ -264,13 +265,13 @@ class SubscriptionController {
     ) {
         try {
             subscriptionService.handleStripeWebhookEvent(body, payloadSignature);
-        } catch (SubscriptionWebhookEventException e) {
-            log.info("failed to process the stripe webhook event", e);
-        } catch (SignatureVerificationException e) {
-            log.info("failed to verify payload signature of stripe webhook event", e);
+            return ResponseEntity.ok(null);
+        } catch (WebhookPayloadException e) {
+            log.info("failed to parse the event payload", e);
             return ResponseEntity.badRequest().build();
+        } catch (WebhookEventException e) {
+            log.info("failed to process the event payload", e);
+            return ResponseEntity.unprocessableEntity().build();
         }
-
-        return ResponseEntity.ok(null);
     }
 }

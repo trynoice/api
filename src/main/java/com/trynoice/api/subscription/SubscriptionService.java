@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.SoundSubscriptionServiceContract;
 import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
@@ -14,8 +15,9 @@ import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
-import com.trynoice.api.subscription.exceptions.SubscriptionWebhookEventException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
+import com.trynoice.api.subscription.exceptions.WebhookEventException;
+import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
@@ -284,7 +286,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      * subscription purchase from the Google API.</p>
      *
      * @param payload event payload.
-     * @throws SubscriptionWebhookEventException on failing to correctly process the event payload.
+     * @throws WebhookPayloadException on failing to correctly parse the event payload.
+     * @throws WebhookEventException   on failing to correctly process the event.
      * @see <a href="https://developer.android.com/google/play/billing/rtdn-reference#sub">Google
      * Play real-time developer notifications reference</a>
      * @see <a href="https://developer.android.com/google/play/billing/subscriptions">Google Play
@@ -293,32 +296,35 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      * Android Publisher REST API reference</a>
      */
     @Transactional(rollbackFor = Throwable.class)
-    public void handleGooglePlayWebhookEvent(@NonNull JsonNode payload) throws SubscriptionWebhookEventException {
+    public void handleGooglePlayWebhookEvent(
+        @NonNull JsonNode payload
+    ) throws WebhookPayloadException, WebhookEventException {
         val data = payload.at("/message/data");
         if (!data.isTextual()) {
-            throw new SubscriptionWebhookEventException("'message.data' field is missing or invalid in the payload");
+            throw new WebhookPayloadException("'message.data' field is missing or invalid in the payload");
         }
 
         final JsonNode event;
         try {
             event = objectMapper.readTree(Base64.getDecoder().decode(data.asText()));
-        } catch (IOException e) {
-            throw new SubscriptionWebhookEventException("failed to parse 'message.data' as json", e);
+        } catch (IOException | IllegalArgumentException e) {
+            throw new WebhookPayloadException("failed to decode base64 or json in 'message.data'", e);
         }
 
         val subscriptionNotification = event.at("/subscriptionNotification");
         if (!subscriptionNotification.isObject()) {
-            throw new SubscriptionWebhookEventException("'subscriptionNotification' object is missing or invalid in event payload");
+            // this is not a subscription notification if the object is missing. return normally.
+            return;
         }
 
         val subscriptionPlanId = subscriptionNotification.at("/subscriptionId");
         if (!subscriptionPlanId.isTextual()) {
-            throw new SubscriptionWebhookEventException("'subscriptionId' is missing or invalid in 'subscriptionNotification'");
+            throw new WebhookPayloadException("'subscriptionId' is missing or invalid in 'subscriptionNotification'");
         }
 
         val purchaseToken = subscriptionNotification.at("/purchaseToken");
         if (!purchaseToken.isTextual()) {
-            throw new SubscriptionWebhookEventException("'purchaseToken' is missing or invalid in 'subscriptionNotification'");
+            throw new WebhookPayloadException("'purchaseToken' is missing or invalid in 'subscriptionNotification'");
         }
 
         final SubscriptionPurchase purchase;
@@ -328,7 +334,6 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 subscriptionPlanId.asText(),
                 purchaseToken.asText());
         } catch (IOException e) {
-            // runtime exception so that webhook is retried since it might be a network error.
             throw new RuntimeException("failed to retrieve purchase data from google play", e);
         }
 
@@ -336,19 +341,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         try {
             subscriptionId = parseLong(purchase.getObfuscatedExternalProfileId());
         } catch (NumberFormatException e) {
-            throw new SubscriptionWebhookEventException("failed to parse 'obfuscatedExternalProfileId' in subscription purchase", e);
+            throw new WebhookEventException("failed to parse 'obfuscatedExternalProfileId' in subscription purchase", e);
         }
 
         val subscription = subscriptionRepository.findById(subscriptionId)
-            .orElseThrow(() -> {
-                val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
-                return new SubscriptionWebhookEventException(errMsg);
-            });
-
-        // check if subscription has already been linked to a purchase
-        if (subscription.getProviderSubscriptionId() != null) {
-            throw new SubscriptionWebhookEventException("referenced subscription is already linked to a purchase");
-        }
+            .orElseThrow(() -> new WebhookEventException(String.format("subscription with id '%d' doesn't exist", subscriptionId)));
 
         // https://developer.android.com/google/play/billing/subscriptions#lifecycle
         // tldr; if the expiry time is in the future, the user must have the subscription
@@ -356,6 +353,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         // future, the user is in a grace-period (retains their entitlements). If the expiry is in
         // the past, the user's account is on hold, and they lose their entitlements. When the user
         // is in their grace-period, they should be notified about the pending payment.
+        //
+        // Moreover, linked purchase token should be ignored since we're not using purchase tokens
+        // to identify the internal subscription entity. Both the upgraded and the old subscription
+        // will have the same obfuscated profile id, and thus, its linked purchase token will be
+        // automatically overwritten when the upgraded subscription's notification arrives.
         subscription.setProviderSubscriptionId(purchaseToken.asText());
         if (purchase.getStartTimeMillis() != null) {
             subscription.setStartAtMillis(purchase.getStartTimeMillis());
@@ -371,15 +373,6 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         subscriptionRepository.save(subscription);
 
-        // invalidate old (linked) subscription.
-        // https://developer.android.com/google/play/billing/subscriptions#upgrade-downgrade
-        subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken())
-            .ifPresent(linkedSubscription -> {
-                linkedSubscription.setPaymentPending(false);
-                linkedSubscription.setEndAt(LocalDateTime.now());
-                subscriptionRepository.save(linkedSubscription);
-            });
-
         if (!Integer.valueOf(1).equals(purchase.getAcknowledgementState())) {
             try {
                 androidPublisherApi.acknowledgePurchase(
@@ -387,7 +380,6 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                     subscriptionPlanId.asText(),
                     purchaseToken.asText());
             } catch (IOException e) {
-                // runtime exception so that webhook is retried since it might be a network error.
                 throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }
         }
@@ -398,8 +390,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      *
      * @param payload   event payload.
      * @param signature payload signature.
-     * @throws SignatureVerificationException    on payload signature mismatch.
-     * @throws SubscriptionWebhookEventException on failing to correctly process the event payload.
+     * @throws WebhookPayloadException on failing to correctly parse the event payload.
+     * @throws WebhookEventException   on failing to correctly process the event.
      * @see <a href="https://stripe.com/docs/billing/subscriptions/overview">How subscriptions work</a>
      * @see <a href="https://stripe.com/docs/billing/subscriptions/build-subscription?ui=checkout#provision-and-monitor">
      * Provision and monitor subscriptions</a>
@@ -411,24 +403,35 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     public void handleStripeWebhookEvent(
         @NonNull String payload,
         @NonNull String signature
-    ) throws SignatureVerificationException, SubscriptionWebhookEventException {
-        val event = stripeApi.decodeWebhookPayload(payload, signature, subscriptionConfig.getStripeWebhookSecret());
+    ) throws WebhookPayloadException, WebhookEventException {
+        final Event event;
+        try {
+            event = stripeApi.decodeWebhookPayload(payload, signature, subscriptionConfig.getStripeWebhookSecret());
+        } catch (SignatureVerificationException e) {
+            throw new WebhookPayloadException("failed to verify payload signature", e);
+        }
+
         switch (event.getType()) {
             case "checkout.session.completed":
                 val session = (Session) event.getDataObjectDeserializer().getObject()
-                    .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get session object from the event payload"));
+                    .orElseThrow(() -> new WebhookPayloadException("failed to get session object from the event payload"));
+
+                if (!"complete".equals(session.getStatus())) {
+                    throw new WebhookPayloadException("checkout session status is not complete");
+                }
 
                 try {
                     handleStripeCheckoutSessionEvent(session);
-                } catch (SubscriptionWebhookEventException outer) {
+                } catch (WebhookPayloadException | WebhookEventException outer) {
                     try {
-                        // cancel subscription if we cannot handle the checkout session since
-                        // SubscriptionWebhookEventException only occurs if Session is not how we
-                        // expect it to be.
+                        // cancel subscription if we cannot handle the checkout session completed
+                        // event. It is an edge-case event that should never happen, unless our
+                        // internal data has gone corrupt somehow.
                         stripeApi.cancelSubscription(session.getSubscription());
                     } catch (StripeException inner) {
-                        // runtime exception so that webhook is retried since it might be a network error.
-                        throw new RuntimeException("failed to cancel stripe subscription", inner);
+                        val e = new RuntimeException("failed to cancel stripe subscription", inner);
+                        e.addSuppressed(outer);
+                        throw e;
                     }
 
                     throw outer;
@@ -440,43 +443,41 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             case "customer.subscription.pending_update_expired":
             case "customer.subscription.trial_will_end":
                 val stripeSubscription = (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject()
-                    .orElseThrow(() -> new SubscriptionWebhookEventException("failed to get subscription object from the event payload"));
+                    .orElseThrow(() -> new WebhookPayloadException("failed to get subscription object from the event payload"));
                 handleStripeSubscriptionEvent(stripeSubscription);
                 break;
         }
     }
 
-    private void handleStripeCheckoutSessionEvent(@NonNull Session session) throws SubscriptionWebhookEventException {
+    private void handleStripeCheckoutSessionEvent(@NonNull Session session) throws WebhookPayloadException, WebhookEventException {
         if (!"subscription".equals(session.getMode())) {
-            throw new SubscriptionWebhookEventException("checkout session mode is not subscription");
+            throw new WebhookPayloadException("checkout session mode is not subscription");
         } else if (session.getSubscription() == null) {
-            throw new SubscriptionWebhookEventException("checkout session subscription id is null");
-        } else if (!"complete".equals(session.getStatus())) {
-            throw new SubscriptionWebhookEventException("checkout session status is not complete");
+            throw new WebhookPayloadException("checkout session subscription id is null");
         } else if (!"paid".equals(session.getPaymentStatus())) {
-            throw new SubscriptionWebhookEventException("checkout session payment status is not paid");
+            throw new WebhookPayloadException("checkout session payment status is not paid");
         } else if (session.getCustomer() == null) {
-            throw new SubscriptionWebhookEventException("customer id is missing from the checkout session");
+            throw new WebhookPayloadException("customer id is missing from the checkout session");
         }
 
         final long subscriptionId;
         try {
             subscriptionId = parseLong(session.getClientReferenceId());
         } catch (NumberFormatException e) {
-            throw new SubscriptionWebhookEventException("failed to parse the client reference id in checkout session");
+            throw new WebhookEventException("failed to parse the client reference id in checkout session");
         }
 
         final com.stripe.model.Subscription stripeSubscription;
         try {
             stripeSubscription = stripeApi.getSubscription(session.getSubscription());
         } catch (StripeException e) {
-            throw new SubscriptionWebhookEventException("failed to get subscription object from stripe api", e);
+            throw new RuntimeException("failed to get subscription object from stripe api", e);
         }
 
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> {
                 val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
-                return new SubscriptionWebhookEventException(errMsg);
+                return new WebhookEventException(errMsg);
             });
 
         subscription.setProviderSubscriptionId(session.getSubscription());
@@ -492,11 +493,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
     private void handleStripeSubscriptionEvent(
         @NonNull com.stripe.model.Subscription stripeSubscription
-    ) throws SubscriptionWebhookEventException {
+    ) throws WebhookPayloadException, WebhookEventException {
         val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscription.getId())
             .orElseThrow(() -> {
                 val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
-                return new SubscriptionWebhookEventException(errMsg);
+                return new WebhookEventException(errMsg);
             });
 
         updateSubscriptionDetailsFromStripeObject(subscription, stripeSubscription);
@@ -506,20 +507,20 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     private void updateSubscriptionDetailsFromStripeObject(
         @NonNull Subscription subscription,
         @NonNull com.stripe.model.Subscription stripeSubscription
-    ) throws SubscriptionWebhookEventException {
+    ) throws WebhookPayloadException, WebhookEventException {
         if (stripeSubscription.getItems() == null
             || stripeSubscription.getItems().getData() == null
             || stripeSubscription.getItems().getData().size() != 1
             || stripeSubscription.getItems().getData().get(0) == null
             || stripeSubscription.getItems().getData().get(0).getPrice() == null) {
-            throw new SubscriptionWebhookEventException("failed to get subscription price object from the event payload");
+            throw new WebhookPayloadException("failed to get subscription price object from the event payload");
         }
 
         val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
         if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
             subscription.setPlan(
                 subscriptionPlanRepository.findByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
-                    .orElseThrow(() -> new SubscriptionWebhookEventException("updated provider plan id not recognised")));
+                    .orElseThrow(() -> new WebhookEventException("updated provider plan id not recognised")));
         }
 
         if (stripeSubscription.getStartDate() != null) {
