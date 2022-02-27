@@ -363,10 +363,6 @@ public class SubscriptionControllerTest {
         subscriptionRepository.save(subscription);
 
         purchase.setObfuscatedExternalProfileId(String.valueOf(subscription.getId()));
-
-        val linkedSubscription = buildSubscription(authUser, plan, true, false);
-        purchase.setLinkedPurchaseToken(linkedSubscription.getProviderSubscriptionId());
-
         when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionPlanId), eq(purchaseToken)))
             .thenReturn(purchase);
 
@@ -381,10 +377,6 @@ public class SubscriptionControllerTest {
 
         verify(androidPublisherApi, times(shouldAcknowledgePurchase ? 1 : 0))
             .acknowledgePurchase(any(), eq(subscriptionPlanId), eq(purchaseToken));
-
-        if (isActive) {
-            assertFalse(linkedSubscription.isActive());
-        }
     }
 
     static Stream<Arguments> handleGooglePlayWebhookEventTestCases() {
@@ -435,7 +427,8 @@ public class SubscriptionControllerTest {
     void handleStripeWebhookEvent_checkoutSessionComplete(
         @NonNull String sessionStatus,
         @NonNull String sessionPaymentStatus,
-        boolean isSubscriptionActive
+        boolean isSubscriptionActive,
+        int expectedResponseCode
     ) throws Exception {
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan");
         val subscription = buildSubscription(createAuthUser(entityManager), plan, false, false);
@@ -456,18 +449,18 @@ public class SubscriptionControllerTest {
                 .header("Stripe-Signature", signature)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(event.toJson()))
-            .andExpect(status().is(HttpStatus.OK.value()));
+            .andExpect(status().is(expectedResponseCode));
 
         assertEquals(isSubscriptionActive, subscription.isActive());
     }
 
     static Stream<Arguments> handleStripeWebhookEvent_checkoutSessionCompleteTestCases() {
         return Stream.of(
-            // session status, payment status, is subscription active
-            arguments("expired", "no_payment_required", false),
-            arguments("complete", "no_payment_required", false),
-            arguments("complete", "unpaid", false),
-            arguments("complete", "paid", true)
+            // session status, payment status, is subscription active, expected response code
+            arguments("expired", "no_payment_required", false, HttpStatus.BAD_REQUEST.value()),
+            arguments("complete", "no_payment_required", false, HttpStatus.BAD_REQUEST.value()),
+            arguments("complete", "unpaid", false, HttpStatus.BAD_REQUEST.value()),
+            arguments("complete", "paid", true, HttpStatus.OK.value())
         );
     }
 
