@@ -114,6 +114,14 @@ class SubscriptionController {
      *     payment and complete the checkout session.</li>
      * </ul>
      *
+     * <p>
+     * Since clients may desire to use created subscription's id in {@code successUrl} and {@code
+     * cancelUrl} callbacks, the server makes it available through {@code {subscriptionId}} template
+     * string in their values, e.g. {@code https://api.test/success?id={subscriptionId}}. The server
+     * will replace the template with the created subscription's id before creating a Stripe
+     * checkout session, i.e. it will transform the previous url to {@code
+     * https://api.test/success?id=1}, assuming the created subscription's id is {@literal 1}.</p>
+     *
      * @param params {@code successUrl} and {@code cancelUrl} are only required for Stripe plans.
      */
     @Operation(summary = "Initiate the subscription flow")

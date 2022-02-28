@@ -170,6 +170,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         val result = new SubscriptionFlowResult();
         result.setSubscription(buildSubscriptionView(subscription, null));
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
+            val sub = String.valueOf(subscription.getId());
+            params.setSuccessUrl(params.getSuccessUrl().replace("{subscriptionId}", sub));
+            params.setCancelUrl(params.getCancelUrl().replace("{subscriptionId}", sub));
+
             try {
                 result.setStripeCheckoutSessionUrl(
                     stripeApi.createCheckoutSession(
