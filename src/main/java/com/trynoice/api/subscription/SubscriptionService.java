@@ -111,7 +111,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
     /**
      * <p>
-     * Initiates the subscription flow by creating a new {@code incomplete} subscription entity.</p>
+     * Initiates the subscription flow by creating a new {@code incomplete} subscription entity and
+     * returns it with the result.</p>
      *
      * <p>
      * If the requested plan is provided by {@link SubscriptionPlan.Provider#STRIPE}, it also
@@ -121,9 +122,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      *
      * <p>
      * If the requested plan is provided by {@link SubscriptionPlan.Provider#GOOGLE_PLAY}, the
-     * clients must link the returned {@link SubscriptionFlowResult#getSubscriptionId() subscription
-     * id} to the Google Play subscription purchase by specifying it as {@code obfuscatedProfileId}
-     * in Google Play billing flow parameters.</p>
+     * clients must link the returned {@code subscriptionId} to the Google Play subscription
+     * purchase by specifying it as {@code obfuscatedProfileId} in Google Play billing flow
+     * parameters.</p>
      *
      * @param customerId id of the customer (user) that initiated the subscription flow.
      * @param params     subscription flow parameters.
@@ -167,7 +168,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 .build());
 
         val result = new SubscriptionFlowResult();
-        result.setSubscriptionId(subscription.getId());
+        result.setSubscription(buildSubscriptionView(subscription, null));
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
             try {
                 result.setStripeCheckoutSessionUrl(

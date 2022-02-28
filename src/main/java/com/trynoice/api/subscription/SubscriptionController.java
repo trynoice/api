@@ -101,8 +101,8 @@ class SubscriptionController {
     /**
      * <p>
      * Initiates the subscription flow for the authenticated user. The flow might vary with payment
-     * providers. It creates a new {@code incomplete} subscription entity. On success, it returns
-     * {@literal HTTP 201} with a response body.</p>
+     * providers. It creates a new {@code incomplete} subscription entity and returns it with the
+     * response on success.
      *
      * <p>To conclude this flow and transition the subscription entity to {@code active} state:</p>
      *
