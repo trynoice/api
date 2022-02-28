@@ -16,7 +16,6 @@ import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
-import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.testing.AuthTestUtils;
 import lombok.NonNull;
@@ -55,7 +54,6 @@ import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
@@ -171,22 +169,18 @@ public class SubscriptionControllerTest {
                 .thenReturn(mockSession);
         }
 
-        val result = mockMvc.perform(
+        val resultActions = mockMvc.perform(
                 post("/v1/subscriptions")
                     .header("Authorization", "bearer " + createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(
                         new SubscriptionFlowParams(plan.getId(), successUrl, cancelUrl))))
-            .andExpect(status().is(expectedResponseStatus)).andReturn();
+            .andExpect(status().is(expectedResponseStatus));
 
         if (expectedResponseStatus == HttpStatus.CREATED.value()) {
-            val subscriptionFlowResult = objectMapper.readValue(
-                result.getResponse().getContentAsByteArray(),
-                SubscriptionFlowResult.class);
-
-            assertNotNull(subscriptionFlowResult.getSubscriptionId());
+            resultActions.andExpect(jsonPath("$.subscription").isMap());
             if (provider == SubscriptionPlan.Provider.STRIPE) {
-                assertNotNull(subscriptionFlowResult.getStripeCheckoutSessionUrl());
+                resultActions.andExpect(jsonPath("$.stripeCheckoutSessionUrl").isString());
             }
         }
     }
