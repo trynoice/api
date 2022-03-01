@@ -32,6 +32,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
@@ -209,6 +210,11 @@ public class SubscriptionControllerTest {
                 subscriptions.add(buildSubscription(authUser, subscriptionPlan, true, false));
             }
 
+            val unstarted = buildSubscription(authUser, subscriptionPlan, false, false);
+            unstarted.setStartAt(null);
+            unstarted.setEndAt(null);
+            subscriptions.add(subscriptionRepository.save(unstarted));
+
             data.put(authUser, subscriptions);
         }
 
@@ -239,6 +245,7 @@ public class SubscriptionControllerTest {
 
             val expectedIds = entry.getValue()
                 .stream()
+                .filter(s -> s.getStartAt() != null)
                 .map(s -> String.valueOf(s.getId()))
                 .sorted()
                 .collect(Collectors.toList());
@@ -295,17 +302,25 @@ public class SubscriptionControllerTest {
         val subscription = buildSubscription(owner, plan, false, false);
 
         val impersonatorToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
-        mockMvc.perform(
-                get("/v1/subscriptions/" + subscription.getId())
-                    .header("Authorization", "Bearer " + impersonatorToken))
+        doGetSubscriptionRequest(impersonatorToken, subscription.getId())
             .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
 
         val ownerAccessToken = createSignedAccessJwt(hmacSecret, owner, AuthTestUtils.JwtType.VALID);
-        mockMvc.perform(
-                get("/v1/subscriptions/" + subscription.getId())
-                    .header("Authorization", "Bearer " + ownerAccessToken))
+        doGetSubscriptionRequest(ownerAccessToken, subscription.getId())
             .andExpect(status().is(HttpStatus.OK.value()))
             .andExpect(jsonPath("$.id").value(subscription.getId()));
+
+        val unstartedSubscription = buildSubscription(owner, plan, false, false);
+        unstartedSubscription.setStartAt(null);
+        unstartedSubscription.setEndAt(null);
+        subscriptionRepository.save(unstartedSubscription);
+        doGetSubscriptionRequest(ownerAccessToken, unstartedSubscription.getId())
+            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
+    }
+
+    private ResultActions doGetSubscriptionRequest(String accessToken, long subscriptionId) throws Exception {
+        return mockMvc.perform(get("/v1/subscriptions/" + subscriptionId)
+            .header("Authorization", "Bearer " + accessToken));
     }
 
     @ParameterizedTest(name = "{displayName} - provider={0} isSubscriptionActive={1} expectedResponseStatus={2}")
