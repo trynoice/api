@@ -37,6 +37,9 @@ public class StripeApi {
      * @param stripeCustomerId  customer id assigned by Stripe to the subscription owner. If it is
      *                          {@literal null}, Stripe will create a new Customer entity. If
      *                          {@code customerEmail} must be {@literal null} if it is specified.
+     * @param trialPeriodDays   the number of days for offering a trial period on the new
+     *                          subscription. If it is {@literal null}, no trial period is offered.
+     *                          If it is not {@literal null}, it has to be at least 1.
      * @return a new checkout session
      * @throws StripeException on api call error
      */
@@ -48,7 +51,7 @@ public class StripeApi {
         @NonNull String clientReferenceId,
         String customerEmail,
         String stripeCustomerId,
-        @NonNull Long trialPeriodDays
+        Long trialPeriodDays
     ) throws StripeException {
         return Session.create(
             new SessionCreateParams.Builder()
@@ -59,7 +62,7 @@ public class StripeApi {
                 .setCustomerEmail(customerEmail)
                 .setCustomer(stripeCustomerId)
                 .setSubscriptionData(
-                    SessionCreateParams.SubscriptionData.builder()
+                    trialPeriodDays == null ? null : SessionCreateParams.SubscriptionData.builder()
                         .setTrialPeriodDays(trialPeriodDays)
                         .build())
                 .addLineItem(

@@ -185,7 +185,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                                 ? accountServiceContract.findEmailByUser(customerId).orElse(null)
                                 : null,
                             customer.getStripeId(),
-                            (long) plan.getTrialPeriodDays())
+                            customer.isTrialPeriodUsed() ? null : (long) plan.getTrialPeriodDays())
                         .getUrl());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to create stripe checkout session", e);
@@ -324,6 +324,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         subscription.setPaymentPending(false);
         subscription.setEndAt(LocalDateTime.now());
         subscriptionRepository.save(subscription);
+
+        if (!subscription.getCustomer().isTrialPeriodUsed()) {
+            subscription.getCustomer().setTrialPeriodUsed(true);
+            customerRepository.save(subscription.getCustomer());
+        }
     }
 
     /**
@@ -538,8 +543,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         val customer = subscription.getCustomer();
         if (customer.getStripeId() == null || !customer.getStripeId().equals(session.getCustomer())) {
             customer.setStripeId(session.getCustomer());
-            customerRepository.save(customer);
         }
+
+        customer.setTrialPeriodUsed(true);
+        customerRepository.save(customer);
     }
 
     private void handleStripeSubscriptionEvent(

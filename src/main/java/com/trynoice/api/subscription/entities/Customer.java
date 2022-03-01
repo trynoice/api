@@ -25,4 +25,6 @@ public class Customer extends BasicEntity {
     private long userId;
 
     private String stripeId;
+
+    private boolean isTrialPeriodUsed;
 }

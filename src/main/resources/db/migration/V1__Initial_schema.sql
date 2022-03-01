@@ -65,7 +65,8 @@ CREATE TABLE customer (
   created_at timestamp with time zone NOT NULL,
   deleted_at timestamp with time zone,
   version bigint NOT NULL,
-  stripe_id varchar(255)
+  stripe_id varchar(255),
+  is_trial_period_used boolean NOT NULL
 );
 
 CREATE TABLE subscription (
