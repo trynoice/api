@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class BasicEntityCrudRepositoryTest {
+public class BasicEntityRepositoryTest {
 
     private Stack<TestEntity> activeEntityStack;
     private Stack<TestEntity> inactiveEntityStack;

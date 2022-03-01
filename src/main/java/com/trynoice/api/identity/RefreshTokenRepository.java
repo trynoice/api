@@ -1,7 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.entities.RefreshToken;
-import com.trynoice.api.platform.BasicEntityCrudRepository;
+import com.trynoice.api.platform.BasicEntityRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
  * com.trynoice.api.platform.BasicEntity BasicEntity}.
  */
 @Repository
-public interface RefreshTokenRepository extends BasicEntityCrudRepository<RefreshToken, Long> {
+public interface RefreshTokenRepository extends BasicEntityRepository<RefreshToken, Long> {
 
     /**
      * Marks all instances of the type {@link RefreshToken} for the given {@literal ownerId} as

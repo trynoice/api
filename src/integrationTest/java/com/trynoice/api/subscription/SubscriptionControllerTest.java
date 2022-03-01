@@ -54,6 +54,7 @@ import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
@@ -548,6 +549,31 @@ public class SubscriptionControllerTest {
             arguments("canceled", true, false, false, false),
             arguments("unpaid", true, true, false, false)
         );
+    }
+
+    @Test
+    void handleStripeWebhookEvent_customerDeletedEvent() throws Exception {
+        val authUser = createAuthUser(entityManager);
+        val stripeCustomer = new com.stripe.model.Customer();
+        stripeCustomer.setId("stripe-customer-id");
+        customerRepository.save(
+            Customer.builder()
+                .userId(authUser.getId())
+                .stripeId(stripeCustomer.getId())
+                .build());
+
+        val signature = "dummy-signature";
+        val event = buildStripeEvent("customer.deleted", stripeCustomer);
+        when(stripeApi.decodeWebhookPayload(eq(event.toJson()), eq(signature), any()))
+            .thenReturn(event);
+
+        mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
+                .header("Stripe-Signature", signature)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(event.toJson()))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        assertNull(customerRepository.findById(authUser.getId()).orElseThrow().getStripeId());
     }
 
     @NonNull

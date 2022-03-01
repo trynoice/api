@@ -1,6 +1,6 @@
 package com.trynoice.api.subscription;
 
-import com.trynoice.api.platform.BasicEntityCrudRepository;
+import com.trynoice.api.platform.BasicEntityRepository;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
@@ -15,7 +15,7 @@ import java.util.Optional;
  * com.trynoice.api.platform.BasicEntity BasicEntity}.
  */
 @Repository
-interface SubscriptionPlanRepository extends BasicEntityCrudRepository<SubscriptionPlan, Short> {
+interface SubscriptionPlanRepository extends BasicEntityRepository<SubscriptionPlan, Short> {
 
     /**
      * Find all subscription plans offered by the given provider.
