@@ -243,10 +243,10 @@ public class SubscriptionServiceTest {
         val subscription1 = buildSubscription(userId1, plan, true, true);
         val subscription2 = buildSubscription(userId2, plan, false, false);
 
-        lenient().when(subscriptionRepository.findAllByCustomerUserId(eq(userId1), any()))
+        lenient().when(subscriptionRepository.findAllStartedByCustomerUserId(eq(userId1), any()))
             .thenReturn(new PageImpl<>(List.of(subscription1)));
 
-        lenient().when(subscriptionRepository.findAllByCustomerUserId(eq(userId2), any()))
+        lenient().when(subscriptionRepository.findAllStartedByCustomerUserId(eq(userId2), any()))
             .thenReturn(new PageImpl<>(List.of(subscription2)));
 
         lenient().when(stripeApi.createCustomerPortalSession(any(), any()))

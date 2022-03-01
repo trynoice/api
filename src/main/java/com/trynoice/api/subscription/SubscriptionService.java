@@ -222,8 +222,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 .stream()
                 .collect(Collectors.toUnmodifiableList());
         } else {
-            val pageable = PageRequest.of(pageNumber, 20, Sort.by(Sort.Order.desc("createdAt")));
-            subscriptions = subscriptionRepository.findAllByCustomerUserId(customerId, pageable).toList();
+            val pageable = PageRequest.of(pageNumber, 20, Sort.by(Sort.Order.desc("startAt")));
+            subscriptions = subscriptionRepository.findAllStartedByCustomerUserId(customerId, pageable).toList();
         }
 
         val stripeCustomerPortalUrl = subscriptions.stream()
@@ -268,6 +268,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         if (!customerId.equals(subscription.getCustomer().getUserId())) {
             throw new SubscriptionNotFoundException("subscription with given id is not owned by the customer");
+        }
+
+        if (subscription.getStartAt() == null) {
+            throw new SubscriptionNotFoundException("subscription has not started yet");
         }
 
         return buildSubscriptionView(

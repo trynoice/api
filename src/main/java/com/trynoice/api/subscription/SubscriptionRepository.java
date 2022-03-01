@@ -43,7 +43,8 @@ interface SubscriptionRepository extends BasicEntityRepository<Subscription, Lon
     boolean existsActiveByCustomerUserId(@NonNull Long customerUserId);
 
     /**
-     * Retrieves all {@link Subscription} instances that belong to a given {@code customerUserId}.
+     * Retrieves all {@link Subscription} instances that belong to a given {@code customerUserId},
+     * and were started ({@code startAt != null}) at some point.
      *
      * @param customerUserId a not {@literal null} user id of the subscription owner.
      * @param pageable       pagination options for the query.
@@ -51,8 +52,8 @@ interface SubscriptionRepository extends BasicEntityRepository<Subscription, Lon
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.customer.userId = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    Page<Subscription> findAllByCustomerUserId(@NonNull Long customerUserId, @NonNull Pageable pageable);
+    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt <> null and" + WHERE_ACTIVE_CLAUSE)
+    Page<Subscription> findAllStartedByCustomerUserId(@NonNull Long customerUserId, @NonNull Pageable pageable);
 
     /**
      * Retrieves an {@link Optional} {@link Subscription} instance that is both active ({@code

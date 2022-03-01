@@ -152,7 +152,8 @@ class SubscriptionController {
     /**
      * Lists a {@code page} of subscriptions purchased by the authenticated user. Each {@code page}
      * contains at-most 20 entries. If {@code onlyActive} is {@literal true}, it lists the currently
-     * active subscription purchase (at most one).
+     * active subscription purchase (at most one). It doesn't return subscription entities that were
+     * initiated, but were never started.
      *
      * @param onlyActive      return only the active subscription (single instance).
      * @param stripeReturnUrl redirect URL for exiting Stripe customer portal.
@@ -183,7 +184,8 @@ class SubscriptionController {
     }
 
     /**
-     * Get a subscription purchased by the authenticated user by its {@code subscriptionId}.
+     * Get a subscription purchased by the authenticated user by its {@code subscriptionId}. It
+     * doesn't return subscription entities that were initiated, but were never started.
      *
      * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
      * @return the requested subscription.
