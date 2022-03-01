@@ -84,7 +84,7 @@ dependencies {
     implementation "org.springdoc:springdoc-openapi-ui:$springDocVersion"
     implementation "org.postgresql:postgresql"
 
-    implementation platform("software.amazon.awssdk:bom:2.17.128")
+    implementation platform("software.amazon.awssdk:bom:2.17.139")
     implementation "software.amazon.awssdk:s3"
     implementation "software.amazon.awssdk:ses"
 
