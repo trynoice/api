@@ -26,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Sort;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -97,15 +98,15 @@ public class SubscriptionServiceTest {
         stripePlan.setId((short) 2);
 
         lenient()
-            .when(subscriptionPlanRepository.findAll())
+            .when(subscriptionPlanRepository.findAll(any(Sort.class)))
             .thenReturn(List.of(googlePlayPlan, stripePlan));
 
         lenient()
-            .when(subscriptionPlanRepository.findAllByProvider(SubscriptionPlan.Provider.GOOGLE_PLAY))
+            .when(subscriptionPlanRepository.findAllByProvider(eq(SubscriptionPlan.Provider.GOOGLE_PLAY), any()))
             .thenReturn(List.of(googlePlayPlan));
 
         lenient()
-            .when(subscriptionPlanRepository.findAllByProvider(SubscriptionPlan.Provider.STRIPE))
+            .when(subscriptionPlanRepository.findAllByProvider(eq(SubscriptionPlan.Provider.STRIPE), any()))
             .thenReturn(List.of(stripePlan));
 
         val testCases = new HashMap<SubscriptionPlan.Provider, List<SubscriptionPlan>>();

@@ -91,6 +91,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     @NonNull
     List<SubscriptionPlanView> getPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
         final Iterable<SubscriptionPlan> plans;
+        val sortOrder = Sort.by(Sort.Order.asc("priceInIndianPaise"));
         if (provider != null) {
             final SubscriptionPlan.Provider p;
             try {
@@ -99,9 +100,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 throw new UnsupportedSubscriptionPlanProviderException(e);
             }
 
-            plans = subscriptionPlanRepository.findAllByProvider(p);
+            plans = subscriptionPlanRepository.findAllByProvider(p, sortOrder);
         } else {
-            plans = subscriptionPlanRepository.findAll();
+            plans = subscriptionPlanRepository.findAll(sortOrder);
         }
 
         return StreamSupport.stream(plans.spliterator(), false)
