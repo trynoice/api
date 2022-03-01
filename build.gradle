@@ -68,7 +68,7 @@ dependencies {
 
     implementation "com.auth0:java-jwt:3.18.3"
     implementation "com.github.ben-manes.caffeine:caffeine:3.0.5"
-    implementation "com.google.apis:google-api-services-androidpublisher:v3-rev20220123-1.32.1"
+    implementation "com.google.apis:google-api-services-androidpublisher:v3-rev20220221-1.32.1"
     implementation "com.google.auth:google-auth-library-oauth2-http:1.5.3"
     implementation "com.stripe:stripe-java:20.99.0"
     implementation "org.apache.commons:commons-text:1.9"
