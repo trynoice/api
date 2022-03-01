@@ -3,6 +3,7 @@ package com.trynoice.api.subscription;
 import com.trynoice.api.platform.BasicEntityRepository;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import lombok.NonNull;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,12 +22,13 @@ interface SubscriptionPlanRepository extends BasicEntityRepository<SubscriptionP
      * Find all subscription plans offered by the given provider.
      *
      * @param provider it must be a non-null {@link SubscriptionPlan.Provider}.
+     * @param sort     not {@literal null} sort options for the query.
      * @return a non-null list of available plans.
      */
     @NonNull
     @Transactional(readOnly = true)
     @Query("select e from SubscriptionPlan e where e.provider = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    List<SubscriptionPlan> findAllByProvider(@NonNull SubscriptionPlan.Provider provider);
+    List<SubscriptionPlan> findAllByProvider(@NonNull SubscriptionPlan.Provider provider, @NonNull Sort sort);
 
     /**
      * Find a subscription plan by its provider plan id.
