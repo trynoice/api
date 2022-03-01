@@ -181,7 +181,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                             params.getCancelUrl(),
                             plan.getProviderPlanId(),
                             String.valueOf(subscription.getId()),
-                            accountServiceContract.findEmailByUser(customerId).orElse(null),
+                            customer.getStripeId() == null
+                                ? accountServiceContract.findEmailByUser(customerId).orElse(null)
+                                : null,
                             customer.getStripeId(),
                             (long) plan.getTrialPeriodDays())
                         .getUrl());

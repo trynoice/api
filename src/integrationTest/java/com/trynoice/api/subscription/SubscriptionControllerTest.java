@@ -163,7 +163,7 @@ public class SubscriptionControllerTest {
                     eq(cancelUrl),
                     eq(plan.getProviderPlanId()),
                     any(),
-                    eq(authUser.getEmail()),
+                    eq(null),
                     eq(customer.getStripeId()),
                     any()))
                 .thenReturn(mockSession);
