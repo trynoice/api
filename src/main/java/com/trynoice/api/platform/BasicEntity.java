@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
  * </ol>
  *
  * <p>
- * To enable soft deletes, clients must use {@link BasicEntityCrudRepository} for database
+ * To enable soft deletes, clients must use {@link BasicEntityRepository} for database
  * interactions.
  * </p>
  *
@@ -43,7 +43,7 @@ import java.time.LocalDateTime;
  *         // other properties ...
  *     }
  *
- *     interface UserRepository extends BasicEntityCRUDRepository<User, Integer>{
+ *     interface UserRepository extends BasicEntityRepository&lt;User, Integer&gt;{
  *     }
  *     }
  * </pre>

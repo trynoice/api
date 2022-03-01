@@ -6,7 +6,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.NoRepositoryBean;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,22 +15,23 @@ import java.util.Optional;
 
 /**
  * <p>
- * {@link BasicEntityCrudRepository} is a direct descendant of Spring's {@link CrudRepository}. It
- * implements soft-deletes for the descendants of {@link BasicEntity}. Internally, undeleted and
- * soft-deleted entities are referred to as active and inactive respectively.</p>
+ * {@link BasicEntityRepository} is a direct descendant of Spring's {@link
+ * PagingAndSortingRepository}. It implements soft-deletes for the descendants of {@link
+ * BasicEntity}. Internally, undeleted and soft-deleted entities are referred to as active and
+ * inactive respectively.</p>
  * <p>
- * All methods from the {@link CrudRepository} are overridden to account for inactive entities. For
- * example, {@link BasicEntityCrudRepository#findAll()} will not return inactive entities (whose
- * {@link BasicEntity#getDeletedAt()} timestamp is not {@literal null}).</p>
+ * All methods from the {@link PagingAndSortingRepository} are overridden to account for inactive
+ * entities. For example, {@link BasicEntityRepository#findAll()} will not return inactive entities
+ * (whose {@link BasicEntity#getDeletedAt()} timestamp is not {@literal null}).</p>
  * <p>
- * {@link BasicEntityCrudRepository} <b>doesn't support cascaded operations</b>. Any cascaded
- * updates and deletes must be manually handled by the clients.</p>
+ * {@link BasicEntityRepository} <b>doesn't support cascaded operations</b>. Any cascaded updates
+ * and deletes must be manually handled by the clients.</p>
  *
  * @param <T>  type of the {@link BasicEntity}.
  * @param <ID> type of the ID for {@link BasicEntity}.
  */
 @NoRepositoryBean
-public interface BasicEntityCrudRepository<T extends BasicEntity, ID extends Serializable>
+public interface BasicEntityRepository<T extends BasicEntity, ID extends Serializable>
     extends PagingAndSortingRepository<T, ID> {
 
     String WHERE_ACTIVE_CLAUSE = " e." + BasicEntity.SOFT_DELETE_FIELD + " is null ";

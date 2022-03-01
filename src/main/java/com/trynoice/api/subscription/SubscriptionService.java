@@ -492,6 +492,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                     .orElseThrow(() -> new WebhookPayloadException("failed to get subscription object from the event payload"));
                 handleStripeSubscriptionEvent(stripeSubscription);
                 break;
+            case "customer.deleted":
+                val stripeCustomer = (com.stripe.model.Customer) event.getDataObjectDeserializer().getObject()
+                    .orElseThrow(() -> new WebhookPayloadException("failed to get customer object from the event payload"));
+                customerRepository.resetStripeId(stripeCustomer.getId());
+                break;
         }
     }
 
