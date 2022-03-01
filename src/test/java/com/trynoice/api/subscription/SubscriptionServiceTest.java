@@ -194,7 +194,6 @@ public class SubscriptionServiceTest {
     @Test
     void createSubscription_withValidParams() throws Exception {
         val userId = 1L;
-        val authUserEmail = "test@api.test";
         val stripePriceId = "stripe-price-id-1";
         val stripeCustomerId = "stripe-customer-id";
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, stripePriceId);
@@ -208,9 +207,6 @@ public class SubscriptionServiceTest {
         val subscriptionCaptor = ArgumentCaptor.forClass(Subscription.class);
         when(subscriptionRepository.save(subscriptionCaptor.capture()))
             .thenAnswer((Answer<Subscription>) invocation -> subscriptionCaptor.getValue());
-
-        when(accountServiceContract.findEmailByUser(userId))
-            .thenReturn(Optional.of(authUserEmail));
 
         when(customerRepository.findById(userId))
             .thenReturn(Optional.of(Customer.builder()
@@ -228,7 +224,7 @@ public class SubscriptionServiceTest {
                 eq(params.getCancelUrl()),
                 eq(stripePriceId),
                 any(),
-                eq(authUserEmail),
+                eq(null),
                 eq(stripeCustomerId),
                 any()))
             .thenReturn(mockSession);
