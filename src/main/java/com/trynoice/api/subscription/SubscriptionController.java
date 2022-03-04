@@ -108,7 +108,7 @@ class SubscriptionController {
      *
      * <ul>
      *     <li>for Google Play plans, the clients must link {@code subscriptionId} with the
-     *     subscription purchase by specifying it as {@code obfuscatedProfileId} in Google Play
+     *     subscription purchase by specifying it as {@code obfuscatedAccountId} in Google Play
      *     billing flow params.</li>
      *     <li>for Stripe plans, the clients must redirect the user to the provided url to make the
      *     payment and complete the checkout session.</li>

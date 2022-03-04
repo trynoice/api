@@ -417,7 +417,7 @@ public class SubscriptionControllerTest {
         subscription.setProviderSubscriptionId(null);
         subscriptionRepository.save(subscription);
 
-        purchase.setObfuscatedExternalProfileId(String.valueOf(subscription.getId()));
+        purchase.setObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
         when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionPlanId), eq(purchaseToken)))
             .thenReturn(purchase);
 
