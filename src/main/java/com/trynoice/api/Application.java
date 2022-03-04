@@ -1,5 +1,6 @@
 package com.trynoice.api;
 
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.trynoice.api.identity.BearerTokenAuthFilter;
 import com.trynoice.api.identity.CookieAuthFilter;
 import com.trynoice.api.platform.GlobalControllerAdvice;
@@ -16,6 +17,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.Banner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.cache.annotation.EnableCaching;
@@ -38,6 +40,15 @@ public class Application {
         new SpringApplicationBuilder(Application.class)
             .bannerMode(Banner.Mode.OFF)
             .run(args);
+    }
+
+    @NonNull
+    @Bean
+    public Jackson2ObjectMapperBuilderCustomizer objectMapperBuilderCustomizer() {
+        return builder -> {
+            builder.featuresToEnable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            builder.featuresToDisable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS);
+        };
     }
 
     @NonNull
