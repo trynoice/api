@@ -124,7 +124,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
      * <p>
      * If the requested plan is provided by {@link SubscriptionPlan.Provider#GOOGLE_PLAY}, the
      * clients must link the returned {@code subscriptionId} to the Google Play subscription
-     * purchase by specifying it as {@code obfuscatedProfileId} in Google Play billing flow
+     * purchase by specifying it as {@code obfuscatedAccountId} in Google Play billing flow
      * parameters.</p>
      *
      * @param customerId id of the customer (user) that initiated the subscription flow.
@@ -395,9 +395,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         final long subscriptionId;
         try {
-            subscriptionId = parseLong(purchase.getObfuscatedExternalProfileId());
+            subscriptionId = parseLong(purchase.getObfuscatedExternalAccountId());
         } catch (NumberFormatException e) {
-            throw new WebhookEventException("failed to parse 'obfuscatedExternalProfileId' in subscription purchase", e);
+            throw new WebhookEventException("failed to parse 'obfuscatedExternalAccountId' in subscription purchase", e);
         }
 
         val subscription = subscriptionRepository.findById(subscriptionId)
@@ -412,7 +412,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         //
         // Moreover, linked purchase token should be ignored since we're not using purchase tokens
         // to identify the internal subscription entity. Both the upgraded and the old subscription
-        // will have the same obfuscated profile id, and thus, its linked purchase token will be
+        // will have the same obfuscated account id, and thus, its linked purchase token will be
         // automatically overwritten when the upgraded subscription's notification arrives.
         subscription.setProviderSubscriptionId(purchaseToken.asText());
         if (purchase.getStartTimeMillis() != null) {
