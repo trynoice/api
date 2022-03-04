@@ -27,7 +27,7 @@ import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -147,8 +147,8 @@ public class SoundControllerTest {
             .plan(buildSubscriptionPlan())
             .providerSubscriptionId(UUID.randomUUID().toString())
             .isPaymentPending(isPaymentPending)
-            .startAt(LocalDateTime.now().plusHours(-2))
-            .endAt(LocalDateTime.now().plusHours(isActive ? 2 : -1))
+            .startAt(OffsetDateTime.now().plusHours(-2))
+            .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))
             .build();
 
         entityManager.persist(subscription);

@@ -37,8 +37,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -630,8 +629,8 @@ public class SubscriptionControllerTest {
                 .plan(plan)
                 .providerSubscriptionId(UUID.randomUUID().toString())
                 .isPaymentPending(isPaymentPending)
-                .startAt(LocalDateTime.now().plusHours(-2))
-                .endAt(LocalDateTime.now().plusHours(isActive ? 2 : -1))
+                .startAt(OffsetDateTime.now().plusHours(-2))
+                .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))
                 .build());
     }
 
@@ -676,7 +675,7 @@ public class SubscriptionControllerTest {
         val subscription = new com.stripe.model.Subscription();
         subscription.setStatus(status);
 
-        val now = LocalDateTime.now().atZone(ZoneId.systemDefault()).toEpochSecond();
+        val now = OffsetDateTime.now().toEpochSecond();
         subscription.setCurrentPeriodStart(now);
         subscription.setStartDate(now);
         subscription.setCurrentPeriodEnd(now + 60 * 60);

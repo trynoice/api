@@ -15,8 +15,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.OffsetDateTime;
 import java.util.Date;
 
 /**
@@ -47,7 +46,7 @@ public class RefreshToken extends BasicEntity {
     private long ordinal;
 
     @NonNull
-    private LocalDateTime expiresAt;
+    private OffsetDateTime expiresAt;
 
     public void incrementOrdinal() {
         ordinal++;
@@ -63,14 +62,9 @@ public class RefreshToken extends BasicEntity {
     public String getJwt(@NonNull Algorithm signingAlgorithm) {
         return JWT.create()
             .withJWTId(String.valueOf(getId()))
-            .withIssuedAt(convertLocalDateTimeToDate(getCreatedAt()))
-            .withExpiresAt(convertLocalDateTimeToDate(expiresAt))
+            .withIssuedAt(Date.from(getCreatedAt().toInstant()))
+            .withExpiresAt(Date.from(expiresAt.toInstant()))
             .withClaim(ORD_JWT_CLAIM, ordinal)
             .sign(signingAlgorithm);
-    }
-
-    @NonNull
-    private static Date convertLocalDateTimeToDate(@NonNull LocalDateTime localDateTime) {
-        return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
     }
 }

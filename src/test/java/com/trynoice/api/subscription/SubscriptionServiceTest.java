@@ -29,7 +29,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -363,14 +363,15 @@ public class SubscriptionServiceTest {
         boolean isActive,
         boolean isPaymentPending
     ) {
+        val now = OffsetDateTime.now();
         return Subscription.builder()
             .id(Math.round(Math.random() * 1000))
             .customer(Customer.builder().userId(ownerId).build())
             .plan(plan)
             .providerSubscriptionId(UUID.randomUUID().toString())
             .isPaymentPending(isPaymentPending)
-            .startAt(LocalDateTime.now().plusHours(-2))
-            .endAt(LocalDateTime.now().plusHours(isActive ? 2 : -1))
+            .startAt(now.plusHours(-2))
+            .endAt(now.plusHours(isActive ? 2 : -1))
             .build();
     }
 }

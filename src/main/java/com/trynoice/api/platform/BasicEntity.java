@@ -9,7 +9,7 @@ import lombok.Setter;
 import javax.persistence.Column;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.PrePersist;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * <p>
@@ -61,13 +61,13 @@ public class BasicEntity {
      */
     @NonNull
     @Column(updatable = false)
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
     /**
      * Deletion timestamp of this row in the table. It is used for facilitating soft-deletes.
      */
     @Setter(AccessLevel.PACKAGE)
-    private LocalDateTime deletedAt;
+    private OffsetDateTime deletedAt;
 
     /**
      * Optimistic lock used by the JPA operations.
@@ -76,6 +76,6 @@ public class BasicEntity {
 
     @PrePersist
     void setCreatedAt() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = OffsetDateTime.now();
     }
 }
