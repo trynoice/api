@@ -53,10 +53,10 @@ public class SubscriptionView {
     @NonNull
     private String status;
 
-    @Schema(description = "subscription start timestamp (ISO-8601 format) if the subscription is active (status = pending/active)")
+    @Schema(type = "integer", format = "int64", description = "epoch time in seconds when the subscription started")
     private OffsetDateTime startedAt;
 
-    @Schema(description = "subscription end timestamp (ISO-8601 format) if the subscription has ended (status = ended)")
+    @Schema(type = "integer", format = "int64", description = "epoch time in seconds when the subscription ended")
     private OffsetDateTime endedAt;
 
     @Schema(description = "Stripe customer portal URL to manage subscriptions (only present if provider = stripe and status = active)")
