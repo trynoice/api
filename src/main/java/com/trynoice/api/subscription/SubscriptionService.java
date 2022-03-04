@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -327,7 +327,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         }
 
         subscription.setPaymentPending(false);
-        subscription.setEndAt(LocalDateTime.now());
+        subscription.setEndAt(OffsetDateTime.now());
         subscriptionRepository.save(subscription);
 
         if (!subscription.getCustomer().isTrialPeriodUsed()) {
@@ -604,7 +604,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 }
                 break;
             default:
-                subscription.setEndAt(LocalDateTime.now());
+                subscription.setEndAt(OffsetDateTime.now());
                 break;
         }
 
@@ -646,7 +646,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                     : SubscriptionView.STATUS_INACTIVE)
             .startedAt(subscription.getStartAt())
             .endedAt(
-                subscription.getEndAt() != null && subscription.getEndAt().isBefore(LocalDateTime.now())
+                subscription.getEndAt() != null && subscription.getEndAt().isBefore(OffsetDateTime.now())
                     ? subscription.getEndAt() : null)
             .stripeCustomerPortalUrl(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE

@@ -30,8 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.OffsetDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -127,7 +126,7 @@ class AccountService implements SubscriptionAccountServiceContract {
             var delay = round(pow(MIN_SIGN_IN_REATTEMPT_DELAY_SECONDS, authUser.getIncompleteSignInAttempts()));
             delay = min(delay, authConfig.getSignInReattemptMaxDelay().toSeconds());
             val nextAttemptAt = authUser.getLastSignInAttemptAt().plusSeconds(delay);
-            val now = LocalDateTime.now();
+            val now = OffsetDateTime.now();
             if (nextAttemptAt.isAfter(now)) {
                 throw new TooManySignInAttemptsException(authUser.getEmail(), Duration.between(now, nextAttemptAt));
             }
@@ -138,7 +137,7 @@ class AccountService implements SubscriptionAccountServiceContract {
         return refreshTokenRepository.save(
                 RefreshToken.builder()
                     .owner(authUser)
-                    .expiresAt(LocalDateTime.now().plus(authConfig.getSignInTokenExpiry()))
+                    .expiresAt(OffsetDateTime.now().plus(authConfig.getSignInTokenExpiry()))
                     .build())
             .getJwt(jwtAlgorithm);
     }
@@ -182,14 +181,14 @@ class AccountService implements SubscriptionAccountServiceContract {
         // saving AuthUser entity implicitly updates last active timestamp, so always perform the
         // save step regardless of the token ordinal value.
         authUserRepository.save(token.getOwner());
-        token.setExpiresAt(LocalDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
+        token.setExpiresAt(OffsetDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
         token.incrementOrdinal();
         token = refreshTokenRepository.save(token);
 
-        val accessTokenExpiry = LocalDateTime.now().plus(authConfig.getAccessTokenExpiry());
+        val accessTokenExpiry = OffsetDateTime.now().plus(authConfig.getAccessTokenExpiry());
         val signedAccessToken = JWT.create()
             .withSubject("" + token.getOwner().getId())
-            .withExpiresAt(Date.from(accessTokenExpiry.atZone(ZoneId.systemDefault()).toInstant()))
+            .withExpiresAt(Date.from(accessTokenExpiry.toInstant()))
             .sign(jwtAlgorithm);
 
         return AuthCredentials.builder()

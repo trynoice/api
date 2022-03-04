@@ -25,7 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import javax.persistence.EntityManager;
 import javax.servlet.http.Cookie;
 import javax.transaction.Transactional;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -258,7 +258,7 @@ class AccountControllerTest {
 
     @ParameterizedTest(name = "{displayName} - incompleteSignInAttempts={0} lastSignInAttemptAt={1} responseStatus={2}")
     @MethodSource("emailBlacklistingTestCases")
-    void emailBlacklisting(int incompleteSignInAttempts, LocalDateTime lastSignInAttemptAt, int expectedResponseStatus) throws Exception {
+    void emailBlacklisting(int incompleteSignInAttempts, OffsetDateTime lastSignInAttemptAt, int expectedResponseStatus) throws Exception {
         val user = createAuthUser(entityManager);
         user.setLastSignInAttemptAt(lastSignInAttemptAt);
         user.setIncompleteSignInAttempts((short) incompleteSignInAttempts);
@@ -287,8 +287,8 @@ class AccountControllerTest {
         return Stream.of(
             // incompleteSignInAttempts, lastSignInAttemptAt, responseStatus
             arguments(0, null, HttpStatus.CREATED.value()),
-            arguments(5, LocalDateTime.now().minusHours(1), HttpStatus.CREATED.value()),
-            arguments(5, LocalDateTime.now(), HttpStatus.TOO_MANY_REQUESTS.value())
+            arguments(5, OffsetDateTime.now().minusHours(1), HttpStatus.CREATED.value()),
+            arguments(5, OffsetDateTime.now(), HttpStatus.TOO_MANY_REQUESTS.value())
         );
     }
 

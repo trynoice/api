@@ -9,7 +9,7 @@ import lombok.val;
 
 import javax.persistence.EntityManager;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Calendar;
 import java.util.UUID;
 
@@ -50,7 +50,7 @@ public class AuthTestUtils {
     @NonNull
     public static RefreshToken createRefreshToken(@NonNull EntityManager entityManager, @NonNull AuthUser owner) {
         val refreshToken = RefreshToken.builder()
-            .expiresAt(LocalDateTime.now().plus(Duration.ofHours(1)))
+            .expiresAt(OffsetDateTime.now().plus(Duration.ofHours(1)))
             .userAgent("")
             .owner(owner)
             .build();
@@ -76,7 +76,7 @@ public class AuthTestUtils {
         @NonNull AuthUser owner,
         @NonNull JwtType type
     ) {
-        var expiresAt = LocalDateTime.now().plus(Duration.ofHours(1));
+        var expiresAt = OffsetDateTime.now().plus(Duration.ofHours(1));
         switch (type) {
             case NULL:
                 return null;
@@ -85,7 +85,7 @@ public class AuthTestUtils {
             case INVALID:
                 return "invalid-token";
             case EXPIRED:
-                expiresAt = LocalDateTime.now().minus(Duration.ofHours(1));
+                expiresAt = OffsetDateTime.now().minus(Duration.ofHours(1));
                 break;
         }
 

@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -54,10 +54,10 @@ public class SubscriptionView {
     private String status;
 
     @Schema(description = "subscription start timestamp (ISO-8601 format) if the subscription is active (status = pending/active)")
-    private LocalDateTime startedAt;
+    private OffsetDateTime startedAt;
 
     @Schema(description = "subscription end timestamp (ISO-8601 format) if the subscription has ended (status = ended)")
-    private LocalDateTime endedAt;
+    private OffsetDateTime endedAt;
 
     @Schema(description = "Stripe customer portal URL to manage subscriptions (only present if provider = stripe and status = active)")
     private String stripeCustomerPortalUrl;

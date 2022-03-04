@@ -16,7 +16,7 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
 /**
@@ -46,38 +46,38 @@ public class Subscription extends BasicEntity {
 
     private boolean isPaymentPending;
 
-    private LocalDateTime startAt, endAt;
+    private OffsetDateTime startAt, endAt;
 
     /**
      * Helper to set {@link Subscription#startAt} using Epoch seconds.
      */
     public void setStartAtSeconds(long seconds) {
-        this.startAt = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneId.systemDefault());
+        this.startAt = OffsetDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneId.systemDefault());
     }
 
     /**
      * Helper to set {@link Subscription#startAt} using Epoch milliseconds.
      */
     public void setStartAtMillis(long millis) {
-        this.startAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
+        this.startAt = OffsetDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
     }
 
     /**
      * Helper to set {@link Subscription#endAt} using Epoch seconds.
      */
     public void setEndAtSeconds(long seconds) {
-        this.endAt = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneId.systemDefault());
+        this.endAt = OffsetDateTime.ofInstant(Instant.ofEpochSecond(seconds), ZoneId.systemDefault());
     }
 
     /**
      * Helper to set {@link Subscription#endAt} using Epoch milliseconds.
      */
     public void setEndAtMillis(long millis) {
-        this.endAt = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
+        this.endAt = OffsetDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault());
     }
 
     public boolean isActive() {
-        val now = LocalDateTime.now();
+        val now = OffsetDateTime.now();
         return startAt != null && startAt.isBefore(now) && endAt != null && endAt.isAfter(now);
     }
 }

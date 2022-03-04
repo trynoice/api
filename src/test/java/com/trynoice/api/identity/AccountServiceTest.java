@@ -22,7 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -120,7 +120,7 @@ class AccountServiceTest {
     @Test
     void signUp_withBlacklistedEmail() {
         val authUser = buildAuthUser();
-        authUser.setLastSignInAttemptAt(LocalDateTime.now());
+        authUser.setLastSignInAttemptAt(OffsetDateTime.now());
         authUser.setIncompleteSignInAttempts((short) 5);
         when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.empty());
         when(authUserRepository.save(any())).thenReturn(authUser);
@@ -161,7 +161,7 @@ class AccountServiceTest {
     @Test
     void signIn_withBlacklistedEmail() {
         val authUser = buildAuthUser();
-        authUser.setLastSignInAttemptAt(LocalDateTime.now());
+        authUser.setLastSignInAttemptAt(OffsetDateTime.now());
         authUser.setIncompleteSignInAttempts((short) 5);
         when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(new SignInParams(authUser.getEmail())));
@@ -175,7 +175,7 @@ class AccountServiceTest {
     @Test
     void signOut_withExpiredJWT() {
         val refreshToken = buildRefreshToken(buildAuthUser());
-        refreshToken.setExpiresAt(LocalDateTime.now().minus(Duration.ofHours(1)));
+        refreshToken.setExpiresAt(OffsetDateTime.now().minus(Duration.ofHours(1)));
         val signedJwt = refreshToken.getJwt(jwtAlgorithm);
         assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(signedJwt, "valid-acess-jwt"));
     }
@@ -221,7 +221,7 @@ class AccountServiceTest {
     @Test
     void issueAuthCredentials_withExpiredJWT() {
         val expiredRefreshToken = buildRefreshToken(buildAuthUser());
-        expiredRefreshToken.setExpiresAt(LocalDateTime.now().minus(Duration.ofHours(1)));
+        expiredRefreshToken.setExpiresAt(OffsetDateTime.now().minus(Duration.ofHours(1)));
         val signedJwt = expiredRefreshToken.getJwt(jwtAlgorithm);
 
         assertThrows(RefreshTokenVerificationException.class, () ->
@@ -371,7 +371,7 @@ class AccountServiceTest {
             .build();
 
         authUser.setId(1L);
-        authUser.setCreatedAt(LocalDateTime.now());
+        authUser.setCreatedAt(OffsetDateTime.now());
         return authUser;
     }
 
@@ -380,11 +380,11 @@ class AccountServiceTest {
         val refreshToken = RefreshToken.builder()
             .owner(authUser)
             .userAgent("test-user-agent")
-            .expiresAt(LocalDateTime.now().plus(Duration.ofHours(1)))
+            .expiresAt(OffsetDateTime.now().plus(Duration.ofHours(1)))
             .build();
 
         refreshToken.setId(1L);
-        refreshToken.setCreatedAt(LocalDateTime.now());
+        refreshToken.setCreatedAt(OffsetDateTime.now());
         return refreshToken;
     }
 }

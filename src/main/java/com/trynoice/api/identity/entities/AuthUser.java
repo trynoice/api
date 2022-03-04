@@ -16,7 +16,7 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * A data access object that maps to the {@code auth_user} table in the database.
@@ -42,21 +42,21 @@ public class AuthUser extends BasicEntity {
     @NonNull
     @Builder.Default
     @Setter(AccessLevel.NONE)
-    private LocalDateTime lastActiveAt = LocalDateTime.now();
+    private OffsetDateTime lastActiveAt = OffsetDateTime.now();
 
     private short incompleteSignInAttempts;
 
-    private LocalDateTime lastSignInAttemptAt;
+    private OffsetDateTime lastSignInAttemptAt;
 
     @PrePersist
     @PreUpdate
     void setLastActiveAt() {
-        this.lastActiveAt = LocalDateTime.now();
+        this.lastActiveAt = OffsetDateTime.now();
     }
 
     public void updateSignInAttemptData() {
         this.incompleteSignInAttempts++;
-        this.lastSignInAttemptAt = LocalDateTime.now();
+        this.lastSignInAttemptAt = OffsetDateTime.now();
     }
 
     public void resetSignInAttemptData() {

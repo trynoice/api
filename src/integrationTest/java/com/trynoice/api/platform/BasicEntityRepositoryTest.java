@@ -9,7 +9,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.Stack;
 
@@ -39,7 +39,7 @@ public class BasicEntityRepositoryTest {
             activeEntityStack.push(repository.save(new TestEntity()));
 
             val entity = new TestEntity();
-            entity.setDeletedAt(LocalDateTime.now());
+            entity.setDeletedAt(OffsetDateTime.now());
             inactiveEntityStack.push(repository.save(entity));
         }
     }

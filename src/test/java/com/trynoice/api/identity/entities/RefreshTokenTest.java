@@ -6,7 +6,7 @@ import lombok.val;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -17,15 +17,16 @@ class RefreshTokenTest {
 
     @Test
     void getSignedJwt() {
+        val now = OffsetDateTime.now();
         val jwtAlgorithm = Algorithm.HMAC256(TEST_HMAC_SECRET);
         val refreshToken = RefreshToken.builder()
             .owner(mock(AuthUser.class))
-            .expiresAt(LocalDateTime.now().plus(Duration.ofHours(1)))
+            .expiresAt(now.plus(Duration.ofHours(1)))
             .build();
 
         refreshToken.setId(1L);
         refreshToken.setVersion(1L);
-        refreshToken.setCreatedAt(LocalDateTime.now());
+        refreshToken.setCreatedAt(now);
 
         val signedToken = refreshToken.getJwt(jwtAlgorithm);
         val decodedJwt = JWT.require(jwtAlgorithm).build().verify(signedToken);
