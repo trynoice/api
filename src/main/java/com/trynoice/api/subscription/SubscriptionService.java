@@ -639,14 +639,14 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         return SubscriptionView.builder()
             .id(subscription.getId())
             .plan(buildSubscriptionPlanView(subscription.getPlan()))
-            .status(
-                subscription.isActive() ? subscription.isPaymentPending()
-                    ? SubscriptionView.STATUS_PENDING
-                    : SubscriptionView.STATUS_ACTIVE
-                    : SubscriptionView.STATUS_INACTIVE)
+            .isActive(subscription.isActive())
+            .isPaymentPending(subscription.isPaymentPending())
             .startedAt(subscription.getStartAt())
             .endedAt(
                 subscription.getEndAt() != null && subscription.getEndAt().isBefore(OffsetDateTime.now())
+                    ? subscription.getEndAt() : null)
+            .renewsAt(
+                subscription.getEndAt() != null && subscription.getEndAt().isAfter(OffsetDateTime.now())
                     ? subscription.getEndAt() : null)
             .stripeCustomerPortalUrl(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE

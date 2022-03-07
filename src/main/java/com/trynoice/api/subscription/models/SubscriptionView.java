@@ -16,24 +16,6 @@ import java.time.OffsetDateTime;
 @Schema(name = "Subscription")
 public class SubscriptionView {
 
-    /**
-     * Indicates that the subscription is currently inactive, and the user has lost access to its
-     * entitlements.
-     */
-    public static final String STATUS_INACTIVE = "inactive";
-
-    /**
-     * Indicates that the payment for the subscription is pending, but the user has access to its
-     * entitlements.
-     */
-    public static final String STATUS_PENDING = "pending";
-
-    /**
-     * Indicates that the subscription is currently active, and the user have access to all its
-     * entitlements.
-     */
-    public static final String STATUS_ACTIVE = "active";
-
     @Schema(required = true, description = "id of the subscription purchase")
     @NonNull
     private Long id;
@@ -42,23 +24,23 @@ public class SubscriptionView {
     @NonNull
     private SubscriptionPlanView plan;
 
-    @Schema(
-        required = true,
-        allowableValues = {STATUS_INACTIVE, STATUS_PENDING, STATUS_ACTIVE},
-        description = "the current status of the subscription.\n\n" +
-            "- `inactive`: the subscription is currently inactive, and the user has lost access to its entitlements.\n" +
-            "- `pending`: the payment for the subscription is pending, but the user has access to its entitlements.\n" +
-            "- `active`: the subscription is currently active, and the user have access to all its entitlements."
-    )
+    @Schema(required = true, description = "whether this subscription purchase is currently active")
     @NonNull
-    private String status;
+    private Boolean isActive;
 
-    @Schema(type = "integer", format = "int64", description = "epoch time in seconds when the subscription started")
+    @Schema(required = true, description = "whether a payment for this subscription purchase is currently pending")
+    @NonNull
+    private Boolean isPaymentPending;
+
+    @Schema(type = "integer", format = "int64", description = "epoch millis when the subscription started")
     private OffsetDateTime startedAt;
 
-    @Schema(type = "integer", format = "int64", description = "epoch time in seconds when the subscription ended")
+    @Schema(type = "integer", format = "int64", description = "epoch millis when the subscription ended")
     private OffsetDateTime endedAt;
 
-    @Schema(description = "Stripe customer portal URL to manage subscriptions (only present if provider = stripe and status = active)")
+    @Schema(type = "integer", format = "int64", description = "epoch millis when the next billing cycle starts (only present if isActive = T)")
+    private OffsetDateTime renewsAt;
+
+    @Schema(description = "Stripe customer portal URL to manage subscriptions (only present if provider = stripe and isActive = T)")
     private String stripeCustomerPortalUrl;
 }
