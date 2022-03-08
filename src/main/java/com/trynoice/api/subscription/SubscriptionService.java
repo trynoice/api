@@ -640,7 +640,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             .id(subscription.getId())
             .plan(buildSubscriptionPlanView(subscription.getPlan()))
             .isActive(subscription.isActive())
-            .isPaymentPending(subscription.isPaymentPending())
+            // redundant sanity check, only an active subscription can have a pending payment.
+            .isPaymentPending(subscription.isActive() && subscription.isPaymentPending())
             .startedAt(subscription.getStartAt())
             .endedAt(
                 subscription.getEndAt() != null && subscription.getEndAt().isBefore(OffsetDateTime.now())
