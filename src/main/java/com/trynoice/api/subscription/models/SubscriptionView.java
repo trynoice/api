@@ -38,9 +38,15 @@ public class SubscriptionView {
     @Schema(type = "integer", format = "int64", description = "epoch millis when the subscription ended")
     private OffsetDateTime endedAt;
 
-    @Schema(type = "integer", format = "int64", description = "epoch millis when the next billing cycle starts (only present if isActive = T)")
+    @Schema(required = true, description = "whether the subscription will renew at the end of this billing " +
+        "cycle. if false, it implies that the subscription will end at the end of current billing cycle.")
+    private Boolean isAutoRenewing;
+
+    @Schema(type = "integer", format = "int64", description = "epoch millis when the current billing cycle ends " +
+        "and the next one starts. always present unless the subscription is inactive.")
     private OffsetDateTime renewsAt;
 
-    @Schema(description = "Stripe customer portal URL to manage subscriptions (only present if provider = stripe and isActive = T)")
+    @Schema(description = "Stripe customer portal URL to manage subscriptions. only present when the subscription " +
+        "is active and provided by Stripe.")
     private String stripeCustomerPortalUrl;
 }

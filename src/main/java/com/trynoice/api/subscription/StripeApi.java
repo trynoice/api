@@ -8,10 +8,12 @@ import com.stripe.model.Event;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
-import com.stripe.param.SubscriptionCancelParams;
+import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.NonNull;
 import lombok.val;
+
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * A thin wrapper around {@link Stripe} api to enable easy mocking.
@@ -94,20 +96,22 @@ public class StripeApi {
     }
 
     /**
-     * Cancels an uncanceled subscription immediately and refunds any remaining (unused) amount on a
-     * prorated basis.
+     * Marks an uncancelled subscription to be cancelled at the end of the current billing cycle.
      *
-     * @see Subscription#cancel(SubscriptionCancelParams)
+     * @see Subscription#update(SubscriptionUpdateParams)
      */
     void cancelSubscription(@NonNull String id) throws StripeException {
         val subscription = getSubscription(id);
-        if ("canceled".equals(subscription.getStatus())) {
+        val isCancelled = "canceled".equals(subscription.getStatus());
+        val isCancellingAtPeriodEnd = requireNonNullElse(subscription.getCancelAtPeriodEnd(), false);
+        if (isCancelled || isCancellingAtPeriodEnd) {
             return;
         }
 
-        subscription.cancel(
-            SubscriptionCancelParams.builder()
-                .setProrate(true)
+        // cancel at the end of current billing period to match Google Play Subscriptions behaviour.
+        subscription.update(
+            SubscriptionUpdateParams.builder()
+                .setCancelAtPeriodEnd(true)
                 .build());
     }
 

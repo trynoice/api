@@ -348,7 +348,7 @@ public class SubscriptionControllerTest {
             .andExpect(status().is(expectedResponseCode));
 
         if (expectedResponseCode == HttpStatus.NO_CONTENT.value()) {
-            assertFalse(subscription.isActive());
+            assertFalse(subscription.isAutoRenewing());
             switch (provider) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
@@ -428,6 +428,7 @@ public class SubscriptionControllerTest {
         assertEquals(isActive, subscription.isActive());
         assertEquals(isPaymentPending, subscription.isPaymentPending());
         assertEquals(purchaseToken, subscription.getProviderSubscriptionId());
+        assertTrue(subscription.getCustomer().isTrialPeriodUsed());
 
         verify(androidPublisherApi, times(shouldAcknowledgePurchase ? 1 : 0))
             .acknowledgePurchase(any(), eq(subscriptionPlanId), eq(purchaseToken));
@@ -506,6 +507,9 @@ public class SubscriptionControllerTest {
             .andExpect(status().is(expectedResponseCode));
 
         assertEquals(isSubscriptionActive, subscription.isActive());
+        if (isSubscriptionActive) {
+            assertTrue(subscription.getCustomer().isTrialPeriodUsed());
+        }
     }
 
     static Stream<Arguments> handleStripeWebhookEvent_checkoutSessionCompleteTestCases() {
