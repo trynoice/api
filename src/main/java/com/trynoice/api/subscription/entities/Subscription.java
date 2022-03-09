@@ -46,6 +46,9 @@ public class Subscription extends BasicEntity {
 
     private boolean isPaymentPending;
 
+    @Builder.Default
+    private boolean isAutoRenewing = true;
+
     private OffsetDateTime startAt, endAt;
 
     /**

@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static java.lang.Long.parseLong;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * {@link SubscriptionService} implements operations related to subscription management.
@@ -282,8 +283,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     }
 
     /**
-     * Cancels the given subscription by requesting its cancellation from its provider and marking
-     * it as inactive in our internal state.
+     * Cancels the given subscription by requesting its cancellation from its provider. All
+     * providers are configured to cancel subscriptions at the end of their current billing cycles.
      *
      * @param customerId     id of the customer (user) that purchased the subscription.
      * @param subscriptionId id of the subscription to be cancelled.
@@ -326,14 +327,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 throw new IllegalStateException("unsupported provider used in subscription plan");
         }
 
-        subscription.setPaymentPending(false);
-        subscription.setEndAt(OffsetDateTime.now());
+        subscription.setAutoRenewing(false);
         subscriptionRepository.save(subscription);
-
-        if (!subscription.getCustomer().isTrialPeriodUsed()) {
-            subscription.getCustomer().setTrialPeriodUsed(true);
-            customerRepository.save(subscription.getCustomer());
-        }
     }
 
     /**
@@ -427,7 +422,13 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             subscription.setPaymentPending(Integer.valueOf(0).equals(purchase.getPaymentState()));
         }
 
+        subscription.setAutoRenewing(requireNonNullElse(purchase.getAutoRenewing(), true));
         subscriptionRepository.save(subscription);
+
+        if (!subscription.getCustomer().isTrialPeriodUsed()) {
+            subscription.getCustomer().setTrialPeriodUsed(true);
+            customerRepository.save(subscription.getCustomer());
+        }
 
         if (!Integer.valueOf(1).equals(purchase.getAcknowledgementState())) {
             try {
@@ -593,6 +594,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         }
 
         subscription.setPaymentPending("past_due".equals(stripeSubscription.getStatus()));
+        subscription.setAutoRenewing(!requireNonNullElse(stripeSubscription.getCancelAtPeriodEnd(), false));
         switch (stripeSubscription.getStatus()) {
             case "trialing":
             case "active":
@@ -646,9 +648,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             .endedAt(
                 subscription.getEndAt() != null && subscription.getEndAt().isBefore(OffsetDateTime.now())
                     ? subscription.getEndAt() : null)
-            .renewsAt(
-                subscription.getEndAt() != null && subscription.getEndAt().isAfter(OffsetDateTime.now())
-                    ? subscription.getEndAt() : null)
+            .isAutoRenewing(subscription.isActive() && subscription.isAutoRenewing())
+            .renewsAt(subscription.isActive() ? subscription.getEndAt() : null)
             .stripeCustomerPortalUrl(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
                     ? stripeCustomerPortalUrl : null)

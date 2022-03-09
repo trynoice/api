@@ -214,7 +214,9 @@ class SubscriptionController {
     }
 
     /**
-     * Cancels the given subscription if it is currently ongoing (active).
+     * Requests the cancellation of the given subscription from its provider if it is currently
+     * active. All providers are configured to cancel subscriptions at the end of their billing
+     * cycles.
      */
     @Operation(summary = "Cancel subscription")
     @ApiResponses({
