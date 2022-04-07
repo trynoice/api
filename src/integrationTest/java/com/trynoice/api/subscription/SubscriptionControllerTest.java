@@ -477,6 +477,50 @@ public class SubscriptionControllerTest {
         );
     }
 
+    @Test
+    void handleGooglePlayWebhookEvent_planUpgrade() throws Exception {
+        val oldPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-subscription-1");
+        val newPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-subscription-2");
+        val purchaseToken = UUID.randomUUID().toString();
+        val data = Base64.getEncoder().encodeToString(("{" +
+            "  \"version\": \"1.0\"," +
+            "  \"packageName\": \"com.github.ashutoshgngwr.noice\"," +
+            "  \"eventTimeMillis\": \"" + System.nanoTime() + "\"," +
+            "  \"subscriptionNotification\": {" +
+            "    \"version\": \"1.0\"," +
+            "    \"notificationType\": 4," +
+            "    \"purchaseToken\": \"" + purchaseToken + "\"," +
+            "    \"subscriptionId\":\"" + newPlan.getProviderPlanId() + "\"" +
+            "  }" +
+            "}").getBytes(StandardCharsets.UTF_8));
+
+        val eventPayload = "{" +
+            "  \"message\": {" +
+            "    \"attributes\": {}," +
+            "    \"data\": \"" + data + "\"," +
+            "    \"messageId\": \"" + System.nanoTime() + "\"" +
+            "  }," +
+            "  \"subscription\": \"projects/api-7562151365746880729-728328/subscriptions/noice-subscription-events-sub\"" +
+            "}";
+
+        val authUser = createAuthUser(entityManager);
+        val subscription = buildSubscription(authUser, oldPlan, true, false);
+        subscription.setProviderSubscriptionId(null);
+        subscriptionRepository.save(subscription);
+
+        val purchase = buildSubscriptionPurchase(System.currentTimeMillis() + 60 * 60 * 1000L, 0, 1);
+        purchase.setObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
+        when(androidPublisherApi.getSubscriptionPurchase(any(), eq(newPlan.getProviderPlanId()), eq(purchaseToken)))
+            .thenReturn(purchase);
+
+        mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(eventPayload))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
+    }
+
     @ParameterizedTest(name = "{displayName} - session.status={0} session.paymentStatus={1} isSubscriptionActive={2}")
     @MethodSource("handleStripeWebhookEvent_checkoutSessionCompleteTestCases")
     void handleStripeWebhookEvent_checkoutSessionComplete(
@@ -567,6 +611,32 @@ public class SubscriptionControllerTest {
             arguments("canceled", true, false, false, false),
             arguments("unpaid", true, true, false, false)
         );
+    }
+
+    @Test
+    void handleStripeWebhookEvent_planUpgrade() throws Exception {
+        val oldPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-1");
+        val newPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-2");
+        val subscription = buildSubscription(createAuthUser(entityManager), oldPlan, true, false);
+        val stripeSubscriptionId = UUID.randomUUID().toString();
+        subscription.setProviderSubscriptionId(stripeSubscriptionId);
+        subscriptionRepository.save(subscription);
+
+        val stripeSubscription = buildStripeSubscription("active", newPlan.getProviderPlanId());
+        stripeSubscription.setId(stripeSubscriptionId);
+        val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
+        val signature = "dummy-signature";
+
+        when(stripeApi.decodeWebhookPayload(eq(event.toJson()), eq(signature), any()))
+            .thenReturn(event);
+
+        mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
+                .header("Stripe-Signature", signature)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(event.toJson()))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
     }
 
     @Test
