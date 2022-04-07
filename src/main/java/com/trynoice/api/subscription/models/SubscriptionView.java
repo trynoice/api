@@ -49,4 +49,8 @@ public class SubscriptionView {
     @Schema(description = "Stripe customer portal URL to manage subscriptions. only present when the subscription " +
         "is active and provided by Stripe.")
     private String stripeCustomerPortalUrl;
+
+    @Schema(description = "purchase token corresponding to this subscription purchase. only present when the " +
+        "subscription is active and provided by Google Play")
+    private String googlePlayPurchaseToken;
 }

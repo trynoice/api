@@ -660,6 +660,9 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             .stripeCustomerPortalUrl(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
                     ? stripeCustomerPortalUrl : null)
+            .googlePlayPurchaseToken(
+                subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
+                    ? subscription.getProviderSubscriptionId() : null)
             .build();
     }
 }
