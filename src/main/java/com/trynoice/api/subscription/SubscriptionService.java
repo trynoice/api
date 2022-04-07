@@ -398,6 +398,13 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new WebhookEventException(String.format("subscription with id '%d' doesn't exist", subscriptionId)));
 
+        if (!subscriptionPlanId.asText().equals(subscription.getPlan().getProviderPlanId())) {
+            subscription.setPlan(
+                subscriptionPlanRepository.findByProviderPlanId(
+                        SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionPlanId.asText())
+                    .orElseThrow(() -> new WebhookEventException("unknown provider plan id")));
+        }
+
         // https://developer.android.com/google/play/billing/subscriptions#lifecycle
         // tldr; if the expiry time is in the future, the user must have the subscription
         // entitlements. Their payment might be pending and in that case, if the expiry is in the
