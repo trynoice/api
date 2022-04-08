@@ -368,6 +368,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             return;
         }
 
+        val notificationType = subscriptionNotification.at("/notificationType");
+        if (!notificationType.isInt()) {
+            throw new WebhookPayloadException("'notificationType' is missing or invalid in 'subscriptionNotification'");
+        }
+
         val subscriptionPlanId = subscriptionNotification.at("/subscriptionId");
         if (!subscriptionPlanId.isTextual()) {
             throw new WebhookPayloadException("'subscriptionId' is missing or invalid in 'subscriptionNotification'");
@@ -395,8 +400,25 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             throw new WebhookEventException("failed to parse 'obfuscatedExternalAccountId' in subscription purchase", e);
         }
 
-        val subscription = subscriptionRepository.findById(subscriptionId)
-            .orElseThrow(() -> new WebhookEventException(String.format("subscription with id '%d' doesn't exist", subscriptionId)));
+        // On upgrading/downgrading subscription, Google Play creates a new subscription entity and
+        // delivers its notification before expiring the old subscription. Hence, when an
+        // upgrade/downgrade happens, we need prevent the old subscription's notification from
+        // mutating our internal state. To achieve that, we rely on querying internal subscription
+        // objects using purchase tokens (provider subscription id).
+
+        val subscription = notificationType.asInt() == 4 // = new purchase
+            ? subscriptionRepository.findById(subscriptionId)
+            .orElseThrow(() -> new WebhookEventException("failed to find subscription entity for this purchase"))
+            : subscriptionRepository.findByProviderSubscriptionId(purchaseToken.asText())
+            .orElseGet(() -> purchase.getLinkedPurchaseToken() != null
+                ? subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken()).orElse(null)
+                : null);
+
+        if (subscription == null) {
+            // subscription is missing; the purchase token may have been invalidated during by an
+            // upgrade/downgrade.
+            return;
+        }
 
         if (!subscriptionPlanId.asText().equals(subscription.getPlan().getProviderPlanId())) {
             subscription.setPlan(
