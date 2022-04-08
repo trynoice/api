@@ -481,15 +481,16 @@ public class SubscriptionControllerTest {
     void handleGooglePlayWebhookEvent_planUpgrade() throws Exception {
         val oldPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-subscription-1");
         val newPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-subscription-2");
-        val purchaseToken = UUID.randomUUID().toString();
+        val oldPurchaseToken = UUID.randomUUID().toString();
+        val newPurchaseToken = UUID.randomUUID().toString();
         val data = Base64.getEncoder().encodeToString(("{" +
             "  \"version\": \"1.0\"," +
             "  \"packageName\": \"com.github.ashutoshgngwr.noice\"," +
             "  \"eventTimeMillis\": \"" + System.nanoTime() + "\"," +
             "  \"subscriptionNotification\": {" +
             "    \"version\": \"1.0\"," +
-            "    \"notificationType\": 4," +
-            "    \"purchaseToken\": \"" + purchaseToken + "\"," +
+            "    \"notificationType\": 1," + // anything but new purchase.
+            "    \"purchaseToken\": \"" + newPurchaseToken + "\"," +
             "    \"subscriptionId\":\"" + newPlan.getProviderPlanId() + "\"" +
             "  }" +
             "}").getBytes(StandardCharsets.UTF_8));
@@ -505,12 +506,13 @@ public class SubscriptionControllerTest {
 
         val authUser = createAuthUser(entityManager);
         val subscription = buildSubscription(authUser, oldPlan, true, false);
-        subscription.setProviderSubscriptionId(null);
+        subscription.setProviderSubscriptionId(oldPurchaseToken);
         subscriptionRepository.save(subscription);
 
         val purchase = buildSubscriptionPurchase(System.currentTimeMillis() + 60 * 60 * 1000L, 0, 1);
+        purchase.setLinkedPurchaseToken(oldPurchaseToken);
         purchase.setObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
-        when(androidPublisherApi.getSubscriptionPurchase(any(), eq(newPlan.getProviderPlanId()), eq(purchaseToken)))
+        when(androidPublisherApi.getSubscriptionPurchase(any(), eq(newPlan.getProviderPlanId()), eq(newPurchaseToken)))
             .thenReturn(purchase);
 
         mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
@@ -519,6 +521,7 @@ public class SubscriptionControllerTest {
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
+        assertEquals(newPurchaseToken, subscription.getProviderSubscriptionId());
     }
 
     @ParameterizedTest(name = "{displayName} - session.status={0} session.paymentStatus={1} isSubscriptionActive={2}")
