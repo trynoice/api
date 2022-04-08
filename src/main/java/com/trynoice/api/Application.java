@@ -16,6 +16,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.Banner;
+import org.springframework.boot.actuate.trace.http.HttpTraceRepository;
+import org.springframework.boot.actuate.trace.http.InMemoryHttpTraceRepository;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -84,6 +86,13 @@ public class Application {
                         .name(CookieAuthFilter.REFRESH_TOKEN_COOKIE)))
             .addSecurityItem(new SecurityRequirement().addList("bearer-token"))
             .addSecurityItem(new SecurityRequirement().addList("refresh-token-cookie"));
+    }
+
+    @NonNull
+    @Bean
+    HttpTraceRepository httpTraceRepository() {
+        // TODO: configure a production read http request tracing solution.
+        return new InMemoryHttpTraceRepository();
     }
 
     @Configuration
