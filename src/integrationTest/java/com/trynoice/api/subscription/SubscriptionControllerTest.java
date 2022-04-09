@@ -290,7 +290,8 @@ public class SubscriptionControllerTest {
         mockMvc.perform(
                 get("/v1/subscriptions?page=" + 2)
                     .header("Authorization", "Bearer " + accessToken))
-            .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
+            .andExpect(status().is(HttpStatus.OK.value()))
+            .andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
