@@ -145,11 +145,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
             if (params.getSuccessUrl() == null) {
-                throw new ConstraintViolationException("'successUrl' is required for 'STRIPE' plans", null);
+                throw new ConstraintViolationException("'successUrl' is required for 'stripe' plans", null);
             }
 
             if (params.getCancelUrl() == null) {
-                throw new ConstraintViolationException("'cancelUrl' is required for 'STRIPE' plans", null);
+                throw new ConstraintViolationException("'cancelUrl' is required for 'stripe' plans", null);
             }
         }
 
@@ -172,9 +172,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         val result = new SubscriptionFlowResult();
         result.setSubscription(buildSubscriptionView(subscription, null));
         if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
-            val sub = String.valueOf(subscription.getId());
-            params.setSuccessUrl(params.getSuccessUrl().replace("{subscriptionId}", sub));
-            params.setCancelUrl(params.getCancelUrl().replace("{subscriptionId}", sub));
+            params.setSuccessUrl(params.getSuccessUrl(), subscription.getId());
+            params.setCancelUrl(params.getCancelUrl(), subscription.getId());
 
             try {
                 result.setStripeCheckoutSessionUrl(

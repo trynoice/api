@@ -37,7 +37,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
@@ -135,7 +134,6 @@ class SubscriptionController {
     @NonNull
     @PostMapping
     ResponseEntity<SubscriptionFlowResult> createSubscription(
-        @NonNull HttpServletRequest request,
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
@@ -156,17 +154,16 @@ class SubscriptionController {
      * initiated, but were never started.
      *
      * @param onlyActive      return only the active subscription (single instance).
-     * @param stripeReturnUrl redirect URL for exiting Stripe customer portal.
-     * @param page            0-indexed page number. Causes {@literal HTTP 404} on exceeding the
-     *                        available limit.
-     * @return a page of subscription purchases.
+     * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
+     * @param page            0-indexed page number.
+     * @return a list of subscription purchases; empty list if the page number is higher than
+     * available data.
      */
     @Operation(summary = "List subscriptions")
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
         @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
         @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
-        @ApiResponse(responseCode = "404", description = "the requested page number is higher than available", content = @Content),
         @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
     })
     @NonNull
@@ -177,10 +174,12 @@ class SubscriptionController {
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
         @Valid @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
     ) {
-        val subscriptions = subscriptionService.listSubscriptions(principalId, onlyActive, stripeReturnUrl, page);
-        return page > 0 && subscriptions.isEmpty()
-            ? ResponseEntity.notFound().build()
-            : ResponseEntity.ok(subscriptions);
+        return ResponseEntity.ok(
+            subscriptionService.listSubscriptions(
+                principalId,
+                onlyActive,
+                stripeReturnUrl,
+                page));
     }
 
     /**
