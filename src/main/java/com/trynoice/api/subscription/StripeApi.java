@@ -8,6 +8,7 @@ import com.stripe.model.Event;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionCancelParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.NonNull;
@@ -98,21 +99,30 @@ public class StripeApi {
     /**
      * Marks an uncancelled subscription to be cancelled at the end of the current billing cycle.
      *
+     * @param id          id of the subscription to cancel.
+     * @param immediately if {@literal true}, the subscription is cancelled immediately and unused
+     *                    credits are marked for a refund. Otherwise, the subscription is marked to
+     *                    be cancelled at the end of the current billing period.
      * @see Subscription#update(SubscriptionUpdateParams)
+     * @see Subscription#cancel(SubscriptionCancelParams)
      */
-    void cancelSubscription(@NonNull String id) throws StripeException {
+    void cancelSubscription(@NonNull String id, boolean immediately) throws StripeException {
         val subscription = getSubscription(id);
-        val isCancelled = "canceled".equals(subscription.getStatus());
-        val isCancellingAtPeriodEnd = requireNonNullElse(subscription.getCancelAtPeriodEnd(), false);
-        if (isCancelled || isCancellingAtPeriodEnd) {
+        if ("canceled".equals(subscription.getStatus())) {
             return;
         }
 
-        // cancel at the end of current billing period to match Google Play Subscriptions behaviour.
-        subscription.update(
-            SubscriptionUpdateParams.builder()
-                .setCancelAtPeriodEnd(true)
-                .build());
+        if (immediately) {
+            subscription.cancel(
+                SubscriptionCancelParams.builder()
+                    .setProrate(true)
+                    .build());
+        } else if (!requireNonNullElse(subscription.getCancelAtPeriodEnd(), false)) {
+            subscription.update(
+                SubscriptionUpdateParams.builder()
+                    .setCancelAtPeriodEnd(true)
+                    .build());
+        }
     }
 
     /**

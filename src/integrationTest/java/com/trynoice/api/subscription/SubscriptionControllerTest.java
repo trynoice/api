@@ -360,7 +360,7 @@ public class SubscriptionControllerTest {
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
-                        .cancelSubscription(eq(subscription.getProviderSubscriptionId()));
+                        .cancelSubscription(subscription.getProviderSubscriptionId(), false);
                     break;
                 default:
                     throw new RuntimeException("unknown provider");
@@ -593,6 +593,9 @@ public class SubscriptionControllerTest {
         when(stripeApi.decodeWebhookPayload(eq(event.toJson()), eq(signature), any()))
             .thenReturn(event);
 
+        when(stripeApi.getSubscription(stripeSubscriptionId))
+            .thenReturn(stripeSubscription);
+
         mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
                 .header("Stripe-Signature", signature)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -633,6 +636,9 @@ public class SubscriptionControllerTest {
 
         when(stripeApi.decodeWebhookPayload(eq(event.toJson()), eq(signature), any()))
             .thenReturn(event);
+
+        when(stripeApi.getSubscription(stripeSubscriptionId))
+            .thenReturn(stripeSubscription);
 
         mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
                 .header("Stripe-Signature", signature)
