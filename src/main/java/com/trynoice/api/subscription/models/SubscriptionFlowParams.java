@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -30,25 +29,4 @@ public class SubscriptionFlowParams {
     @Schema(description = "redirect url when the user cancels the checkout session. it is only required for Stripe plans")
     @HttpUrl
     private String cancelUrl;
-
-    /**
-     * Sets the {@link SubscriptionFlowParams#successUrl} to the given {@code url} after replacing
-     * {@code {subscriptionId}} template string with the given {@code subscriptionId}.
-     */
-    public void setSuccessUrl(@NotNull String url, long subscriptionId) {
-        this.successUrl = injectSubscriptionId(url, subscriptionId);
-    }
-
-    /**
-     * Sets the {@link SubscriptionFlowParams#cancelUrl} to the given {@code url} after replacing
-     * {@code {subscriptionId}} template string with the given {@code subscriptionId}.
-     */
-    public void setCancelUrl(@NonNull String url, long subscriptionId) {
-        this.cancelUrl = injectSubscriptionId(url, subscriptionId);
-    }
-
-    @NonNull
-    private String injectSubscriptionId(@NonNull String url, long subscriptionId) {
-        return url.replaceAll("(\\{|%7B)subscriptionId(}|%7D)", String.valueOf(subscriptionId));
-    }
 }

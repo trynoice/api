@@ -171,28 +171,34 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         val result = new SubscriptionFlowResult();
         result.setSubscription(buildSubscriptionView(subscription, null));
-        if (plan.getProvider() == SubscriptionPlan.Provider.STRIPE) {
-            params.setSuccessUrl(params.getSuccessUrl(), subscription.getId());
-            params.setCancelUrl(params.getCancelUrl(), subscription.getId());
-
-            try {
-                result.setStripeCheckoutSessionUrl(
-                    stripeApi.createCheckoutSession(
-                            params.getSuccessUrl(),
-                            params.getCancelUrl(),
-                            plan.getProviderPlanId(),
-                            String.valueOf(subscription.getId()),
-                            customer.getStripeId() == null
-                                ? accountServiceContract.findEmailByUser(customerId).orElse(null)
-                                : null,
-                            customer.getStripeId(),
-                            customer.isTrialPeriodUsed() ? null : (long) plan.getTrialPeriodDays())
-                        .getUrl());
-            } catch (StripeException e) {
-                throw new RuntimeException("failed to create stripe checkout session", e);
-            }
+        if (plan.getProvider() != SubscriptionPlan.Provider.STRIPE) {
+            return result;
         }
 
+        final Session checkoutSession;
+        try {
+            val toReplaceRegex = "(\\{|%7B)subscriptionId(}|%7D)";
+            val subscriptionIdStr = String.valueOf(subscription.getId());
+            checkoutSession = stripeApi.createCheckoutSession(
+                params.getSuccessUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
+                params.getCancelUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
+                plan.getProviderPlanId(),
+                subscriptionIdStr,
+                customer.getStripeId() == null
+                    ? accountServiceContract.findEmailByUser(customerId).orElse(null)
+                    : null,
+                customer.getStripeId(),
+                customer.isTrialPeriodUsed() ? null : (long) plan.getTrialPeriodDays());
+        } catch (StripeException e) {
+            throw new RuntimeException("failed to create stripe checkout session", e);
+        }
+
+        if (checkoutSession.getSubscription() != null) {
+            subscription.setProviderSubscriptionId(checkoutSession.getSubscription());
+            subscriptionRepository.save(subscription);
+        }
+
+        result.setStripeCheckoutSessionUrl(checkoutSession.getUrl());
         return result;
     }
 
@@ -316,7 +322,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 break;
             case STRIPE:
                 try {
-                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId());
+                    // cancel at the end of current billing period to match Google Play Subscriptions behaviour.
+                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId(), false);
                 } catch (StripeException e) {
                     throw new RuntimeException("stripe api error", e);
                 }
@@ -512,7 +519,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                         // cancel subscription if we cannot handle the checkout session completed
                         // event. It is an edge-case event that should never happen, unless our
                         // internal data has gone corrupt somehow.
-                        stripeApi.cancelSubscription(session.getSubscription());
+                        stripeApi.cancelSubscription(session.getSubscription(), true);
                     } catch (StripeException inner) {
                         val e = new RuntimeException("failed to cancel stripe subscription", inner);
                         e.addSuppressed(outer);
@@ -557,21 +564,13 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             throw new WebhookEventException("failed to parse the client reference id in checkout session");
         }
 
-        final com.stripe.model.Subscription stripeSubscription;
-        try {
-            stripeSubscription = stripeApi.getSubscription(session.getSubscription());
-        } catch (StripeException e) {
-            throw new RuntimeException("failed to get subscription object from stripe api", e);
-        }
-
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> {
                 val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
                 return new WebhookEventException(errMsg);
             });
 
-        subscription.setProviderSubscriptionId(session.getSubscription());
-        updateSubscriptionDetailsFromStripeObject(subscription, stripeSubscription);
+        copySubscriptionDetailsFromStripeObject(subscription, session.getSubscription());
         subscriptionRepository.save(subscription);
 
         val customer = subscription.getCustomer();
@@ -592,14 +591,23 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 return new WebhookEventException(errMsg);
             });
 
-        updateSubscriptionDetailsFromStripeObject(subscription, stripeSubscription);
+        // always fetch subscription entity from Stripe API since retried (or delayed) webhook
+        // events may contain stale data.
+        copySubscriptionDetailsFromStripeObject(subscription, stripeSubscription.getId());
         subscriptionRepository.save(subscription);
     }
 
-    private void updateSubscriptionDetailsFromStripeObject(
+    private void copySubscriptionDetailsFromStripeObject(
         @NonNull Subscription subscription,
-        @NonNull com.stripe.model.Subscription stripeSubscription
+        @NonNull String stripeSubscriptionId
     ) throws WebhookPayloadException, WebhookEventException {
+        final com.stripe.model.Subscription stripeSubscription;
+        try {
+            stripeSubscription = stripeApi.getSubscription(stripeSubscriptionId);
+        } catch (StripeException e) {
+            throw new RuntimeException("failed to get subscription object from stripe api", e);
+        }
+
         if (stripeSubscription.getItems() == null
             || stripeSubscription.getItems().getData() == null
             || stripeSubscription.getItems().getData().size() != 1
@@ -637,8 +645,6 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 subscription.setEndAt(OffsetDateTime.now());
                 break;
         }
-
-        subscriptionRepository.save(subscription);
     }
 
     /**
