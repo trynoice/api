@@ -150,7 +150,7 @@ public class SubscriptionControllerTest {
         val authUser = createAuthUser(entityManager);
         val plan = buildSubscriptionPlan(provider, providerPlanId);
         if (wasSubscriptionActive != null) {
-            buildSubscription(authUser, plan, wasSubscriptionActive, false);
+            buildSubscription(authUser, plan, wasSubscriptionActive, false, null);
         }
 
         val mockSession = mock(Session.class);
@@ -206,10 +206,10 @@ public class SubscriptionControllerTest {
             val authUser = createAuthUser(entityManager);
             val subscriptions = new ArrayList<Subscription>(5);
             for (int j = 0; j < 5; j++) {
-                subscriptions.add(buildSubscription(authUser, subscriptionPlan, true, false));
+                subscriptions.add(buildSubscription(authUser, subscriptionPlan, true, false, null));
             }
 
-            val unstarted = buildSubscription(authUser, subscriptionPlan, false, false);
+            val unstarted = buildSubscription(authUser, subscriptionPlan, false, false, null);
             unstarted.setStartAt(null);
             unstarted.setEndAt(null);
             subscriptions.add(subscriptionRepository.save(unstarted));
@@ -274,7 +274,7 @@ public class SubscriptionControllerTest {
         val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
         val owner = createAuthUser(entityManager);
         for (int j = 0; j < 25; j++) {
-            buildSubscription(owner, subscriptionPlan, true, false);
+            buildSubscription(owner, subscriptionPlan, true, false, null);
         }
 
         val pageSizes = Map.of(0, 20, 1, 5);
@@ -299,7 +299,7 @@ public class SubscriptionControllerTest {
         val owner = createAuthUser(entityManager);
         val impersonator = createAuthUser(entityManager);
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
-        val subscription = buildSubscription(owner, plan, false, false);
+        val subscription = buildSubscription(owner, plan, false, false, null);
 
         val impersonatorToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
         doGetSubscriptionRequest(impersonatorToken, subscription.getId())
@@ -310,7 +310,7 @@ public class SubscriptionControllerTest {
             .andExpect(status().is(HttpStatus.OK.value()))
             .andExpect(jsonPath("$.id").value(subscription.getId()));
 
-        val unstartedSubscription = buildSubscription(owner, plan, false, false);
+        val unstartedSubscription = buildSubscription(owner, plan, false, false, null);
         unstartedSubscription.setStartAt(null);
         unstartedSubscription.setEndAt(null);
         subscriptionRepository.save(unstartedSubscription);
@@ -336,7 +336,7 @@ public class SubscriptionControllerTest {
         val impersonatorAccessToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
 
         val plan = buildSubscriptionPlan(provider, "provider-plan-id");
-        val subscription = buildSubscription(actualOwner, plan, isSubscriptionActive, false);
+        val subscription = buildSubscription(actualOwner, plan, isSubscriptionActive, false, "test-id");
 
         mockMvc.perform(
                 delete("/v1/subscriptions/" + subscription.getId())
@@ -390,40 +390,16 @@ public class SubscriptionControllerTest {
     ) throws Exception {
         val subscriptionPlanId = "test-subscription-id";
         val purchaseToken = UUID.randomUUID().toString();
-        val data = Base64.getEncoder().encodeToString(("{" +
-            "  \"version\": \"1.0\"," +
-            "  \"packageName\": \"com.github.ashutoshgngwr.noice\"," +
-            "  \"eventTimeMillis\": \"" + System.nanoTime() + "\"," +
-            "  \"subscriptionNotification\": {" +
-            "    \"version\": \"1.0\"," +
-            "    \"notificationType\": 4," +
-            "    \"purchaseToken\": \"" + purchaseToken + "\"," +
-            "    \"subscriptionId\":\"" + subscriptionPlanId + "\"" +
-            "  }" +
-            "}").getBytes(StandardCharsets.UTF_8));
-
-        val eventPayload = "{" +
-            "  \"message\": {" +
-            "    \"attributes\": {}," +
-            "    \"data\": \"" + data + "\"," +
-            "    \"messageId\": \"" + System.nanoTime() + "\"" +
-            "  }," +
-            "  \"subscription\": \"projects/api-7562151365746880729-728328/subscriptions/noice-subscription-events-sub\"" +
-            "}";
-
         val authUser = createAuthUser(entityManager);
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionPlanId);
-        val subscription = buildSubscription(authUser, plan, wasActive, wasPaymentPending);
-        subscription.setProviderSubscriptionId(null);
-        subscriptionRepository.save(subscription);
-
+        val subscription = buildSubscription(authUser, plan, wasActive, wasPaymentPending, wasActive ? purchaseToken : null);
         purchase.setObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
         when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionPlanId), eq(purchaseToken)))
             .thenReturn(purchase);
 
         mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(eventPayload))
+                .content(buildGooglePlayWebhookEvent(!wasActive, subscriptionPlanId, purchaseToken)))
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertEquals(isActive, subscription.isActive());
@@ -484,32 +460,8 @@ public class SubscriptionControllerTest {
         val newPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-subscription-2");
         val oldPurchaseToken = UUID.randomUUID().toString();
         val newPurchaseToken = UUID.randomUUID().toString();
-        val data = Base64.getEncoder().encodeToString(("{" +
-            "  \"version\": \"1.0\"," +
-            "  \"packageName\": \"com.github.ashutoshgngwr.noice\"," +
-            "  \"eventTimeMillis\": \"" + System.nanoTime() + "\"," +
-            "  \"subscriptionNotification\": {" +
-            "    \"version\": \"1.0\"," +
-            "    \"notificationType\": 1," + // anything but new purchase.
-            "    \"purchaseToken\": \"" + newPurchaseToken + "\"," +
-            "    \"subscriptionId\":\"" + newPlan.getProviderPlanId() + "\"" +
-            "  }" +
-            "}").getBytes(StandardCharsets.UTF_8));
-
-        val eventPayload = "{" +
-            "  \"message\": {" +
-            "    \"attributes\": {}," +
-            "    \"data\": \"" + data + "\"," +
-            "    \"messageId\": \"" + System.nanoTime() + "\"" +
-            "  }," +
-            "  \"subscription\": \"projects/api-7562151365746880729-728328/subscriptions/noice-subscription-events-sub\"" +
-            "}";
-
         val authUser = createAuthUser(entityManager);
-        val subscription = buildSubscription(authUser, oldPlan, true, false);
-        subscription.setProviderSubscriptionId(oldPurchaseToken);
-        subscriptionRepository.save(subscription);
-
+        val subscription = buildSubscription(authUser, oldPlan, true, false, oldPurchaseToken);
         val purchase = buildSubscriptionPurchase(System.currentTimeMillis() + 60 * 60 * 1000L, 0, 1);
         purchase.setLinkedPurchaseToken(oldPurchaseToken);
         purchase.setObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
@@ -518,11 +470,37 @@ public class SubscriptionControllerTest {
 
         mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(eventPayload))
+                .content(buildGooglePlayWebhookEvent(false, newPlan.getProviderPlanId(), newPurchaseToken)))
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
         assertEquals(newPurchaseToken, subscription.getProviderSubscriptionId());
+    }
+
+    @Test
+    void handleGooglePlayWebhookEvent_doublePurchase() throws Exception {
+        // when user initiates purchase flow twice without completion and then goes on to complete
+        // both the flows.
+        val authUser = createAuthUser(entityManager);
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-subscription-plan");
+        val purchaseToken = UUID.randomUUID().toString();
+        val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
+        val subscription2 = buildSubscription(authUser, plan, false, false, null);
+
+        val purchase = buildSubscriptionPurchase(System.currentTimeMillis() + 60 * 60 * 1000L, 1, 0);
+        purchase.setObfuscatedExternalAccountId(String.valueOf(subscription2.getId()));
+        when(androidPublisherApi.getSubscriptionPurchase(any(), any(), eq(purchaseToken)))
+            .thenReturn(purchase);
+
+        mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(buildGooglePlayWebhookEvent(true, plan.getProviderPlanId(), purchaseToken)))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        assertTrue(subscription1.isActive());
+        assertFalse(subscription2.isActive());
+        verify(androidPublisherApi, times(0))
+            .acknowledgePurchase(any(), eq(plan.getProviderPlanId()), eq(purchaseToken));
     }
 
     @ParameterizedTest(name = "{displayName} - session.status={0} session.paymentStatus={1} isSubscriptionActive={2}")
@@ -534,11 +512,8 @@ public class SubscriptionControllerTest {
         int expectedResponseCode
     ) throws Exception {
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan");
-        val subscription = buildSubscription(createAuthUser(entityManager), plan, false, false);
-
-        val checkoutSession = buildStripeCheckoutSession(sessionStatus, sessionPaymentStatus);
-        checkoutSession.setClientReferenceId(String.valueOf(subscription.getId()));
-
+        val subscription = buildSubscription(createAuthUser(entityManager), plan, false, false, null);
+        val checkoutSession = buildStripeCheckoutSession(sessionStatus, sessionPaymentStatus, String.valueOf(subscription.getId()));
         val event = buildStripeEvent("checkout.session.completed", checkoutSession);
         val signature = "dummy-signature";
 
@@ -546,7 +521,7 @@ public class SubscriptionControllerTest {
             .thenReturn(event);
 
         lenient().when(stripeApi.getSubscription(any()))
-            .thenReturn(buildStripeSubscription("active", plan.getProviderPlanId()));
+            .thenReturn(buildStripeSubscription(null, "active", plan.getProviderPlanId()));
 
         mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
                 .header("Stripe-Signature", signature)
@@ -580,13 +555,9 @@ public class SubscriptionControllerTest {
         boolean isPaymentPending
     ) throws Exception {
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
-        val subscription = buildSubscription(createAuthUser(entityManager), plan, wasSubscriptionActive, wasPaymentPending);
         val stripeSubscriptionId = UUID.randomUUID().toString();
-        subscription.setProviderSubscriptionId(stripeSubscriptionId);
-        subscriptionRepository.save(subscription);
-
-        val stripeSubscription = buildStripeSubscription(stripeSubscriptionStatus, plan.getProviderPlanId());
-        stripeSubscription.setId(stripeSubscriptionId);
+        val subscription = buildSubscription(createAuthUser(entityManager), plan, wasSubscriptionActive, wasPaymentPending, stripeSubscriptionId);
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus, plan.getProviderPlanId());
         val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
         val signature = "dummy-signature";
 
@@ -624,13 +595,9 @@ public class SubscriptionControllerTest {
     void handleStripeWebhookEvent_planUpgrade() throws Exception {
         val oldPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-1");
         val newPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-2");
-        val subscription = buildSubscription(createAuthUser(entityManager), oldPlan, true, false);
         val stripeSubscriptionId = UUID.randomUUID().toString();
-        subscription.setProviderSubscriptionId(stripeSubscriptionId);
-        subscriptionRepository.save(subscription);
-
-        val stripeSubscription = buildStripeSubscription("active", newPlan.getProviderPlanId());
-        stripeSubscription.setId(stripeSubscriptionId);
+        val subscription = buildSubscription(createAuthUser(entityManager), oldPlan, true, false, stripeSubscriptionId);
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", newPlan.getProviderPlanId());
         val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
         val signature = "dummy-signature";
 
@@ -647,6 +614,38 @@ public class SubscriptionControllerTest {
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
+    }
+
+    @Test
+    void handleStripeWebhookEvent_doublePurchase() throws Exception {
+        // when user initiates purchase flow twice without completion and then goes on to complete
+        // both the flows.
+        val authUser = createAuthUser(entityManager);
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
+        val stripeSubscriptionId = UUID.randomUUID().toString();
+        val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
+        val subscription2 = buildSubscription(authUser, plan, false, false, null);
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", plan.getProviderPlanId());
+        val checkoutSession = buildStripeCheckoutSession("complete", "paid", String.valueOf(subscription2.getId()));
+        checkoutSession.setSubscription(stripeSubscriptionId);
+        val event = buildStripeEvent("checkout.session.completed", checkoutSession);
+        val signature = "dummy-signature";
+        when(stripeApi.decodeWebhookPayload(eq(event.toJson()), eq(signature), any()))
+            .thenReturn(event);
+
+        when(stripeApi.getSubscription(stripeSubscriptionId))
+            .thenReturn(stripeSubscription);
+
+        mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
+                .header("Stripe-Signature", signature)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(event.toJson()))
+            .andExpect(status().is(HttpStatus.OK.value()));
+
+        assertTrue(subscription1.isActive());
+        assertFalse(subscription2.isActive());
+        verify(stripeApi, times(1))
+            .cancelSubscription(stripeSubscriptionId, true);
     }
 
     @Test
@@ -701,7 +700,8 @@ public class SubscriptionControllerTest {
         @NonNull AuthUser owner,
         @NonNull SubscriptionPlan plan,
         boolean isActive,
-        boolean isPaymentPending
+        boolean isPaymentPending,
+        String providerSubscriptionId
     ) {
         return subscriptionRepository.save(
             Subscription.builder()
@@ -711,7 +711,7 @@ public class SubscriptionControllerTest {
                             .userId(owner.getId())
                             .build()))
                 .plan(plan)
-                .providerSubscriptionId(UUID.randomUUID().toString())
+                .providerSubscriptionId(providerSubscriptionId)
                 .isPaymentPending(isPaymentPending)
                 .startAt(OffsetDateTime.now().plusHours(-2))
                 .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))
@@ -744,19 +744,21 @@ public class SubscriptionControllerTest {
     }
 
     @NonNull
-    private static Session buildStripeCheckoutSession(@NonNull String status, @NonNull String paymentStatus) {
+    private static Session buildStripeCheckoutSession(@NonNull String status, @NonNull String paymentStatus, String clientReferenceId) {
         val session = new Session();
         session.setMode("subscription");
         session.setStatus(status);
         session.setPaymentStatus(paymentStatus);
         session.setSubscription(UUID.randomUUID().toString());
         session.setCustomer(UUID.randomUUID().toString());
+        session.setClientReferenceId(clientReferenceId);
         return session;
     }
 
     @NonNull
-    private static com.stripe.model.Subscription buildStripeSubscription(@NonNull String status, @NonNull String priceId) {
+    private static com.stripe.model.Subscription buildStripeSubscription(String id, @NonNull String status, @NonNull String priceId) {
         val subscription = new com.stripe.model.Subscription();
+        subscription.setId(id);
         subscription.setStatus(status);
 
         val now = OffsetDateTime.now().toEpochSecond();
@@ -778,5 +780,29 @@ public class SubscriptionControllerTest {
         val subscriptionItem = new SubscriptionItem();
         subscriptionItem.setPrice(price);
         return subscriptionItem;
+    }
+
+    @NonNull
+    private static String buildGooglePlayWebhookEvent(boolean isNewPurchase, @NonNull String providerPlanId, @NonNull String purchaseToken) {
+        val data = Base64.getEncoder().encodeToString(("{" +
+            "  \"version\": \"1.0\"," +
+            "  \"packageName\": \"com.github.ashutoshgngwr.noice\"," +
+            "  \"eventTimeMillis\": \"" + System.nanoTime() + "\"," +
+            "  \"subscriptionNotification\": {" +
+            "    \"version\": \"1.0\"," +
+            "    \"notificationType\": " + (isNewPurchase ? 4 : 3) + "," +
+            "    \"purchaseToken\": \"" + purchaseToken + "\"," +
+            "    \"subscriptionId\":\"" + providerPlanId + "\"" +
+            "  }" +
+            "}").getBytes(StandardCharsets.UTF_8));
+
+        return "{" +
+            "  \"message\": {" +
+            "    \"attributes\": {}," +
+            "    \"data\": \"" + data + "\"," +
+            "    \"messageId\": \"" + System.nanoTime() + "\"" +
+            "  }," +
+            "  \"subscription\": \"projects/api-7562151365746880729-728328/subscriptions/noice-subscription-events-sub\"" +
+            "}";
     }
 }

@@ -175,11 +175,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             return result;
         }
 
-        final Session checkoutSession;
         try {
             val toReplaceRegex = "(\\{|%7B)subscriptionId(}|%7D)";
             val subscriptionIdStr = String.valueOf(subscription.getId());
-            checkoutSession = stripeApi.createCheckoutSession(
+            val checkoutSession = stripeApi.createCheckoutSession(
                 params.getSuccessUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
                 params.getCancelUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
                 plan.getProviderPlanId(),
@@ -189,16 +188,12 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                     : null,
                 customer.getStripeId(),
                 customer.isTrialPeriodUsed() ? null : (long) plan.getTrialPeriodDays());
+
+            result.setStripeCheckoutSessionUrl(checkoutSession.getUrl());
         } catch (StripeException e) {
             throw new RuntimeException("failed to create stripe checkout session", e);
         }
 
-        if (checkoutSession.getSubscription() != null) {
-            subscription.setProviderSubscriptionId(checkoutSession.getSubscription());
-            subscriptionRepository.save(subscription);
-        }
-
-        result.setStripeCheckoutSessionUrl(checkoutSession.getUrl());
         return result;
     }
 
@@ -426,6 +421,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             return;
         }
 
+        if (hasAnotherActiveSubscription(subscription)) {
+            // return without acknowledging purchase so that Google Play refunds it.
+            return;
+        }
+
         if (!subscriptionPlanId.asText().equals(subscription.getPlan().getProviderPlanId())) {
             subscription.setPlan(
                 subscriptionPlanRepository.findByProviderPlanId(
@@ -536,7 +536,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             case "customer.subscription.trial_will_end":
                 val stripeSubscription = (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new WebhookPayloadException("failed to get subscription object from the event payload"));
-                handleStripeSubscriptionEvent(stripeSubscription);
+                handleStripeSubscriptionEvent(stripeSubscription.getId());
                 break;
             case "customer.deleted":
                 val stripeCustomer = (com.stripe.model.Customer) event.getDataObjectDeserializer().getObject()
@@ -565,45 +565,49 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         }
 
         val subscription = subscriptionRepository.findById(subscriptionId)
-            .orElseThrow(() -> {
-                val errMsg = String.format("subscription with id '%d' doesn't exist", subscriptionId);
-                return new WebhookEventException(errMsg);
-            });
+            .orElseThrow(() -> new WebhookEventException("failed to find subscription by checkout session's client reference id"));
 
-        copySubscriptionDetailsFromStripeObject(subscription, session.getSubscription());
-        subscriptionRepository.save(subscription);
-
+        subscription.setProviderSubscriptionId(session.getSubscription());
         val customer = subscription.getCustomer();
-        if (customer.getStripeId() == null || !customer.getStripeId().equals(session.getCustomer())) {
+        if (!session.getCustomer().equals(customer.getStripeId())) {
             customer.setStripeId(session.getCustomer());
         }
 
-        customer.setTrialPeriodUsed(true);
+        if (hasAnotherActiveSubscription(subscription)) {
+            // immediately cancel this subscription as user already owns another that is active.
+            try {
+                stripeApi.cancelSubscription(session.getSubscription(), true);
+            } catch (StripeException e) {
+                throw new RuntimeException("failed to cancel stripe subscription", e);
+            }
+        } else {
+            copySubscriptionDetailsFromStripeObject(subscription);
+            customer.setTrialPeriodUsed(true);
+        }
+
         customerRepository.save(customer);
-    }
-
-    private void handleStripeSubscriptionEvent(
-        @NonNull com.stripe.model.Subscription stripeSubscription
-    ) throws WebhookPayloadException, WebhookEventException {
-        val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscription.getId())
-            .orElseThrow(() -> {
-                val errMsg = String.format("subscription with providerSubscriptionId '%s' doesn't exist", stripeSubscription.getId());
-                return new WebhookEventException(errMsg);
-            });
-
-        // always fetch subscription entity from Stripe API since retried (or delayed) webhook
-        // events may contain stale data.
-        copySubscriptionDetailsFromStripeObject(subscription, stripeSubscription.getId());
         subscriptionRepository.save(subscription);
     }
 
-    private void copySubscriptionDetailsFromStripeObject(
-        @NonNull Subscription subscription,
-        @NonNull String stripeSubscriptionId
-    ) throws WebhookPayloadException, WebhookEventException {
+    private void handleStripeSubscriptionEvent(@NonNull String stripeSubscriptionId) throws WebhookPayloadException, WebhookEventException {
+        val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscriptionId)
+            .orElseThrow(() -> new WebhookEventException("failed to find subscription corresponding to stripe object"));
+
+        if (hasAnotherActiveSubscription(subscription)) {
+            // do not throw error but also refuse the update.
+            return;
+        }
+
+        // always fetch subscription entity from Stripe API since retried (or delayed) webhook
+        // events may contain stale data.
+        copySubscriptionDetailsFromStripeObject(subscription);
+        subscriptionRepository.save(subscription);
+    }
+
+    private void copySubscriptionDetailsFromStripeObject(@NonNull Subscription subscription) throws WebhookPayloadException, WebhookEventException {
         final com.stripe.model.Subscription stripeSubscription;
         try {
-            stripeSubscription = stripeApi.getSubscription(stripeSubscriptionId);
+            stripeSubscription = stripeApi.getSubscription(subscription.getProviderSubscriptionId());
         } catch (StripeException e) {
             throw new RuntimeException("failed to get subscription object from stripe api", e);
         }
@@ -645,6 +649,21 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 subscription.setEndAt(OffsetDateTime.now());
                 break;
         }
+    }
+
+    /**
+     * Looks for an edge-case where a user can initiate two subscription purchase flows and then
+     * complete them one after the other. In this case, the user will end-up with two active
+     * subscriptions. Therefore, always check if the user obtained an active subscription sometime
+     * after initiating and before completing a purchase flow.
+     *
+     * @return whether the {@link Customer} of the given {@code subscription} owns an active
+     * subscription that is other the given {@code subscription}.
+     */
+    private boolean hasAnotherActiveSubscription(@NonNull Subscription subscription) {
+        return subscriptionRepository.findActiveByCustomerUserId(subscription.getCustomer().getUserId())
+            .map(s -> s.getId() != subscription.getId())
+            .orElse(false);
     }
 
     /**
