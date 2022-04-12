@@ -55,10 +55,10 @@ INSERT INTO subscription_plan (created_at, version, provider, provider_plan_id, 
     (now(), 0, 'GOOGLE_PLAY', 'quarterly', 3, 14, 60000),
     (now(), 0, 'GOOGLE_PLAY', 'bi_yearly', 6, 14, 105000),
     (now(), 0, 'GOOGLE_PLAY', 'yearly', 12, 14, 180000),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORTL7UKS05', 1, 14, 22500),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jOR5Utj2H24', 3, 14, 60000),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORPUdnVRBx', 6, 14, 105000),
-    (now(), 0, 'STRIPE', 'price_1K5DVGSEeVq01jORenAfLOCj', 12, 14, 180000);
+    (now(), 0, 'STRIPE', 'price_1Ko0DFSEeVq01jORuGMXnINT', 1, 14, 22500),
+    (now(), 0, 'STRIPE', 'price_1Ko0DFSEeVq01jORt7saWcXM', 3, 14, 60000),
+    (now(), 0, 'STRIPE', 'price_1Ko0DFSEeVq01jOR9aCG7EM8', 6, 14, 105000),
+    (now(), 0, 'STRIPE', 'price_1Ko0DFSEeVq01jORgHlVkTEN', 12, 14, 180000);
 
 CREATE TABLE customer (
   user_id bigint NOT NULL PRIMARY KEY,
