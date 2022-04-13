@@ -5,10 +5,13 @@ import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.Refund;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.RefundCreateParams;
 import com.stripe.param.SubscriptionCancelParams;
+import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import lombok.NonNull;
@@ -99,30 +102,51 @@ public class StripeApi {
     /**
      * Marks an uncancelled subscription to be cancelled at the end of the current billing cycle.
      *
-     * @param id          id of the subscription to cancel.
-     * @param immediately if {@literal true}, the subscription is cancelled immediately and unused
-     *                    credits are marked for a refund. Otherwise, the subscription is marked to
-     *                    be cancelled at the end of the current billing period.
+     * @param id id of the subscription to cancel.
+     * @throws StripeException on Stripe API errors.
      * @see Subscription#update(SubscriptionUpdateParams)
      * @see Subscription#cancel(SubscriptionCancelParams)
      */
-    void cancelSubscription(@NonNull String id, boolean immediately) throws StripeException {
+    void cancelSubscription(@NonNull String id) throws StripeException {
         val subscription = getSubscription(id);
         if ("canceled".equals(subscription.getStatus())) {
             return;
         }
 
-        if (immediately) {
-            subscription.cancel(
-                SubscriptionCancelParams.builder()
-                    .setProrate(true)
-                    .build());
-        } else if (!requireNonNullElse(subscription.getCancelAtPeriodEnd(), false)) {
+        if (!requireNonNullElse(subscription.getCancelAtPeriodEnd(), false)) {
             subscription.update(
                 SubscriptionUpdateParams.builder()
                     .setCancelAtPeriodEnd(true)
                     .build());
         }
+    }
+
+    /**
+     * Immediately cancel a subscription and refund its payment.
+     *
+     * @param id id of the stripe subscription.
+     * @throws StripeException on Stripe API errors.
+     */
+    void refundSubscription(@NonNull String id) throws StripeException {
+        val subscription = Subscription.retrieve(
+            id,
+            SubscriptionRetrieveParams.builder()
+                .addExpand("latest_invoice")
+                .build(),
+            null);
+
+        try {
+            Refund.create(
+                RefundCreateParams.builder()
+                    .setCharge(subscription.getLatestInvoiceObject().getCharge())
+                    .build());
+        } catch (StripeException e) {
+            if (!"charge_already_refunded".equals(e.getCode())) {
+                throw e;
+            }
+        }
+
+        subscription.cancel();
     }
 
     /**

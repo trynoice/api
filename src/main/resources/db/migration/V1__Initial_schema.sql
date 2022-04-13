@@ -79,6 +79,7 @@ CREATE TABLE subscription (
   provider_subscription_id varchar(255),
   is_payment_pending boolean NOT NULL,
   is_auto_renewing boolean NOT NULL,
+  is_refunded boolean NOT NULL,
   start_at timestamp with time zone,
   end_at timestamp with time zone
 );

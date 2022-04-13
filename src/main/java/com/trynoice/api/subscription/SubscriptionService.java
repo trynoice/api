@@ -318,7 +318,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             case STRIPE:
                 try {
                     // cancel at the end of current billing period to match Google Play Subscriptions behaviour.
-                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId(), false);
+                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId());
                 } catch (StripeException e) {
                     throw new RuntimeException("stripe api error", e);
                 }
@@ -421,9 +421,18 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
             return;
         }
 
+        subscription.setProviderSubscriptionId(purchaseToken.asText());
         if (hasAnotherActiveSubscription(subscription)) {
-            // return without acknowledging purchase so that Google Play refunds it.
-            return;
+            subscription.setAutoRenewing(false);
+            subscription.setPaymentPending(false);
+            subscription.setRefunded(true);
+            subscription.setStartAtMillis(requireNonNullElse(purchase.getStartTimeMillis(), System.currentTimeMillis()));
+            if (subscription.getEndAt() == null || subscription.getEndAt().isAfter(OffsetDateTime.now())) {
+                subscription.setEndAt(OffsetDateTime.now());
+            }
+
+            subscriptionRepository.save(subscription);
+            return; // without acknowledging purchase so that Google Play refunds it.
         }
 
         if (!subscriptionPlanId.asText().equals(subscription.getPlan().getProviderPlanId())) {
@@ -444,7 +453,6 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         // to identify the internal subscription entity. Both the upgraded and the old subscription
         // will have the same obfuscated account id, and thus, its linked purchase token will be
         // automatically overwritten when the upgraded subscription's notification arrives.
-        subscription.setProviderSubscriptionId(purchaseToken.asText());
         if (purchase.getStartTimeMillis() != null) {
             subscription.setStartAtMillis(purchase.getStartTimeMillis());
         }
@@ -455,6 +463,8 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
 
         if (subscription.isActive()) {
             subscription.setPaymentPending(Integer.valueOf(0).equals(purchase.getPaymentState()));
+        } else {
+            subscription.setPaymentPending(false);
         }
 
         subscription.setAutoRenewing(requireNonNullElse(purchase.getAutoRenewing(), true));
@@ -516,10 +526,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                     handleStripeCheckoutSessionEvent(session);
                 } catch (WebhookPayloadException | WebhookEventException outer) {
                     try {
-                        // cancel subscription if we cannot handle the checkout session completed
+                        // refund subscription if we cannot handle the checkout session completed
                         // event. It is an edge-case event that should never happen, unless our
                         // internal data has gone corrupt somehow.
-                        stripeApi.cancelSubscription(session.getSubscription(), true);
+                        stripeApi.refundSubscription(session.getSubscription());
                     } catch (StripeException inner) {
                         val e = new RuntimeException("failed to cancel stripe subscription", inner);
                         e.addSuppressed(outer);
@@ -574,9 +584,10 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         }
 
         if (hasAnotherActiveSubscription(subscription)) {
-            // immediately cancel this subscription as user already owns another that is active.
+            subscription.setRefunded(true);
+            // immediately refund this subscription as user already owns another that is active.
             try {
-                stripeApi.cancelSubscription(session.getSubscription(), true);
+                stripeApi.refundSubscription(session.getSubscription());
             } catch (StripeException e) {
                 throw new RuntimeException("failed to cancel stripe subscription", e);
             }
@@ -592,11 +603,6 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
     private void handleStripeSubscriptionEvent(@NonNull String stripeSubscriptionId) throws WebhookPayloadException, WebhookEventException {
         val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription corresponding to stripe object"));
-
-        if (hasAnotherActiveSubscription(subscription)) {
-            // do not throw error but also refuse the update.
-            return;
-        }
 
         // always fetch subscription entity from Stripe API since retried (or delayed) webhook
         // events may contain stale data.
@@ -634,7 +640,11 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         }
 
         subscription.setPaymentPending("past_due".equals(stripeSubscription.getStatus()));
-        subscription.setAutoRenewing(!requireNonNullElse(stripeSubscription.getCancelAtPeriodEnd(), false));
+        subscription.setAutoRenewing(
+            !("canceled".equals(stripeSubscription.getStatus()) || "unpaid".equals(stripeSubscription.getStatus())) &&
+                !requireNonNullElse(stripeSubscription.getCancelAtPeriodEnd(), false)
+        );
+
         switch (stripeSubscription.getStatus()) {
             case "trialing":
             case "active":
@@ -646,7 +656,15 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                 }
                 break;
             default:
-                subscription.setEndAt(OffsetDateTime.now());
+                if (stripeSubscription.getEndedAt() != null) {
+                    subscription.setEndAtSeconds(stripeSubscription.getEndedAt());
+                } else if (stripeSubscription.getCanceledAt() != null) {
+                    subscription.setEndAtSeconds(stripeSubscription.getCanceledAt());
+                }
+
+                if (subscription.getEndAt() == null || subscription.getEndAt().isAfter(OffsetDateTime.now())) {
+                    subscription.setEndAt(OffsetDateTime.now());
+                }
                 break;
         }
     }
@@ -703,6 +721,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
                     ? subscription.getEndAt() : null)
             .isAutoRenewing(subscription.isActive() && subscription.isAutoRenewing())
             .renewsAt(subscription.isActive() ? subscription.getEndAt() : null)
+            .isRefunded(subscription.isRefunded() ? true : null)
             .stripeCustomerPortalUrl(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
                     ? stripeCustomerPortalUrl : null)

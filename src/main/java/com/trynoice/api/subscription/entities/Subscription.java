@@ -49,6 +49,8 @@ public class Subscription extends BasicEntity {
     @Builder.Default
     private boolean isAutoRenewing = true;
 
+    private boolean isRefunded;
+
     private OffsetDateTime startAt, endAt;
 
     /**

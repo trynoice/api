@@ -40,7 +40,11 @@ public class SubscriptionView {
 
     @Schema(required = true, description = "whether the subscription will renew at the end of this billing " +
         "cycle. if false, it implies that the subscription will end at the end of current billing cycle.")
+    @NonNull
     private Boolean isAutoRenewing;
+
+    @Schema(description = "whether the subscription was cancelled and its amount refunded.")
+    private Boolean isRefunded;
 
     @Schema(type = "integer", format = "int64", description = "epoch millis when the current billing cycle ends " +
         "and the next one starts. always present unless the subscription is inactive.")
