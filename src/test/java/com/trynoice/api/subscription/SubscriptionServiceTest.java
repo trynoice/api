@@ -291,7 +291,7 @@ public class SubscriptionServiceTest {
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId(), false);
+                        .cancelSubscription(subscription.getProviderSubscriptionId());
                     break;
                 default:
                     throw new RuntimeException("unknown provider");

@@ -360,7 +360,7 @@ public class SubscriptionControllerTest {
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId(), false);
+                        .cancelSubscription(subscription.getProviderSubscriptionId());
                     break;
                 default:
                     throw new RuntimeException("unknown provider");
@@ -645,7 +645,7 @@ public class SubscriptionControllerTest {
         assertTrue(subscription1.isActive());
         assertFalse(subscription2.isActive());
         verify(stripeApi, times(1))
-            .cancelSubscription(stripeSubscriptionId, true);
+            .refundSubscription(stripeSubscriptionId);
     }
 
     @Test
