@@ -24,13 +24,6 @@ public class LibraryManifest {
     private String segmentsBasePath;
 
     /**
-     * The path where icons are accessible at `${iconsBasePath}/${sound.icon}`. It must be a valid
-     * path relative to the library manifest.
-     */
-    @NonNull
-    private String iconsBasePath;
-
-    /**
      * A list of groups for categorising sounds.
      */
     @NonNull
@@ -84,7 +77,7 @@ public class LibraryManifest {
         private String name;
 
         /**
-         * A user-presentable icon for this sound. The path must be relative to `baseURL`
+         * SVG data URI containing an icon for this sound.
          */
         @NonNull
         private String icon;

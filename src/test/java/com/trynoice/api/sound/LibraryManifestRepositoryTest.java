@@ -48,7 +48,6 @@ class LibraryManifestRepositoryTest {
         val premiumSegmentId = "test_premium";
         val testManifestJson = "{" +
             "  \"segmentsBasePath\": \"test-segments\"," +
-            "  \"iconsBasePath\": \"test-icons\"," +
             "  \"groups\": [" +
             "    {" +
             "      \"id\": \"test\"," +
