@@ -171,7 +171,7 @@ class AuthConfiguration {
 
         @SuppressWarnings("unused")
         @SneakyThrows
-        public void setTemplate(String templateFile) {
+        public void setTemplate(@NonNull String templateFile) {
             val file = new ClassPathResource(templateFile);
             this.template = new String(file.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
                 .replaceAll("\\s+", " ");

@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +50,7 @@ import static java.util.Objects.requireNonNullElse;
 @Slf4j
 class AccountService implements SubscriptionAccountServiceContract {
 
-    private static final long MIN_SIGN_IN_REATTEMPT_DELAY_SECONDS = TimeUnit.SECONDS.toSeconds(3);
+    private static final long MIN_SIGN_IN_DELAY_MILLIS = TimeUnit.SECONDS.toMillis(10);
 
     private final AuthUserRepository authUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -123,9 +124,9 @@ class AccountService implements SubscriptionAccountServiceContract {
     @NonNull
     private String createSignInToken(@NonNull AuthUser authUser) throws TooManySignInAttemptsException {
         if (authUser.getLastSignInAttemptAt() != null) {
-            var delay = round(pow(MIN_SIGN_IN_REATTEMPT_DELAY_SECONDS, authUser.getIncompleteSignInAttempts()));
-            delay = min(delay, authConfig.getSignInReattemptMaxDelay().toSeconds());
-            val nextAttemptAt = authUser.getLastSignInAttemptAt().plusSeconds(delay);
+            val factor = round(pow(2, authUser.getIncompleteSignInAttempts()));
+            val delay = min(factor * MIN_SIGN_IN_DELAY_MILLIS, authConfig.getSignInReattemptMaxDelay().toMillis());
+            val nextAttemptAt = authUser.getLastSignInAttemptAt().plus(delay, ChronoUnit.MILLIS);
             val now = OffsetDateTime.now();
             if (nextAttemptAt.isAfter(now)) {
                 throw new TooManySignInAttemptsException(authUser.getEmail(), Duration.between(now, nextAttemptAt));
