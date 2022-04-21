@@ -11,6 +11,7 @@ import software.amazon.awssdk.services.ses.model.Message;
 import software.amazon.awssdk.services.ses.model.SendEmailRequest;
 import software.amazon.awssdk.services.ses.model.SesException;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 import static org.apache.commons.text.StringSubstitutor.replace;
@@ -91,7 +92,7 @@ interface SignInTokenDispatchStrategy {
         @NonNull
         private Content buildUtf8Content(@NonNull String content) {
             return Content.builder()
-                .charset("utf-8")
+                .charset(StandardCharsets.UTF_8.name())
                 .data(content)
                 .build();
         }
