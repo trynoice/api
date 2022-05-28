@@ -6,7 +6,7 @@ import lombok.NonNull;
  * Defines a service contract for subscription service to provide certain operations to sound
  * service.
  */
-public interface SoundSubscriptionServiceContract {
+public interface SubscriptionServiceContract {
 
     /**
      * @param userId id of a user.

@@ -5,7 +5,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
+import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.AccountNotFoundException;
@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNullElse;
  */
 @Service
 @Slf4j
-class AccountService implements SubscriptionAccountServiceContract {
+class AccountService implements AccountServiceContract {
 
     private static final long MIN_SIGN_IN_DELAY_MILLIS = TimeUnit.SECONDS.toMillis(10);
 

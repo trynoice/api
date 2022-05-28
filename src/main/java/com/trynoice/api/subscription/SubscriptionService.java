@@ -7,8 +7,8 @@ import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
-import com.trynoice.api.contracts.SoundSubscriptionServiceContract;
-import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
+import com.trynoice.api.contracts.SubscriptionServiceContract;
+import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
@@ -45,14 +45,14 @@ import static java.util.Objects.requireNonNullElse;
  * {@link SubscriptionService} implements operations related to subscription management.
  */
 @Service
-class SubscriptionService implements SoundSubscriptionServiceContract {
+class SubscriptionService implements SubscriptionServiceContract {
 
     private final SubscriptionConfiguration subscriptionConfig;
     private final CustomerRepository customerRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final ObjectMapper objectMapper;
-    private final SubscriptionAccountServiceContract accountServiceContract;
+    private final AccountServiceContract accountServiceContract;
     private final AndroidPublisherApi androidPublisherApi;
     private final StripeApi stripeApi;
 
@@ -63,7 +63,7 @@ class SubscriptionService implements SoundSubscriptionServiceContract {
         @NonNull SubscriptionPlanRepository subscriptionPlanRepository,
         @NonNull SubscriptionRepository subscriptionRepository,
         @NonNull ObjectMapper objectMapper,
-        @NonNull SubscriptionAccountServiceContract accountServiceContract,
+        @NonNull AccountServiceContract accountServiceContract,
         @NonNull AndroidPublisherApi androidPublisherApi,
         @NonNull StripeApi stripeApi
     ) {

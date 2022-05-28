@@ -8,7 +8,7 @@ import java.util.Optional;
  * Defines a service contract for account service to provide certain operations to subscription
  * service.
  */
-public interface SubscriptionAccountServiceContract {
+public interface AccountServiceContract {
 
     /**
      * @param userId id of a user.

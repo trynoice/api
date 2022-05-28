@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
-import com.trynoice.api.contracts.SubscriptionAccountServiceContract;
+import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
@@ -66,7 +66,7 @@ public class SubscriptionServiceTest {
     private SubscriptionRepository subscriptionRepository;
 
     @Mock
-    private SubscriptionAccountServiceContract accountServiceContract;
+    private AccountServiceContract accountServiceContract;
 
     @Mock
     private AndroidPublisherApi androidPublisherApi;

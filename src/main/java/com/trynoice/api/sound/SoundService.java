@@ -1,6 +1,6 @@
 package com.trynoice.api.sound;
 
-import com.trynoice.api.contracts.SoundSubscriptionServiceContract;
+import com.trynoice.api.contracts.SubscriptionServiceContract;
 import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
 import lombok.NonNull;
 import lombok.val;
@@ -18,13 +18,13 @@ class SoundService {
 
     private final LibraryManifestRepository libraryManifestRepository;
     private final Set<String> freeAudioBitrates;
-    private final SoundSubscriptionServiceContract subscriptionServiceContract;
+    private final SubscriptionServiceContract subscriptionServiceContract;
 
     @Autowired
     SoundService(
         @NonNull SoundConfiguration soundConfig,
         @NonNull LibraryManifestRepository libraryManifestRepository,
-        @NonNull SoundSubscriptionServiceContract subscriptionServiceContract
+        @NonNull SubscriptionServiceContract subscriptionServiceContract
     ) {
         this.libraryManifestRepository = libraryManifestRepository;
         this.freeAudioBitrates = soundConfig.getFreeBitrates();
