@@ -7,8 +7,8 @@ import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
-import com.trynoice.api.contracts.SubscriptionServiceContract;
 import com.trynoice.api.contracts.AccountServiceContract;
+import com.trynoice.api.contracts.SubscriptionServiceContract;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
@@ -25,6 +25,9 @@ import com.trynoice.api.subscription.models.SubscriptionView;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -55,6 +58,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     private final AccountServiceContract accountServiceContract;
     private final AndroidPublisherApi androidPublisherApi;
     private final StripeApi stripeApi;
+    private final Cache cache;
 
     @Autowired
     SubscriptionService(
@@ -65,7 +69,8 @@ class SubscriptionService implements SubscriptionServiceContract {
         @NonNull ObjectMapper objectMapper,
         @NonNull AccountServiceContract accountServiceContract,
         @NonNull AndroidPublisherApi androidPublisherApi,
-        @NonNull StripeApi stripeApi
+        @NonNull StripeApi stripeApi,
+        @NonNull @Qualifier(SubscriptionConfiguration.CACHE_NAME) Cache cache
     ) {
         this.subscriptionConfig = subscriptionConfig;
         this.customerRepository = customerRepository;
@@ -75,6 +80,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         this.accountServiceContract = accountServiceContract;
         this.androidPublisherApi = androidPublisherApi;
         this.stripeApi = stripeApi;
+        this.cache = cache;
     }
 
     /**
@@ -485,6 +491,8 @@ class SubscriptionService implements SubscriptionServiceContract {
                 throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }
         }
+
+        evictIsSubscribedCache(subscription.getCustomer().getUserId());
     }
 
     /**
@@ -598,6 +606,7 @@ class SubscriptionService implements SubscriptionServiceContract {
 
         customerRepository.save(customer);
         subscriptionRepository.save(subscription);
+        evictIsSubscribedCache(subscription.getCustomer().getUserId());
     }
 
     private void handleStripeSubscriptionEvent(@NonNull String stripeSubscriptionId) throws WebhookPayloadException, WebhookEventException {
@@ -608,6 +617,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         // events may contain stale data.
         copySubscriptionDetailsFromStripeObject(subscription);
         subscriptionRepository.save(subscription);
+        evictIsSubscribedCache(subscription.getCustomer().getUserId());
     }
 
     private void copySubscriptionDetailsFromStripeObject(@NonNull Subscription subscription) throws WebhookPayloadException, WebhookEventException {
@@ -688,8 +698,13 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @return if the user with given {@code userId} owns an active subscription.
      */
     @Override
+    @Cacheable(cacheNames = SubscriptionConfiguration.CACHE_NAME, key = "'isSubscribed:' + #userId")
     public boolean isUserSubscribed(@NonNull Long userId) {
         return subscriptionRepository.existsActiveByCustomerUserId(userId);
+    }
+
+    private void evictIsSubscribedCache(long userId) {
+        cache.evictIfPresent(String.format("isSubscribed:%d", userId));
     }
 
     @NonNull

@@ -25,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
+import org.springframework.cache.Cache;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
 
@@ -74,6 +75,9 @@ public class SubscriptionServiceTest {
     @Mock
     private StripeApi stripeApi;
 
+    @Mock
+    private Cache cache;
+
     private SubscriptionService service;
 
     @BeforeEach
@@ -86,7 +90,8 @@ public class SubscriptionServiceTest {
             new ObjectMapper(),
             accountServiceContract,
             androidPublisherApi,
-            stripeApi);
+            stripeApi,
+            cache);
     }
 
     @Test
