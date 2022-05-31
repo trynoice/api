@@ -59,48 +59,48 @@ dependencies {
     def springDocVersion = '1.6.8'
 
     // to enable JavaDoc support in SpringDocs
-    annotationProcessor "com.github.therapi:therapi-runtime-javadoc-scribe:0.13.0"
-    annotationProcessor "org.projectlombok:lombok"
+    annotationProcessor 'com.github.therapi:therapi-runtime-javadoc-scribe:0.13.0'
+    annotationProcessor 'org.projectlombok:lombok'
 
-    compileOnly "org.projectlombok:lombok"
+    compileOnly 'org.projectlombok:lombok'
 
-    developmentOnly "org.springframework.boot:spring-boot-devtools"
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
-    implementation "com.auth0:java-jwt:3.19.1"
-    implementation "com.github.ben-manes.caffeine:caffeine:3.1.0"
-    implementation "com.google.apis:google-api-services-androidpublisher:v3-rev20220411-1.32.1"
-    implementation "com.google.auth:google-auth-library-oauth2-http:1.6.0"
-    implementation "com.stripe:stripe-java:20.116.0"
-    implementation "org.apache.commons:commons-text:1.9"
-    implementation "org.flywaydb:flyway-core:8.5.10"
-    implementation "org.springframework.boot:spring-boot-starter-actuator"
-    implementation "org.springframework.boot:spring-boot-starter-cache"
-    implementation "org.springframework.boot:spring-boot-starter-data-jpa"
-    implementation "org.springframework.boot:spring-boot-starter-security"
-    implementation "org.springframework.boot:spring-boot-starter-validation"
-    implementation "org.springframework.boot:spring-boot-starter-web"
+    implementation 'com.auth0:java-jwt:3.19.2'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.0'
+    implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20220511-1.32.1'
+    implementation 'com.google.auth:google-auth-library-oauth2-http:1.6.0'
+    implementation 'com.stripe:stripe-java:20.120.0'
+    implementation 'org.apache.commons:commons-text:1.9'
+    implementation 'org.flywaydb:flyway-core:8.5.10'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation "org.springdoc:springdoc-openapi-javadoc:$springDocVersion"
     // https://github.com/springdoc/springdoc-openapi/issues/198
     implementation "org.springdoc:springdoc-openapi-security:$springDocVersion"
     implementation "org.springdoc:springdoc-openapi-ui:$springDocVersion"
-    implementation "org.postgresql:postgresql"
+    implementation 'org.postgresql:postgresql'
 
-    implementation platform("software.amazon.awssdk:bom:2.17.181")
-    implementation "software.amazon.awssdk:s3"
-    implementation "software.amazon.awssdk:ses"
-
-
-    testAnnotationProcessor "org.projectlombok:lombok"
-
-    testCompileOnly "org.projectlombok:lombok"
-
-    testImplementation "org.springframework.boot:spring-boot-starter-test"
+    implementation platform('software.amazon.awssdk:bom:2.17.181')
+    implementation 'software.amazon.awssdk:s3'
+    implementation 'software.amazon.awssdk:ses'
 
 
-    integrationTestAnnotationProcessor "org.projectlombok:lombok"
+    testAnnotationProcessor 'org.projectlombok:lombok'
 
-    integrationTestCompileOnly "org.projectlombok:lombok"
+    testCompileOnly 'org.projectlombok:lombok'
 
-    integrationTestImplementation "org.springframework.boot:spring-boot-starter-test"
-    integrationTestImplementation "org.testcontainers:postgresql:1.17.1"
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+
+    integrationTestAnnotationProcessor 'org.projectlombok:lombok'
+
+    integrationTestCompileOnly 'org.projectlombok:lombok'
+
+    integrationTestImplementation 'org.springframework.boot:spring-boot-starter-test'
+    integrationTestImplementation 'org.testcontainers:postgresql:1.17.1'
 }
