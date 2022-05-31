@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -36,8 +36,6 @@ class LibraryManifestRepositoryTest {
     @BeforeEach
     void setUp() {
         lenient().when(soundConfiguration.getLibraryManifestS3Bucket()).thenReturn("test-s3-bucket");
-        lenient().when(soundConfiguration.getLibraryManifestS3Key()).thenReturn("test-manifest-key");
-
         repository = new LibraryManifestRepository(mockS3Client, new ObjectMapper(), soundConfiguration);
     }
 
@@ -75,12 +73,14 @@ class LibraryManifestRepositoryTest {
             "  ]" +
             "}";
 
-        when(mockS3Client.getObject(any(GetObjectRequest.class)))
+        val libraryVersion = "test-version";
+        val expectedKey = String.format("library/%s/library-manifest.json", libraryVersion);
+        when(mockS3Client.getObject(argThat((GetObjectRequest r) -> r.key().equals(expectedKey))))
             .thenReturn(new ResponseInputStream<>(
                 GetObjectResponse.builder().build(),
                 AbortableInputStream.create(new ByteArrayInputStream(testManifestJson.getBytes(StandardCharsets.UTF_8)))));
 
-        val mappings = repository.getPremiumSegmentMappings();
+        val mappings = repository.getPremiumSegmentMappings(libraryVersion);
         assertTrue(mappings.containsKey(soundId));
         assertTrue(mappings.get(soundId).contains(premiumSegmentId));
         assertFalse(mappings.get(soundId).contains(freeSegmentId));

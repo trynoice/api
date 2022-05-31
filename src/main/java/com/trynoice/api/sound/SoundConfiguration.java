@@ -35,12 +35,6 @@ public class SoundConfiguration {
     private String libraryManifestS3Bucket;
 
     /**
-     * Key for fetching the library manifest from the given S3 bucket.
-     */
-    @NotBlank
-    private String libraryManifestS3Key;
-
-    /**
      * TTL for objects in library manifest cache.
      */
     @NotNull

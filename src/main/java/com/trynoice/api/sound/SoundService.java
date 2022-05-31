@@ -49,9 +49,10 @@ class SoundService {
         Long principalId,
         @NonNull String soundId,
         @NonNull String segmentId,
-        String audioBitrate
+        @NonNull String audioBitrate,
+        @NonNull String libraryVersion
     ) throws SegmentAccessDeniedException {
-        val premiumSegmentMappings = libraryManifestRepository.getPremiumSegmentMappings();
+        val premiumSegmentMappings = libraryManifestRepository.getPremiumSegmentMappings(libraryVersion);
         if (!premiumSegmentMappings.containsKey(soundId)) {
             throw new ConstraintViolationException(String.format("sound with id '%s' doesn't exist", soundId), null);
         }
@@ -62,9 +63,7 @@ class SoundService {
             .stream()
             .noneMatch(s -> segmentId.startsWith(s) || segmentId.endsWith(s));
 
-        // audio bitrate will not be available when requesting master playlists.
-        val isRequestFreeBitrate = audioBitrate == null || audioBitrate.isBlank() || freeAudioBitrates.contains(audioBitrate);
-        if (isRequestingFreeSegment && isRequestFreeBitrate) {
+        if (isRequestingFreeSegment && freeAudioBitrates.contains(audioBitrate)) {
             return;
         }
 

@@ -34,7 +34,7 @@ import java.util.stream.Stream;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.lenient;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -97,21 +97,22 @@ public class SoundControllerTest {
             "  ]" +
             "}";
 
-        lenient().when(mockS3Client.getObject(any(GetObjectRequest.class)))
+        val libraryVersion = "test-version";
+        val expectedKey = String.format("library/%s/library-manifest.json", libraryVersion);
+        lenient().when(mockS3Client.getObject(argThat((GetObjectRequest r) -> r.key().equals(expectedKey))))
             .thenReturn(new ResponseInputStream<>(
                 GetObjectResponse.builder().build(),
-                AbortableInputStream.create(
-                    new ByteArrayInputStream(testManifestJson.getBytes(StandardCharsets.UTF_8)))));
+                AbortableInputStream.create(new ByteArrayInputStream(testManifestJson.getBytes(StandardCharsets.UTF_8)))));
 
         val authUser = createAuthUser(entityManager);
         if (isSubscribed != null) {
             buildSubscription(authUser, isSubscribed, isPaymentPending);
         }
 
-        val requestUrlFmt = "/v1/sounds/%s/segments/%s/authorize?audioBitrate=%s";
-        val freeSegmentRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "64k"));
-        val premiumSegmentRequest = get(String.format(requestUrlFmt, soundId, premiumSegmentId, "64k"));
-        val premiumBitrateRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "320k"));
+        val requestUrlFmt = "/v1/sounds/%s/segments/%s/authorize?audioBitrate=%s&libraryVersion=%s";
+        val freeSegmentRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "128k", libraryVersion));
+        val premiumSegmentRequest = get(String.format(requestUrlFmt, soundId, premiumSegmentId, "128k", libraryVersion));
+        val premiumBitrateRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "320k", libraryVersion));
         if (isSignedIn) {
             val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
             freeSegmentRequest.header("Authorization", "Bearer " + accessToken);

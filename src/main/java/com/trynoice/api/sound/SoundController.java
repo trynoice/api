@@ -42,9 +42,10 @@ class SoundController {
      * If a premium segment or bitrate is being requested, the user must be signed-in and have an
      * active subscription. Otherwise, HTTP 401 is returned.
      *
-     * @param soundId      id of the sound to which the requested segment belongs.
-     * @param segmentId    id of the requested segment.
-     * @param audioBitrate bitrate of the requested hls playlist or segment, e.g. 32k or 128k.
+     * @param soundId        id of the sound to which the requested segment belongs.
+     * @param segmentId      id of the requested segment.
+     * @param audioBitrate   bitrate of the requested hls playlist or segment, e.g. 32k or 128k.
+     * @param libraryVersion version of the sound library on S3.
      * @return <ul>
      * <li>{@code HTTP 204} if request is authorized.</li>
      * <li>{@code HTTP 400} if request is not valid.</li>
@@ -61,10 +62,11 @@ class SoundController {
         @AuthenticationPrincipal Long principalId,
         @Valid @NotBlank @PathVariable String soundId,
         @Valid @NotBlank @PathVariable String segmentId,
-        @RequestParam(required = false) String audioBitrate
+        @Valid @NotBlank @RequestParam String audioBitrate,
+        @Valid @NotBlank @RequestParam String libraryVersion
     ) {
         try {
-            soundService.authorizeSegmentRequest(principalId, soundId, segmentId, audioBitrate);
+            soundService.authorizeSegmentRequest(principalId, soundId, segmentId, audioBitrate, libraryVersion);
             return ResponseEntity.noContent().build();
         } catch (SegmentAccessDeniedException e) {
             log.trace("segment request denied", e);

@@ -55,8 +55,9 @@ public class SoundServiceTest {
         val freeSegmentId = "test_free";
         val premiumSegmentId = "test_premium";
         val premiumSegmentMappings = Map.of(soundId, Set.of(premiumSegmentId));
+        val libraryVersion = "test-version";
 
-        when(libraryManifestRepository.getPremiumSegmentMappings())
+        when(libraryManifestRepository.getPremiumSegmentMappings(libraryVersion))
             .thenReturn(premiumSegmentMappings);
 
         if (principalId != null) {
@@ -68,12 +69,12 @@ public class SoundServiceTest {
         if (shouldAllowAccess) {
             //noinspection CodeBlock2Expr
             assertDoesNotThrow(() -> {
-                service.authorizeSegmentRequest(principalId, soundId, requestedSegmentId, requestedAudioBitrate);
+                service.authorizeSegmentRequest(principalId, soundId, requestedSegmentId, requestedAudioBitrate, libraryVersion);
             });
         } else {
             //noinspection CodeBlock2Expr
             assertThrows(SegmentAccessDeniedException.class, () -> {
-                service.authorizeSegmentRequest(principalId, soundId, requestedSegmentId, requestedAudioBitrate);
+                service.authorizeSegmentRequest(principalId, soundId, requestedSegmentId, requestedAudioBitrate, libraryVersion);
             });
         }
     }

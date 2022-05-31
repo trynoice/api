@@ -43,8 +43,8 @@ public class LibraryManifestRepository {
      */
     @NonNull
     @Cacheable(CACHE)
-    public Map<String, Set<String>> getPremiumSegmentMappings() {
-        return get().getSounds()
+    public Map<String, Set<String>> getPremiumSegmentMappings(@NonNull String libraryVersion) {
+        return get(libraryVersion).getSounds()
             .stream()
             .collect(Collectors.toMap(LibraryManifest.Sound::getId, sound ->
                 sound.getSegments()
@@ -55,11 +55,11 @@ public class LibraryManifestRepository {
     }
 
     @NonNull
-    private LibraryManifest get() {
+    private LibraryManifest get(@NonNull String version) {
         val result = s3Client.getObject(
             GetObjectRequest.builder()
                 .bucket(soundConfig.getLibraryManifestS3Bucket())
-                .key(soundConfig.getLibraryManifestS3Key())
+                .key(String.format("library/%s/library-manifest.json", version))
                 .build());
 
         try {

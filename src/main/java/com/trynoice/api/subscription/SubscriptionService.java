@@ -422,7 +422,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 : null);
 
         if (subscription == null) {
-            // subscription is missing; the purchase token may have been invalidated during by an
+            // subscription is missing; the purchase token may have been invalidated during an
             // upgrade/downgrade.
             return;
         }

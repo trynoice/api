@@ -83,7 +83,6 @@ properties must be configured before deploying the application to the production
 | `app.subscriptions.stripe-webhook-secret`          | Secret to verify webhook event payload using HMAC-256 signatures |
 | `app.subscriptions.cache-ttl`                      | TTL for caching subscription related data (default: 5m)          |
 | `app.sounds.library-manifest-s3-bucket`            | Name of the S3 bucket that hosts the library manifest            |
-| `app.sounds.library-manifest-s3-key`               | Path of the library manifest in the given S3 bucket              |
 | `app.sounds.library-manifest-cache-ttl`            | TTL for library manifest cache from the S3 bucket (default: 5m)  |
 | `app.sounds.free-bitrates`                         | Comma-separated list of audio bitrates available to stream for   |
 |                                                    | free (default: `32k,128k`)                                       |
