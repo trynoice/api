@@ -20,24 +20,26 @@ import org.springframework.boot.actuate.trace.http.HttpTraceRepository;
 import org.springframework.boot.actuate.trace.http.InMemoryHttpTraceRepository;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
+import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.builders.WebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-@SpringBootApplication
+// exclude user details service from Spring security. We're not using it.
+@SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
 @EnableCaching
 public class Application {
 
+    @SuppressWarnings("resource") // run returns an AutoCloseable.
     public static void main(String[] args) {
         new SpringApplicationBuilder(Application.class)
             .bannerMode(Banner.Mode.OFF)
@@ -91,69 +93,57 @@ public class Application {
     @NonNull
     @Bean
     HttpTraceRepository httpTraceRepository() {
-        // TODO: configure a production read http request tracing solution.
+        // TODO: configure a production-ready http request tracing solution.
         return new InMemoryHttpTraceRepository();
     }
 
-    @Configuration
-    static class WebSecurityConfiguration extends WebSecurityConfigurerAdapter {
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        // exclude URLs from the Spring security filter chain.
+        return (web) -> web.ignoring()
+            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp")
+            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn")
+            .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials")
+            .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans")
+            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook")
+            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook");
+    }
 
-        private final BearerTokenAuthFilter bearerTokenAuthFilter;
-        private final CookieAuthFilter cookieAuthFilter;
-        private final GlobalControllerAdvice globalControllerAdvice;
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+        @NonNull HttpSecurity http,
+        @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
+        @NonNull CookieAuthFilter cookieAuthFilter,
+        @NonNull GlobalControllerAdvice globalControllerAdvice
+    ) throws Exception {
+        // disable default filters.
+        http.csrf().disable()
+            .formLogin().disable()
+            .headers().disable()
+            .httpBasic().disable()
+            .jee().disable()
+            .logout().disable()
+            .rememberMe().disable()
+            .requestCache().disable()
+            .securityContext().disable()
+            .sessionManagement().disable();
 
-        @Autowired
-        public WebSecurityConfiguration(
-            @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
-            @NonNull CookieAuthFilter cookieAuthFilter,
-            @NonNull GlobalControllerAdvice globalControllerAdvice
-        ) {
-            this.bearerTokenAuthFilter = bearerTokenAuthFilter;
-            this.cookieAuthFilter = cookieAuthFilter;
-            this.globalControllerAdvice = globalControllerAdvice;
-        }
+        // will automatically consider CORS configuration from WebMVC.
+        // https://docs.spring.io/spring-security/site/docs/5.2.1.RELEASE/reference/htmlsingle/#cors
+        http.cors();
+        http.exceptionHandling()
+            .authenticationEntryPoint(globalControllerAdvice.noOpAuthenticationEntrypoint());
 
-        @Override
-        public void configure(WebSecurity web) {
-            // exclude URLs from the Spring security filter chain.
-            web.ignoring()
-                .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp")
-                .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn")
-                .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials")
-                .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans")
-                .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook")
-                .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook");
-        }
+        // use request filter to use SecurityContext for authorizing requests.
+        http.authorizeRequests()
+            .mvcMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
+            .antMatchers("/v1/**").fullyAuthenticated()
+            .anyRequest().permitAll();
 
-        @Override
-        protected void configure(HttpSecurity http) throws Exception {
-            // disable default filters.
-            http.csrf().disable()
-                .formLogin().disable()
-                .headers().disable()
-                .httpBasic().disable()
-                .logout().disable()
-                .rememberMe().disable()
-                .requestCache().disable()
-                .securityContext().disable()
-                .sessionManagement().disable();
-
-            // will automatically consider CORS configuration from WebMVC.
-            // https://docs.spring.io/spring-security/site/docs/5.2.1.RELEASE/reference/htmlsingle/#cors
-            http.cors();
-            http.exceptionHandling()
-                .authenticationEntryPoint(globalControllerAdvice.noOpAuthenticationEntrypoint());
-
-            // use request filter to use SecurityContext for authorizing requests.
-            http.authorizeRequests()
-                .mvcMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
-                .antMatchers("/v1/**").fullyAuthenticated()
-                .anyRequest().permitAll();
-
-            // add custom filter to set SecurityContext based on Authorization bearer JWT.
-            http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
-            http.addFilterBefore(cookieAuthFilter, AnonymousAuthenticationFilter.class);
-        }
+        // add custom filter to set SecurityContext based on Authorization bearer JWT.
+        http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
+        http.addFilterBefore(cookieAuthFilter, AnonymousAuthenticationFilter.class);
+        return http.build();
     }
 
     @Component
