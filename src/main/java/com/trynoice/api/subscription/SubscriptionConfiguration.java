@@ -77,7 +77,7 @@ public class SubscriptionConfiguration {
             credentials = GoogleCredentials.create(new AccessToken("dummy-token", null));
         }
 
-        return new AndroidPublisherApi(credentials, appName, config.androidApplicationId);
+        return new AndroidPublisherApi(credentials, appName, config.getAndroidApplicationId());
     }
 
     @NonNull
