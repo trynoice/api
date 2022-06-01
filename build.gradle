@@ -56,7 +56,7 @@ task integrationTest(type: Test) {
 check.dependsOn integrationTest
 
 dependencies {
-    def springDocVersion = '1.6.8'
+    def springDocVersion = '1.6.9'
 
     // to enable JavaDoc support in SpringDocs
     annotationProcessor 'com.github.therapi:therapi-runtime-javadoc-scribe:0.13.0'
