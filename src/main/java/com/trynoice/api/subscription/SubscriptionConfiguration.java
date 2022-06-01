@@ -49,6 +49,9 @@ public class SubscriptionConfiguration {
     @NotNull
     private Duration cacheTtl;
 
+    @NotNull
+    private boolean enableGooglePlayTestMode;
+
     @NonNull
     GoogleCredentials androidPublisherApiCredentials() throws IOException {
         return GoogleCredentials.fromStream(new FileInputStream(androidPublisherApiKeyPath))

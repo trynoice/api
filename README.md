@@ -70,7 +70,6 @@ properties must be configured before deploying the application to the production
 |                                                    | domain1.com on port 8080 or 8081                                 |
 |                                                    | `https://*.domain1.com:[*]` - all endings with domain1.com       |
 |                                                    | with any port (including default port)                           |
-|                                                    |                                                                  |
 | `app.auth.hmac-secret`                             | HMAC secret for signing JWTs                                     |
 | `app.auth.refresh-token-expiry`                    | Duration for the expiry of refresh token (default: `7d`)         |
 | `app.auth.access-token-expiry`                     | Duration for the expiry of access token (default: `30m`)         |
@@ -82,6 +81,9 @@ properties must be configured before deploying the application to the production
 | `app.subscriptions.stripe-api-key`                 | Secret API key to access Stripe API                              |
 | `app.subscriptions.stripe-webhook-secret`          | Secret to verify webhook event payload using HMAC-256 signatures |
 | `app.subscriptions.cache-ttl`                      | TTL for caching subscription related data (default: 5m)          |
+| `app.subscriptions.enable-google-play-test-mode`   | If enabled, API server will only handle test purchase            |
+|                                                    | notifications from Google Play. If disabled, it will only handle |
+|                                                    | real purchase notifications. (default: `false`)                  |
 | `app.sounds.library-manifest-s3-bucket`            | Name of the S3 bucket that hosts the library manifest            |
 | `app.sounds.library-manifest-cache-ttl`            | TTL for library manifest cache from the S3 bucket (default: 5m)  |
 | `app.sounds.free-bitrates`                         | Comma-separated list of audio bitrates available to stream for   |

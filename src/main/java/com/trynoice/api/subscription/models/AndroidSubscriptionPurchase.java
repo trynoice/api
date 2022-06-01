@@ -28,6 +28,7 @@ public class AndroidSubscriptionPurchase {
     private final Long expiryTimeMillis;
     private final String obfuscatedExternalAccountId;
     private final boolean isAcknowledged;
+    private final boolean isTestPurchase;
 
     public AndroidSubscriptionPurchase(SubscriptionPurchaseV2 purchaseV2) {
         // https://developer.android.com/google/play/billing/compatibility#subscriptionpurchasev2-fields
@@ -65,5 +66,6 @@ public class AndroidSubscriptionPurchase {
             : null;
 
         this.isAcknowledged = "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED".equals(purchaseV2.getAcknowledgementState());
+        this.isTestPurchase = purchaseV2.getTestPurchase() != null;
     }
 }

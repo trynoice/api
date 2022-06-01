@@ -413,6 +413,7 @@ public class SubscriptionControllerTest {
         val basePurchase = AndroidSubscriptionPurchase.builder()
             .productId("test-product-id")
             .startTimeMillis(System.currentTimeMillis())
+            .isTestPurchase(true)
             .build();
 
         return Stream.of(
@@ -485,6 +486,7 @@ public class SubscriptionControllerTest {
             .isAcknowledged(true)
             .linkedPurchaseToken(oldPurchaseToken)
             .obfuscatedExternalAccountId(String.valueOf(subscription.getId()))
+            .isTestPurchase(true)
             .build();
 
         when(androidPublisherApi.getSubscriptionPurchase(newPurchaseToken))
@@ -515,6 +517,7 @@ public class SubscriptionControllerTest {
             .isPaymentPending(true)
             .isAcknowledged(false)
             .obfuscatedExternalAccountId(String.valueOf(subscription2.getId()))
+            .isTestPurchase(true)
             .build();
 
         when(androidPublisherApi.getSubscriptionPurchase(purchaseToken))
