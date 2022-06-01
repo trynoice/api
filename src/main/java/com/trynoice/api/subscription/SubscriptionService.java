@@ -2,7 +2,6 @@ package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
@@ -18,6 +17,7 @@ import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundExceptio
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
+import com.trynoice.api.subscription.models.AndroidSubscriptionPurchase;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
@@ -312,10 +312,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         switch (subscription.getPlan().getProvider()) {
             case GOOGLE_PLAY:
                 try {
-                    androidPublisherApi.cancelSubscription(
-                        subscriptionConfig.getAndroidApplicationId(),
-                        subscription.getPlan().getProviderPlanId(),
-                        subscription.getProviderSubscriptionId());
+                    androidPublisherApi.cancelSubscription(subscription.getProviderSubscriptionId());
                 } catch (IOException e) {
                     throw new RuntimeException("google play api error", e);
                 }
@@ -380,22 +377,15 @@ class SubscriptionService implements SubscriptionServiceContract {
             throw new WebhookPayloadException("'notificationType' is missing or invalid in 'subscriptionNotification'");
         }
 
-        val subscriptionPlanId = subscriptionNotification.at("/subscriptionId");
-        if (!subscriptionPlanId.isTextual()) {
-            throw new WebhookPayloadException("'subscriptionId' is missing or invalid in 'subscriptionNotification'");
-        }
-
-        val purchaseToken = subscriptionNotification.at("/purchaseToken");
-        if (!purchaseToken.isTextual()) {
+        val purchaseTokenNode = subscriptionNotification.at("/purchaseToken");
+        if (!purchaseTokenNode.isTextual()) {
             throw new WebhookPayloadException("'purchaseToken' is missing or invalid in 'subscriptionNotification'");
         }
 
-        final SubscriptionPurchase purchase;
+        val purchaseToken = purchaseTokenNode.textValue();
+        final AndroidSubscriptionPurchase purchase;
         try {
-            purchase = androidPublisherApi.getSubscriptionPurchase(
-                subscriptionConfig.getAndroidApplicationId(),
-                subscriptionPlanId.asText(),
-                purchaseToken.asText());
+            purchase = androidPublisherApi.getSubscriptionPurchase(purchaseToken);
         } catch (IOException e) {
             throw new RuntimeException("failed to retrieve purchase data from google play", e);
         }
@@ -412,11 +402,10 @@ class SubscriptionService implements SubscriptionServiceContract {
         // upgrade/downgrade happens, we need prevent the old subscription's notification from
         // mutating our internal state. To achieve that, we rely on querying internal subscription
         // objects using purchase tokens (provider subscription id).
-
         val subscription = notificationType.asInt() == 4 // = new purchase
             ? subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription entity for this purchase"))
-            : subscriptionRepository.findByProviderSubscriptionId(purchaseToken.asText())
+            : subscriptionRepository.findByProviderSubscriptionId(purchaseToken)
             .orElseGet(() -> purchase.getLinkedPurchaseToken() != null
                 ? subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken()).orElse(null)
                 : null);
@@ -427,7 +416,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             return;
         }
 
-        subscription.setProviderSubscriptionId(purchaseToken.asText());
+        subscription.setProviderSubscriptionId(purchaseToken);
         if (hasAnotherActiveSubscription(subscription)) {
             subscription.setAutoRenewing(false);
             subscription.setPaymentPending(false);
@@ -441,10 +430,10 @@ class SubscriptionService implements SubscriptionServiceContract {
             return; // without acknowledging purchase so that Google Play refunds it.
         }
 
-        if (!subscriptionPlanId.asText().equals(subscription.getPlan().getProviderPlanId())) {
+        if (purchase.getProductId() != null && !purchase.getProductId().equals(subscription.getPlan().getProviderPlanId())) {
             subscription.setPlan(
                 subscriptionPlanRepository.findByProviderPlanId(
-                        SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionPlanId.asText())
+                        SubscriptionPlan.Provider.GOOGLE_PLAY, purchase.getProductId())
                     .orElseThrow(() -> new WebhookEventException("unknown provider plan id")));
         }
 
@@ -454,11 +443,6 @@ class SubscriptionService implements SubscriptionServiceContract {
         // future, the user is in a grace-period (retains their entitlements). If the expiry is in
         // the past, the user's account is on hold, and they lose their entitlements. When the user
         // is in their grace-period, they should be notified about the pending payment.
-        //
-        // Moreover, linked purchase token should be ignored since we're not using purchase tokens
-        // to identify the internal subscription entity. Both the upgraded and the old subscription
-        // will have the same obfuscated account id, and thus, its linked purchase token will be
-        // automatically overwritten when the upgraded subscription's notification arrives.
         if (purchase.getStartTimeMillis() != null) {
             subscription.setStartAtMillis(purchase.getStartTimeMillis());
         }
@@ -468,12 +452,12 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
 
         if (subscription.isActive()) {
-            subscription.setPaymentPending(Integer.valueOf(0).equals(purchase.getPaymentState()));
+            subscription.setPaymentPending(purchase.isPaymentPending());
         } else {
             subscription.setPaymentPending(false);
         }
 
-        subscription.setAutoRenewing(requireNonNullElse(purchase.getAutoRenewing(), true));
+        subscription.setAutoRenewing(purchase.isAutoRenewing());
         subscriptionRepository.save(subscription);
 
         if (!subscription.getCustomer().isTrialPeriodUsed()) {
@@ -481,12 +465,9 @@ class SubscriptionService implements SubscriptionServiceContract {
             customerRepository.save(subscription.getCustomer());
         }
 
-        if (!Integer.valueOf(1).equals(purchase.getAcknowledgementState())) {
+        if (!purchase.isAcknowledged()) {
             try {
-                androidPublisherApi.acknowledgePurchase(
-                    subscriptionConfig.getAndroidApplicationId(),
-                    subscriptionPlanId.asText(),
-                    purchaseToken.asText());
+                androidPublisherApi.acknowledgePurchase(purchase.getProductId(), purchaseToken);
             } catch (IOException e) {
                 throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }

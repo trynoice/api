@@ -2,7 +2,6 @@ package com.trynoice.api.subscription;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
@@ -15,6 +14,7 @@ import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
+import com.trynoice.api.subscription.models.AndroidSubscriptionPurchase;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
 import com.trynoice.api.testing.AuthTestUtils;
@@ -353,10 +353,7 @@ public class SubscriptionControllerTest {
             switch (provider) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
-                        .cancelSubscription(
-                            any(),
-                            eq(plan.getProviderPlanId()),
-                            eq(subscription.getProviderSubscriptionId()));
+                        .cancelSubscription(subscription.getProviderSubscriptionId());
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
@@ -381,25 +378,24 @@ public class SubscriptionControllerTest {
     @ParameterizedTest(name = "{displayName} - expectedIsActive={3} expectedIsPaymentPending={4}")
     @MethodSource("handleGooglePlayWebhookEventTestCases")
     void handleGooglePlayWebhookEvent(
-        @NonNull SubscriptionPurchase purchase,
+        @NonNull AndroidSubscriptionPurchase purchase,
         boolean wasActive,
         boolean wasPaymentPending,
         boolean isActive,
         boolean isPaymentPending,
         boolean shouldAcknowledgePurchase
     ) throws Exception {
-        val subscriptionPlanId = "test-subscription-id";
         val purchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, subscriptionPlanId);
+        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, purchase.getProductId());
         val subscription = buildSubscription(authUser, plan, wasActive, wasPaymentPending, wasActive ? purchaseToken : null);
-        purchase.setObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
-        when(androidPublisherApi.getSubscriptionPurchase(any(), eq(subscriptionPlanId), eq(purchaseToken)))
+        purchase = purchase.withObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
+        when(androidPublisherApi.getSubscriptionPurchase(purchaseToken))
             .thenReturn(purchase);
 
         mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(buildGooglePlayWebhookEvent(!wasActive, subscriptionPlanId, purchaseToken)))
+                .content(buildGooglePlayWebhookEvent(!wasActive, purchaseToken)))
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertEquals(isActive, subscription.isActive());
@@ -408,46 +404,65 @@ public class SubscriptionControllerTest {
         assertTrue(subscription.getCustomer().isTrialPeriodUsed());
 
         verify(androidPublisherApi, times(shouldAcknowledgePurchase ? 1 : 0))
-            .acknowledgePurchase(any(), eq(subscriptionPlanId), eq(purchaseToken));
+            .acknowledgePurchase(purchase.getProductId(), purchaseToken);
     }
 
     static Stream<Arguments> handleGooglePlayWebhookEventTestCases() {
         val futureMillis = System.currentTimeMillis() + 60 * 60 * 1000L;
         val pastMillis = System.currentTimeMillis() - 60 * 60 * 1000L;
+        val basePurchase = AndroidSubscriptionPurchase.builder()
+            .productId("test-product-id")
+            .startTimeMillis(System.currentTimeMillis())
+            .build();
+
         return Stream.of(
             // purchase, was subscription active, was payment pending, is subscription active, is payment pending, should acknowledge
             arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 1),
+                basePurchase.withExpiryTimeMillis(futureMillis)
+                    .withPaymentPending(false)
+                    .withAcknowledged(true),
                 false, false,
                 true, false,
                 false),
             arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 0),
+                basePurchase.withExpiryTimeMillis(futureMillis)
+                    .withPaymentPending(false)
+                    .withAcknowledged(false),
                 true, false,
                 true, false,
                 true),
             arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 0),
+                basePurchase.withExpiryTimeMillis(futureMillis)
+                    .withPaymentPending(false)
+                    .withAcknowledged(false),
                 true, true,
                 true, false,
                 true),
             arguments(
-                buildSubscriptionPurchase(futureMillis, 1, 0),
+                basePurchase.withExpiryTimeMillis(futureMillis)
+                    .withPaymentPending(false)
+                    .withAcknowledged(false),
                 false, false,
                 true, false,
                 true),
             arguments(
-                buildSubscriptionPurchase(futureMillis, 0, 0),
+                basePurchase.withExpiryTimeMillis(futureMillis)
+                    .withPaymentPending(true)
+                    .withAcknowledged(false),
                 false, false,
                 true, true,
                 true),
             arguments(
-                buildSubscriptionPurchase(pastMillis, 0, 1),
+                basePurchase.withExpiryTimeMillis(pastMillis)
+                    .withPaymentPending(false)
+                    .withAcknowledged(true),
                 false, false,
                 false, false,
                 false),
             arguments(
-                buildSubscriptionPurchase(pastMillis, 1, 0),
+                basePurchase.withExpiryTimeMillis(pastMillis)
+                    .withPaymentPending(false)
+                    .withAcknowledged(false),
                 false, false,
                 false, false,
                 true)
@@ -462,15 +477,22 @@ public class SubscriptionControllerTest {
         val newPurchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
         val subscription = buildSubscription(authUser, oldPlan, true, false, oldPurchaseToken);
-        val purchase = buildSubscriptionPurchase(System.currentTimeMillis() + 60 * 60 * 1000L, 0, 1);
-        purchase.setLinkedPurchaseToken(oldPurchaseToken);
-        purchase.setObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
-        when(androidPublisherApi.getSubscriptionPurchase(any(), eq(newPlan.getProviderPlanId()), eq(newPurchaseToken)))
+        val purchase = AndroidSubscriptionPurchase.builder()
+            .productId(newPlan.getProviderPlanId())
+            .startTimeMillis(System.currentTimeMillis())
+            .expiryTimeMillis(System.currentTimeMillis() + 60 * 60 * 1000L)
+            .isPaymentPending(false)
+            .isAcknowledged(true)
+            .linkedPurchaseToken(oldPurchaseToken)
+            .obfuscatedExternalAccountId(String.valueOf(subscription.getId()))
+            .build();
+
+        when(androidPublisherApi.getSubscriptionPurchase(newPurchaseToken))
             .thenReturn(purchase);
 
         mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(buildGooglePlayWebhookEvent(false, newPlan.getProviderPlanId(), newPurchaseToken)))
+                .content(buildGooglePlayWebhookEvent(false, newPurchaseToken)))
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
@@ -486,21 +508,26 @@ public class SubscriptionControllerTest {
         val purchaseToken = UUID.randomUUID().toString();
         val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
         val subscription2 = buildSubscription(authUser, plan, false, false, null);
+        val purchase = AndroidSubscriptionPurchase.builder()
+            .productId(plan.getProviderPlanId())
+            .startTimeMillis(System.currentTimeMillis())
+            .expiryTimeMillis(System.currentTimeMillis() * 60 * 60 * 1000L)
+            .isPaymentPending(true)
+            .isAcknowledged(false)
+            .obfuscatedExternalAccountId(String.valueOf(subscription2.getId()))
+            .build();
 
-        val purchase = buildSubscriptionPurchase(System.currentTimeMillis() + 60 * 60 * 1000L, 1, 0);
-        purchase.setObfuscatedExternalAccountId(String.valueOf(subscription2.getId()));
-        when(androidPublisherApi.getSubscriptionPurchase(any(), any(), eq(purchaseToken)))
+        when(androidPublisherApi.getSubscriptionPurchase(purchaseToken))
             .thenReturn(purchase);
 
         mockMvc.perform(post("/v1/subscriptions/googlePlay/webhook")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(buildGooglePlayWebhookEvent(true, plan.getProviderPlanId(), purchaseToken)))
+                .content(buildGooglePlayWebhookEvent(true, purchaseToken)))
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertTrue(subscription1.isActive());
         assertFalse(subscription2.isActive());
-        verify(androidPublisherApi, times(0))
-            .acknowledgePurchase(any(), eq(plan.getProviderPlanId()), eq(purchaseToken));
+        verify(androidPublisherApi, times(0)).acknowledgePurchase(plan.getProviderPlanId(), purchaseToken);
     }
 
     @ParameterizedTest(name = "{displayName} - session.status={0} session.paymentStatus={1} isSubscriptionActive={2}")
@@ -674,16 +701,6 @@ public class SubscriptionControllerTest {
     }
 
     @NonNull
-    private static SubscriptionPurchase buildSubscriptionPurchase(long expiryTimeMillis, int paymentState, int acknowledgementState) {
-        val purchase = new SubscriptionPurchase();
-        purchase.setStartTimeMillis(System.currentTimeMillis());
-        purchase.setExpiryTimeMillis(expiryTimeMillis);
-        purchase.setPaymentState(paymentState);
-        purchase.setAcknowledgementState(acknowledgementState);
-        return purchase;
-    }
-
-    @NonNull
     private SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providerPlanId) {
         return subscriptionPlanRepository.save(
             SubscriptionPlan.builder()
@@ -783,7 +800,7 @@ public class SubscriptionControllerTest {
     }
 
     @NonNull
-    private static String buildGooglePlayWebhookEvent(boolean isNewPurchase, @NonNull String providerPlanId, @NonNull String purchaseToken) {
+    private static String buildGooglePlayWebhookEvent(boolean isNewPurchase, @NonNull String purchaseToken) {
         val data = Base64.getEncoder().encodeToString(("{" +
             "  \"version\": \"1.0\"," +
             "  \"packageName\": \"com.github.ashutoshgngwr.noice\"," +
@@ -791,8 +808,7 @@ public class SubscriptionControllerTest {
             "  \"subscriptionNotification\": {" +
             "    \"version\": \"1.0\"," +
             "    \"notificationType\": " + (isNewPurchase ? 4 : 3) + "," +
-            "    \"purchaseToken\": \"" + purchaseToken + "\"," +
-            "    \"subscriptionId\":\"" + providerPlanId + "\"" +
+            "    \"purchaseToken\": \"" + purchaseToken + "\"" +
             "  }" +
             "}").getBytes(StandardCharsets.UTF_8));
 

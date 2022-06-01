@@ -3,10 +3,10 @@ package com.trynoice.api.subscription;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.androidpublisher.AndroidPublisher;
-import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.trynoice.api.subscription.models.AndroidSubscriptionPurchase;
 import lombok.NonNull;
 import lombok.val;
 
@@ -19,42 +19,43 @@ import java.security.GeneralSecurityException;
 public class AndroidPublisherApi {
 
     private final AndroidPublisher client;
+    private final String clientAppId;
 
     public AndroidPublisherApi(
         @NonNull GoogleCredentials credentials,
-        @NonNull String applicationName
+        @NonNull String serverAppName,
+        @NonNull String clientAppId
     ) throws GeneralSecurityException, IOException {
         client = new AndroidPublisher.Builder(
             GoogleNetHttpTransport.newTrustedTransport(),
             GsonFactory.getDefaultInstance(),
             new HttpCredentialsAdapter(credentials))
-            .setApplicationName(applicationName)
+            .setApplicationName(serverAppName)
             .build();
+
+        this.clientAppId = clientAppId;
     }
 
     /**
-     * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#get(String, String, String)
+     * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptionsv2#get(String, String)
      */
     @NonNull
-    SubscriptionPurchase getSubscriptionPurchase(
-        @NonNull String applicationId,
-        @NonNull String subscriptionId,
-        @NonNull String purchaseToken
-    ) throws IOException {
-        return client.purchases()
-            .subscriptions()
-            .get(applicationId, subscriptionId, purchaseToken)
-            .execute();
+    AndroidSubscriptionPurchase getSubscriptionPurchase(@NonNull String purchaseToken) throws IOException {
+        return new AndroidSubscriptionPurchase(
+            client.purchases()
+                .subscriptionsv2()
+                .get(clientAppId, purchaseToken)
+                .execute());
     }
 
     /**
      * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#acknowledge(
      *String, String, String, SubscriptionPurchasesAcknowledgeRequest)
      */
-    void acknowledgePurchase(@NonNull String applicationId, @NonNull String subscriptionId, @NonNull String purchaseToken) throws IOException {
+    void acknowledgePurchase(@NonNull String productId, @NonNull String purchaseToken) throws IOException {
         client.purchases()
             .subscriptions()
-            .acknowledge(applicationId, subscriptionId, purchaseToken, new SubscriptionPurchasesAcknowledgeRequest())
+            .acknowledge(clientAppId, productId, purchaseToken, new SubscriptionPurchasesAcknowledgeRequest())
             .execute();
     }
 
@@ -64,21 +65,17 @@ public class AndroidPublisherApi {
      * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#cancel(String, String, String)
      * @see <a href="https://developer.android.com/google/play/billing/subscriptions#cancel">Cancellations</a>
      */
-    void cancelSubscription(
-        @NonNull String applicationId,
-        @NonNull String subscriptionId,
-        @NonNull String purchaseToken
-    ) throws IOException {
-        val purchase = getSubscriptionPurchase(applicationId, subscriptionId, purchaseToken);
-        if (Boolean.FALSE.equals(purchase.getAutoRenewing())) {
+    void cancelSubscription(@NonNull String purchaseToken) throws IOException {
+        val purchase = getSubscriptionPurchase(purchaseToken);
+        if ("SUBSCRIPTION_STATE_CANCELED".equals(purchase.getSubscriptionState())) {
             // subscription is already cancelled.
-            // https://developer.android.com/google/play/billing/subscriptions#cancel
+            // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#subscriptionstate
             return;
         }
 
         client.purchases()
             .subscriptions()
-            .cancel(applicationId, subscriptionId, purchaseToken)
+            .cancel(clientAppId, purchase.getProductId(), purchaseToken)
             .execute();
     }
 }

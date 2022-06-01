@@ -289,10 +289,7 @@ public class SubscriptionServiceTest {
             switch (subscription.getPlan().getProvider()) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
-                        .cancelSubscription(
-                            any(),
-                            eq(subscription.getPlan().getProviderPlanId()),
-                            eq(subscription.getProviderSubscriptionId()));
+                        .cancelSubscription(subscription.getProviderSubscriptionId());
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
