@@ -103,8 +103,8 @@ public class SubscriptionControllerTest {
     private MockMvc mockMvc;
 
     @ParameterizedTest(name = "{displayName} - provider={0} responseStatus={1}")
-    @MethodSource("getPlansTestCases")
-    void getPlans(String provider, int expectedResponseStatus) throws Exception {
+    @MethodSource("listPlansTestCases")
+    void listPlans(String provider, int expectedResponseStatus) throws Exception {
         val request = get("/v1/subscriptions/plans");
         if (provider != null) {
             request.queryParam("provider", provider);
@@ -128,7 +128,7 @@ public class SubscriptionControllerTest {
         }
     }
 
-    static Stream<Arguments> getPlansTestCases() {
+    static Stream<Arguments> listPlansTestCases() {
         return Stream.of(
             arguments(null, HttpStatus.OK.value()),
             arguments("GOOGLE_PLAY", HttpStatus.OK.value()),

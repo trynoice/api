@@ -95,7 +95,7 @@ public class SubscriptionServiceTest {
     }
 
     @Test
-    void getPlans_withSupportedProviders() throws UnsupportedSubscriptionPlanProviderException {
+    void listPlans_withSupportedProviders() throws UnsupportedSubscriptionPlanProviderException {
         val googlePlayPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "google_plan_plan_id");
         googlePlayPlan.setId((short) 1);
 
@@ -122,7 +122,7 @@ public class SubscriptionServiceTest {
         for (val entry : testCases.entrySet()) {
             val provider = entry.getKey();
             val result = entry.getValue();
-            val plans = service.getPlans(provider == null ? null : provider.name());
+            val plans = service.listPlans(provider == null ? null : provider.name());
 
             assertEquals(result.size(), plans.size());
             for (int i = 0; i < result.size(); i++) {
@@ -144,10 +144,10 @@ public class SubscriptionServiceTest {
     }
 
     @Test
-    void getPlans_withUnsupportedProvider() {
+    void listPlans_withUnsupportedProvider() {
         assertThrows(
             UnsupportedSubscriptionPlanProviderException.class,
-            () -> service.getPlans("unsupported-provider"));
+            () -> service.listPlans("unsupported-provider"));
     }
 
     @Test

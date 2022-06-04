@@ -96,7 +96,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @throws UnsupportedSubscriptionPlanProviderException if an invalid {@code provider} is given.
      */
     @NonNull
-    List<SubscriptionPlanView> getPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
+    List<SubscriptionPlanView> listPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
         final Iterable<SubscriptionPlan> plans;
         val sortOrder = Sort.by(Sort.Order.asc("priceInIndianPaise"));
         if (provider != null) {
@@ -113,6 +113,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
 
         return StreamSupport.stream(plans.spliterator(), false)
+            .filter(p -> p.getProvider() != SubscriptionPlan.Provider.GIFT_CARD) // do not return GIFT_CARD plan(s)
             .map(SubscriptionService::buildSubscriptionPlanView)
             .collect(Collectors.toUnmodifiableList());
     }

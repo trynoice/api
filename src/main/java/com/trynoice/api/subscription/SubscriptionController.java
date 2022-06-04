@@ -86,11 +86,11 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping("/plans")
-    ResponseEntity<List<SubscriptionPlanView>> getPlans(
+    ResponseEntity<List<SubscriptionPlanView>> listPlans(
         @Schema(allowableValues = {"google_play", "stripe"}) @RequestParam(value = "provider", required = false) String provider
     ) {
         try {
-            return ResponseEntity.ok(subscriptionService.getPlans(provider));
+            return ResponseEntity.ok(subscriptionService.listPlans(provider));
         } catch (UnsupportedSubscriptionPlanProviderException e) {
             log.trace("unsupported subscription plan provider: {}", provider);
             return ResponseEntity.unprocessableEntity().build();

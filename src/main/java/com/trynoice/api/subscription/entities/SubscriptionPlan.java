@@ -45,6 +45,7 @@ public class SubscriptionPlan extends BasicEntity {
 
     public enum Provider {
         GOOGLE_PLAY,
-        STRIPE
+        STRIPE,
+        GIFT_CARD,
     }
 }
