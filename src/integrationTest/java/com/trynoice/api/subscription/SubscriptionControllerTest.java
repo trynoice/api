@@ -705,14 +705,16 @@ public class SubscriptionControllerTest {
 
     @NonNull
     private SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providerPlanId) {
-        return subscriptionPlanRepository.save(
-            SubscriptionPlan.builder()
-                .provider(provider)
-                .providerPlanId(providerPlanId)
-                .billingPeriodMonths((short) 1)
-                .trialPeriodDays((short) 1)
-                .priceInIndianPaise(10000)
-                .build());
+        val plan = SubscriptionPlan.builder()
+            .provider(provider)
+            .providerPlanId(providerPlanId)
+            .billingPeriodMonths((short) 1)
+            .trialPeriodDays((short) 1)
+            .priceInIndianPaise(10000)
+            .build();
+
+        entityManager.persist(plan);
+        return plan;
     }
 
     @NonNull

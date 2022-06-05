@@ -18,6 +18,18 @@ import java.util.Optional;
 @Repository
 interface SubscriptionPlanRepository extends BasicEntityRepository<SubscriptionPlan, Short> {
 
+    @NonNull
+    @Override
+    default <S extends SubscriptionPlan> S save(@NonNull S entity) {
+        throw new UnsupportedOperationException("subscription plan entities doesn't support updates");
+    }
+
+    @NonNull
+    @Override
+    default <S extends SubscriptionPlan> Iterable<S> saveAll(@NonNull Iterable<S> entities) {
+        throw new UnsupportedOperationException("subscription plan entities doesn't support updates");
+    }
+
     /**
      * Find all subscription plans offered by the given provider.
      *
