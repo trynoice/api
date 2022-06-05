@@ -24,8 +24,6 @@ import static org.apache.commons.lang3.StringUtils.removeStart;
 @Repository
 public class LibraryManifestRepository {
 
-    static final String CACHE = "library_manifest_cache";
-
     private final S3Client s3Client;
     private final ObjectMapper objectMapper;
     private final SoundConfiguration soundConfig;
@@ -45,7 +43,7 @@ public class LibraryManifestRepository {
      * @return a map of sound ids to a set of premium segment ids.
      */
     @NonNull
-    @Cacheable(CACHE)
+    @Cacheable(SoundBeans.CACHE_NAME)
     public Map<String, Set<String>> getPremiumSegmentMappings(@NonNull String libraryVersion) {
         return get(libraryVersion).getSounds()
             .stream()

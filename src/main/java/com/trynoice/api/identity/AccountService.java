@@ -67,8 +67,8 @@ class AccountService implements AccountServiceContract {
         @NonNull RefreshTokenRepository refreshTokenRepository,
         @NonNull AuthConfiguration authConfig,
         @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy,
-        @NonNull @Qualifier(AuthConfiguration.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache,
-        @NonNull @Qualifier(AuthConfiguration.DELETED_USER_ID_CACHE) Cache<Long, Boolean> deletedUserIdCache
+        @NonNull @Qualifier(AuthBeans.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache,
+        @NonNull @Qualifier(AuthBeans.DELETED_USER_ID_CACHE) Cache<Long, Boolean> deletedUserIdCache
     ) {
         this.authUserRepository = authUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;

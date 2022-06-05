@@ -1,16 +1,9 @@
 package com.trynoice.api.identity;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.Data;
-import lombok.NonNull;
-import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
@@ -24,11 +17,8 @@ import java.time.Duration;
 @Validated
 @ConfigurationProperties("app.auth")
 @Data
-@Configuration
+@Component
 class AuthConfiguration {
-
-    static final String REVOKED_ACCESS_JWT_CACHE = "revokedAccessJwts";
-    static final String DELETED_USER_ID_CACHE = "deletedUserIds";
 
     /**
      * HMAC secret to sign refresh and access tokens.
@@ -76,63 +66,6 @@ class AuthConfiguration {
     @Autowired(required = false)
     private transient EmailSignInTokenDispatcherConfiguration emailSignInTokenDispatcherConfig;
 
-    @NonNull
-    @Bean
-    SignInTokenDispatchStrategy signInTokenDispatchStrategy() {
-        switch (signInTokenDispatcherType) {
-            case EMAIL:
-                assert emailSignInTokenDispatcherConfig != null;
-                return new SignInTokenDispatchStrategy.Email(emailSignInTokenDispatcherConfig);
-            case CONSOLE:
-                return new SignInTokenDispatchStrategy.Console();
-            default:
-                throw new IllegalArgumentException("unsupported sign-in token dispatch strategy: " + signInTokenDispatcherType);
-        }
-
-    }
-
-    /**
-     * Prevents Spring Web from automatically adding the auth filter bean to its filter chain
-     * because it has to be added to Spring Security's filter chain and not Spring Web's.
-     */
-    @NonNull
-    @Bean
-    public FilterRegistrationBean<BearerTokenAuthFilter> bearerTokenAuthFilterRegistration(BearerTokenAuthFilter filter) {
-        val registration = new FilterRegistrationBean<>(filter);
-        registration.setEnabled(false);
-        return registration;
-    }
-
-    /**
-     * Prevents Spring Web from automatically adding the auth filter bean to its filter chain
-     * because it has to be added to Spring Security's filter chain and not Spring Web's.
-     */
-    @NonNull
-    @Bean
-    public FilterRegistrationBean<CookieAuthFilter> cookieAuthFilterRegistration(CookieAuthFilter filter) {
-        val registration = new FilterRegistrationBean<>(filter);
-        registration.setEnabled(false);
-        return registration;
-    }
-
-    @NonNull
-    @Bean(REVOKED_ACCESS_JWT_CACHE)
-    public Cache<String, Boolean> revokedAccessJwtCache() {
-        return Caffeine.newBuilder()
-            .expireAfterWrite(accessTokenExpiry)
-            .maximumSize(1000) // an arbitrary upper-limit for sanity.
-            .build();
-    }
-
-    @NonNull
-    @Bean(DELETED_USER_ID_CACHE)
-    public Cache<Long, Boolean> deleteUserIdCache() {
-        return Caffeine.newBuilder()
-            .expireAfterWrite(accessTokenExpiry)
-            .maximumSize(1000) // an arbitrary upper-limit for sanity.
-            .build();
-    }
-
     public enum SignInTokenDispatcherType {
         CONSOLE,
         EMAIL
@@ -143,9 +76,9 @@ class AuthConfiguration {
      */
     @Validated
     @ConfigurationProperties("app.auth.sign-in-token-dispatcher.email")
+    @ConditionalOnProperty(name = "app.auth.sign-in-token-dispatcher-type", havingValue = "email")
     @Data
     @Component
-    @ConditionalOnProperty(name = "app.auth.sign-in-token-dispatcher-type", havingValue = "email")
     static class EmailSignInTokenDispatcherConfiguration {
 
         /**

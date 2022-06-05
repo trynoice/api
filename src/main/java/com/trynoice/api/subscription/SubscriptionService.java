@@ -70,7 +70,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         @NonNull AccountServiceContract accountServiceContract,
         @NonNull AndroidPublisherApi androidPublisherApi,
         @NonNull StripeApi stripeApi,
-        @NonNull @Qualifier(SubscriptionConfiguration.CACHE_NAME) Cache cache
+        @NonNull @Qualifier(SubscriptionBeans.CACHE_NAME) Cache cache
     ) {
         this.subscriptionConfig = subscriptionConfig;
         this.customerRepository = customerRepository;
@@ -685,7 +685,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @return if the user with given {@code userId} owns an active subscription.
      */
     @Override
-    @Cacheable(cacheNames = SubscriptionConfiguration.CACHE_NAME, key = "'isSubscribed:' + #userId")
+    @Cacheable(cacheNames = SubscriptionBeans.CACHE_NAME, key = "'isSubscribed:' + #userId")
     public boolean isUserSubscribed(@NonNull Long userId) {
         return subscriptionRepository.existsActiveByCustomerUserId(userId);
     }
