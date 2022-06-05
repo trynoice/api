@@ -391,7 +391,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             throw new RuntimeException("failed to retrieve purchase data from google play", e);
         }
 
-        if (purchase.isTestPurchase() != subscriptionConfig.isEnableGooglePlayTestMode()) {
+        if (purchase.isTestPurchase() != subscriptionConfig.isGooglePlayTestModeEnabled()) {
             // ignore notifications if we're not running in the same mode as the purchased item.
             return;
         }

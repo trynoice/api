@@ -15,6 +15,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.apache.commons.lang3.StringUtils.removeEnd;
+import static org.apache.commons.lang3.StringUtils.removeStart;
+
 /**
  * A repository implementation to fetch the library manifest from the S3 bucket.
  */
@@ -56,10 +59,15 @@ public class LibraryManifestRepository {
 
     @NonNull
     private LibraryManifest get(@NonNull String version) {
+        val prefix = removeEnd(removeStart(soundConfig.getLibraryS3Prefix().getPath(), "/"), "/");
+        val key = prefix == null || prefix.isBlank()
+            ? String.format("%s/library-manifest.json", version)
+            : String.format("%s/%s/library-manifest.json", prefix, version);
+
         val result = s3Client.getObject(
             GetObjectRequest.builder()
-                .bucket(soundConfig.getLibraryManifestS3Bucket())
-                .key(String.format("library/%s/library-manifest.json", version))
+                .bucket(soundConfig.getLibraryS3Prefix().getHost())
+                .key(key)
                 .build());
 
         try {

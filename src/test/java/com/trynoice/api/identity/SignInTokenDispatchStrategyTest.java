@@ -37,9 +37,8 @@ class SignInTokenDispatchStrategyTest {
 
         @BeforeEach
         void setUp() {
-            when(config.getFromEmail()).thenReturn("test-from-email");
+            when(config.getFrom()).thenReturn("test-from-email");
             when(config.getSubject()).thenReturn("test-subject");
-            when(config.getTemplate()).thenReturn("test-template");
 
             emailStrategy = new SignInTokenDispatchStrategy.Email(config, sesClient);
         }
@@ -73,7 +72,7 @@ class SignInTokenDispatchStrategyTest {
 
             val requestCaptor = ArgumentCaptor.forClass(SendEmailRequest.class);
             verify(sesClient, times(1)).sendEmail(requestCaptor.capture());
-            assertEquals(config.getFromEmail(), requestCaptor.getValue().source());
+            assertEquals(config.getFrom(), requestCaptor.getValue().source());
             assertEquals(destination, requestCaptor.getValue().destination().toAddresses().get(0));
         }
     }

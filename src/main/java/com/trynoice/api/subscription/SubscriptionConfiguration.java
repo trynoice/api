@@ -38,7 +38,10 @@ public class SubscriptionConfiguration {
     private String androidApplicationId;
 
     @NotBlank
-    private String androidPublisherApiKeyPath;
+    private String googlePlayApiKeyPath;
+
+    @NotNull
+    private boolean googlePlayTestModeEnabled;
 
     @NotBlank
     private String stripeApiKey;
@@ -49,12 +52,9 @@ public class SubscriptionConfiguration {
     @NotNull
     private Duration cacheTtl;
 
-    @NotNull
-    private boolean enableGooglePlayTestMode;
-
     @NonNull
     GoogleCredentials androidPublisherApiCredentials() throws IOException {
-        return GoogleCredentials.fromStream(new FileInputStream(androidPublisherApiKeyPath))
+        return GoogleCredentials.fromStream(new FileInputStream(googlePlayApiKeyPath))
             .createScoped(AndroidPublisherScopes.ANDROIDPUBLISHER);
     }
 

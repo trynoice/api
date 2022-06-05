@@ -4,7 +4,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.Data;
 import lombok.NonNull;
-import lombok.SneakyThrows;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -12,13 +11,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
@@ -123,7 +120,7 @@ class AuthConfiguration {
     public Cache<String, Boolean> revokedAccessJwtCache() {
         return Caffeine.newBuilder()
             .expireAfterWrite(accessTokenExpiry)
-            .maximumSize(10_000) // an arbitrary upper-limit for sanity.
+            .maximumSize(1000) // an arbitrary upper-limit for sanity.
             .build();
     }
 
@@ -155,26 +152,12 @@ class AuthConfiguration {
          * Used as source address when sending sign-in emails.
          */
         @NotBlank
-        private String fromEmail;
+        private String from;
 
         /**
          * Subject line for the sign-in emails.
          */
         @NotBlank
         private String subject;
-
-        /**
-         * Template of the sign-in email body.
-         */
-        @NotBlank
-        private String template;
-
-        @SuppressWarnings("unused")
-        @SneakyThrows
-        public void setTemplate(@NonNull String templateFile) {
-            val file = new ClassPathResource(templateFile);
-            this.template = new String(file.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
-                .replaceAll("\\s+", " ");
-        }
     }
 }

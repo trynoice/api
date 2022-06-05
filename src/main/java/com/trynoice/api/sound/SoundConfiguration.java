@@ -14,8 +14,8 @@ import org.springframework.validation.annotation.Validated;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
-import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
 
@@ -29,25 +29,25 @@ import java.util.Set;
 public class SoundConfiguration {
 
     /**
-     * S3 bucket that hosts the library manifest JSON.
+     * S3 bucket prefix (excluding the library version) that hosts the sound library.
      */
-    @NotBlank
-    private String libraryManifestS3Bucket;
+    @NotNull
+    private URI libraryS3Prefix;
 
     /**
      * TTL for objects in library manifest cache.
      */
     @NotNull
-    private Duration libraryManifestCacheTtl;
+    private Duration libraryCacheTtl;
 
     @NotNull
     private Set<String> freeBitrates;
 
     @NonNull
     @Bean
-    Cache libraryManifestCache() {
+    Cache libraryCache() {
         return new CaffeineCache(LibraryManifestRepository.CACHE, Caffeine.newBuilder()
-            .expireAfterWrite(libraryManifestCacheTtl)
+            .expireAfterWrite(libraryCacheTtl)
             .initialCapacity(2)
             .maximumSize(100) // a leeway window for future usage.
             .recordStats()

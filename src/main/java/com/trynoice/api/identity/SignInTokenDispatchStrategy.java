@@ -3,6 +3,7 @@ package com.trynoice.api.identity;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import lombok.NonNull;
 import lombok.val;
+import org.springframework.core.io.ClassPathResource;
 import software.amazon.awssdk.services.ses.SesClient;
 import software.amazon.awssdk.services.ses.model.Body;
 import software.amazon.awssdk.services.ses.model.Content;
@@ -11,6 +12,7 @@ import software.amazon.awssdk.services.ses.model.Message;
 import software.amazon.awssdk.services.ses.model.SendEmailRequest;
 import software.amazon.awssdk.services.ses.model.SesException;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -53,6 +55,19 @@ interface SignInTokenDispatchStrategy {
      */
     class Email implements SignInTokenDispatchStrategy {
 
+        private static final String bodyTemplate;
+
+        static {
+            val file = new ClassPathResource("sign-in-email-template.html");
+            try (val in = file.getInputStream()) {
+                bodyTemplate = new String(in.readAllBytes(), StandardCharsets.UTF_8)
+                    .replaceAll("\\s+", " ");
+                file.getInputStream().close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         private final AuthConfiguration.EmailSignInTokenDispatcherConfiguration config;
         private final SesClient sesClient;
 
@@ -69,11 +84,11 @@ interface SignInTokenDispatchStrategy {
         public void dispatch(@NonNull String token, String destination) throws SignInTokenDispatchException {
             val dest = Destination.builder().toAddresses(destination).build();
             val body = Body.builder()
-                .html(buildUtf8Content(replace(config.getTemplate(), Map.of("signInToken", token))))
+                .html(buildUtf8Content(replace(bodyTemplate, Map.of("signInToken", token))))
                 .build();
 
             val request = SendEmailRequest.builder()
-                .source(config.getFromEmail())
+                .source(config.getFrom())
                 .destination(dest)
                 .message(
                     Message.builder()

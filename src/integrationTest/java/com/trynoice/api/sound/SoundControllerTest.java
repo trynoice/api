@@ -98,7 +98,7 @@ public class SoundControllerTest {
             "}";
 
         val libraryVersion = "test-version";
-        val expectedKey = String.format("library/%s/library-manifest.json", libraryVersion);
+        val expectedKey = String.format("%s/library-manifest.json", libraryVersion);
         lenient().when(mockS3Client.getObject(argThat((GetObjectRequest r) -> r.key().equals(expectedKey))))
             .thenReturn(new ResponseInputStream<>(
                 GetObjectResponse.builder().build(),

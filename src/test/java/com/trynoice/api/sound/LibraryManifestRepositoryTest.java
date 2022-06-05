@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,7 +36,9 @@ class LibraryManifestRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(soundConfiguration.getLibraryManifestS3Bucket()).thenReturn("test-s3-bucket");
+        lenient().when(soundConfiguration.getLibraryS3Prefix())
+            .thenReturn(URI.create("s3://test-s3-bucket"));
+
         repository = new LibraryManifestRepository(mockS3Client, new ObjectMapper(), soundConfiguration);
     }
 
@@ -74,7 +77,7 @@ class LibraryManifestRepositoryTest {
             "}";
 
         val libraryVersion = "test-version";
-        val expectedKey = String.format("library/%s/library-manifest.json", libraryVersion);
+        val expectedKey = String.format("%s/library-manifest.json", libraryVersion);
         when(mockS3Client.getObject(argThat((GetObjectRequest r) -> r.key().equals(expectedKey))))
             .thenReturn(new ResponseInputStream<>(
                 GetObjectResponse.builder().build(),
