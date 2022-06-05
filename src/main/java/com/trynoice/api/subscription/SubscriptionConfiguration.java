@@ -2,7 +2,7 @@ package com.trynoice.api.subscription;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import org.springframework.boot.context.properties.ConstructorBinding;
 import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.NotBlank;
@@ -14,25 +14,25 @@ import java.time.Duration;
  */
 @Validated
 @ConfigurationProperties("app.subscriptions")
+@ConstructorBinding
 @Data
-@Component
-public class SubscriptionConfiguration {
+class SubscriptionConfiguration {
 
     @NotBlank
-    private String androidApplicationId;
+    private final String androidApplicationId;
 
     @NotBlank
-    private String googlePlayApiKeyPath;
+    private final String googlePlayApiKeyPath;
 
     @NotNull
-    private boolean googlePlayTestModeEnabled;
+    private final boolean googlePlayTestModeEnabled;
 
     @NotBlank
-    private String stripeApiKey;
+    private final String stripeApiKey;
 
     @NotBlank
-    private String stripeWebhookSecret;
+    private final String stripeWebhookSecret;
 
     @NotNull
-    private Duration cacheTtl;
+    private final Duration cacheTtl;
 }

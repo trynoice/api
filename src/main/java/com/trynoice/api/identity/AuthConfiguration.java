@@ -4,7 +4,7 @@ import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import org.springframework.boot.context.properties.ConstructorBinding;
 import org.springframework.validation.annotation.Validated;
 
 import javax.validation.constraints.NotBlank;
@@ -16,55 +16,55 @@ import java.time.Duration;
  */
 @Validated
 @ConfigurationProperties("app.auth")
+@ConstructorBinding
 @Data
-@Component
 class AuthConfiguration {
 
     /**
      * HMAC secret to sign refresh and access tokens.
      */
     @NotBlank
-    private String hmacSecret;
+    private final String hmacSecret;
 
     /**
      * Expiry duration for refresh tokens.
      */
     @NotNull
-    private Duration refreshTokenExpiry;
+    private final Duration refreshTokenExpiry;
 
     /**
      * Expiry duration for access tokens.
      */
     @NotNull
-    private Duration accessTokenExpiry;
+    private final Duration accessTokenExpiry;
 
     /**
      * Expiry duration for sign-in tokens.
      */
     @NotNull
-    private Duration signInTokenExpiry;
+    private final Duration signInTokenExpiry;
 
     /**
      * Maximum timeout duration for an account on making too many incomplete sign-in attempts.
      */
     @NotNull
-    private Duration signInReattemptMaxDelay;
+    private final Duration signInReattemptMaxDelay;
 
     /**
      * Root domain for auth cookies.
      */
     @NotBlank
-    private String cookieDomain;
+    private final String cookieDomain;
 
     /**
      * {@link SignInTokenDispatchStrategy} to use for dispatching sign-in tokens. It should always
      * be set to {@link SignInTokenDispatcherType#EMAIL} in production environment.
      */
     @NotNull
-    private SignInTokenDispatcherType signInTokenDispatcherType;
+    private final SignInTokenDispatcherType signInTokenDispatcherType;
 
     @Autowired(required = false)
-    private transient EmailSignInTokenDispatcherConfiguration emailSignInTokenDispatcherConfig;
+    private transient final EmailSignInTokenDispatcherConfiguration emailSignInTokenDispatcherConfig;
 
     public enum SignInTokenDispatcherType {
         CONSOLE,
@@ -77,20 +77,20 @@ class AuthConfiguration {
     @Validated
     @ConfigurationProperties("app.auth.sign-in-token-dispatcher.email")
     @ConditionalOnProperty(name = "app.auth.sign-in-token-dispatcher-type", havingValue = "email")
+    @ConstructorBinding
     @Data
-    @Component
     static class EmailSignInTokenDispatcherConfiguration {
 
         /**
          * Used as source address when sending sign-in emails.
          */
         @NotBlank
-        private String from;
+        private final String from;
 
         /**
          * Subject line for the sign-in emails.
          */
         @NotBlank
-        private String subject;
+        private final String subject;
     }
 }
