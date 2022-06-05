@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly rotation of log files
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

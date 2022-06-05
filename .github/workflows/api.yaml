@@ -1,0 +1,232 @@
+name: API
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v**"
+    paths-ignore:
+      - ".idea/**"
+      - "**.md"
+  pull_request:
+    branches:
+      - main
+
+env:
+  JAVA_VERSION: "11"
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-java@v2
+        with:
+          distribution: adopt
+          java-version: ${{ env.JAVA_VERSION }}
+      - uses: actions/checkout@v3
+      - run: ./gradlew check --no-daemon
+
+  deploy:
+    name: Deploy
+    if: github.event_name == 'push'
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SCP_DEST_PATH: /tmp/${{ github.sha }}
+    steps:
+      - uses: actions/setup-java@v2
+        with:
+          distribution: adopt
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get -qq update -y
+          sudo apt-get -qq install -y awscli
+
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Build API jar
+        run: |
+          if [[ "$GITHUB_REF" =~ "refs/tags/*" ]]; then
+            VERSION_NAME="${GITHUB_REF/'refs/tags/v'/''}"
+          else
+            VERSION_NAME="0.0.0-staging"
+          fi
+
+          BUILD_VERSION="${VERSION_NAME}-${GITHUB_SHA::7}" \
+            ./gradlew bootJar --no-daemon
+
+      - name: Get workflow runner's public IP
+        id: ip
+        uses: haythem/public-ip@v1.2
+
+      - name: Setup environment
+        run: |
+          # if the workflow is running on a tag, deploy on the production EC2
+          # host. deploy on the staging host otherwise.
+
+          mkdir conf
+
+          if [[ "$GITHUB_REF" =~ "refs/tags/*" ]]; then
+            {
+              echo "AWS_DEFAULT_REGION=$PROD_AWS_DEFAULT_REGION";
+              echo "AWS_ACCESS_KEY_ID=$PROD_AWS_ACCESS_KEY_ID";
+              echo "AWS_SECRET_ACCESS_KEY=$PROD_AWS_SECRET_ACCESS_KEY";
+              echo "AWS_EC2_HOST=$PROD_AWS_EC2_HOST";
+              echo "AWS_EC2_SG_ID=$PROD_AWS_EC2_SG_ID";
+              echo "AWS_EC2_SSH_USER=$PROD_AWS_EC2_SSH_USER";
+
+              # ssh key will be a multi-line string.
+              # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
+              echo "AWS_EC2_SSH_KEY<<EOF";
+              echo "$PROD_AWS_EC2_SSH_KEY";
+              echo "EOF";
+            } >> "$GITHUB_ENV"
+
+            # prepare api configuration
+            cp deploy/conf/production.properties conf/api.properties
+
+            # generate EnvironmentFile for noice-api.service
+            {
+              echo "NOICE_API_PG_DSN=$PROD_NOICE_API_PG_DSN";
+              echo "NOICE_API_PG_USER=$PROD_NOICE_API_PG_USER";
+              echo "NOICE_API_PG_PASSWORD=$PROD_NOICE_API_PG_PASSWORD";
+              echo "NOICE_API_AUTH_HMAC_SECRET=$PROD_NOICE_API_AUTH_HMAC_SECRET";
+              echo "NOICE_API_STRIPE_API_KEY=$PROD_NOICE_API_STRIPE_API_KEY";
+              echo "NOICE_API_STRIPE_WH_SECRET=$PROD_NOICE_API_STRIPE_WH_SECRET";
+              echo "NOICE_API_LIBRARY_S3_PREFIX=$PROD_NOICE_API_LIBRARY_S3_PREFIX";
+            } > conf/api.env
+
+            # write google play api key
+            echo "$PROD_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/google-play-service-account-key.json
+          else
+            {
+              echo "AWS_DEFAULT_REGION=$STAGING_AWS_DEFAULT_REGION";
+              echo "AWS_ACCESS_KEY_ID=$STAGING_AWS_ACCESS_KEY_ID";
+              echo "AWS_SECRET_ACCESS_KEY=$STAGING_AWS_SECRET_ACCESS_KEY";
+              echo "AWS_EC2_HOST=$STAGING_AWS_EC2_HOST";
+              echo "AWS_EC2_SG_ID=$STAGING_AWS_EC2_SG_ID";
+              echo "AWS_EC2_SSH_USER=$STAGING_AWS_EC2_SSH_USER";
+
+              # ssh key will be a multi-line string.
+              # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
+              echo "AWS_EC2_SSH_KEY<<EOF";
+              echo "$STAGING_AWS_EC2_SSH_KEY";
+              echo "EOF";
+            } >> "$GITHUB_ENV"
+
+            # prepare api configuration
+            cp deploy/conf/staging.properties conf/api.properties
+
+            # generate EnvironmentFile for noice-api.service
+            {
+              echo "NOICE_API_PG_DSN=$STAGING_NOICE_API_PG_DSN";
+              echo "NOICE_API_PG_USER=$STAGING_NOICE_API_PG_USER";
+              echo "NOICE_API_PG_PASSWORD=$STAGING_NOICE_API_PG_PASSWORD";
+              echo "NOICE_API_AUTH_HMAC_SECRET=$STAGING_NOICE_API_AUTH_HMAC_SECRET";
+              echo "NOICE_API_STRIPE_API_KEY=$STAGING_NOICE_API_STRIPE_API_KEY";
+              echo "NOICE_API_STRIPE_WH_SECRET=$STAGING_NOICE_API_STRIPE_WH_SECRET";
+              echo "NOICE_API_LIBRARY_S3_PREFIX=$STAGING_NOICE_API_LIBRARY_S3_PREFIX";
+            } > conf/api.env
+
+            # write google play api key
+            echo "$STAGING_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/google-play-service-account-key.json
+          fi
+        env:
+          PROD_AWS_DEFAULT_REGION: ${{ secrets.PROD_AWS_DEFAULT_REGION }}
+          PROD_AWS_ACCESS_KEY_ID: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
+          PROD_AWS_SECRET_ACCESS_KEY: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
+          PROD_AWS_EC2_HOST: ${{ secrets.PROD_AWS_EC2_HOST }}
+          PROD_AWS_EC2_SG_ID: ${{ secrets.PROD_AWS_EC2_SG_ID }}
+          PROD_AWS_EC2_SSH_KEY: ${{ secrets.PROD_AWS_EC2_SSH_KEY }}
+          PROD_AWS_EC2_SSH_USER: ${{ secrets.PROD_AWS_EC2_SSH_USER }}
+          PROD_NOICE_API_PG_DSN: ${{ secrets.NOICE_API_PG_DSN }}
+          PROD_NOICE_API_PG_USER: ${{ secrets.NOICE_API_PG_USER }}
+          PROD_NOICE_API_PG_PASSWORD: ${{ secrets.NOICE_API_PG_PASSWORD }}
+          PROD_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.NOICE_API_AUTH_HMAC_SECRET }}
+          PROD_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.NOICE_API_GOOGLE_PLAY_API_KEY }}
+          PROD_NOICE_API_STRIPE_API_KEY: ${{ secrets.NOICE_API_STRIPE_API_KEY }}
+          PROD_NOICE_API_STRIPE_WH_SECRET: ${{ secrets.NOICE_API_STRIPE_WH_SECRET }}
+          PROD_NOICE_API_LIBRARY_S3_PREFIX: ${{ secrets.NOICE_API_LIBRARY_S3_PREFIX }}
+          STAGING_AWS_DEFAULT_REGION: ${{ secrets.STAGING_AWS_DEFAULT_REGION }}
+          STAGING_AWS_ACCESS_KEY_ID: ${{ secrets.STAGING_AWS_ACCESS_KEY_ID }}
+          STAGING_AWS_SECRET_ACCESS_KEY: ${{ secrets.STAGING_AWS_SECRET_ACCESS_KEY }}
+          STAGING_AWS_EC2_HOST: ${{ secrets.STAGING_AWS_EC2_HOST }}
+          STAGING_AWS_EC2_SG_ID: ${{ secrets.STAGING_AWS_EC2_SG_ID }}
+          STAGING_AWS_EC2_SSH_KEY: ${{ secrets.STAGING_AWS_EC2_SSH_KEY }}
+          STAGING_AWS_EC2_SSH_USER: ${{ secrets.STAGING_AWS_EC2_SSH_USER }}
+          STAGING_NOICE_API_PG_DSN: ${{ secrets.STAGING_NOICE_API_PG_DSN }}
+          STAGING_NOICE_API_PG_USER: ${{ secrets.STAGING_NOICE_API_PG_USER }}
+          STAGING_NOICE_API_PG_PASSWORD: ${{ secrets.STAGING_NOICE_API_PG_PASSWORD }}
+          STAGING_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.STAGING_NOICE_API_AUTH_HMAC_SECRET }}
+          STAGING_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.STAGING_NOICE_API_GOOGLE_PLAY_API_KEY }}
+          STAGING_NOICE_API_STRIPE_API_KEY: ${{ secrets.STAGING_NOICE_API_STRIPE_API_KEY }}
+          STAGING_NOICE_API_STRIPE_WH_SECRET: ${{ secrets.STAGING_NOICE_API_STRIPE_WH_SECRET }}
+          STAGING_NOICE_API_LIBRARY_S3_PREFIX: ${{ secrets.STAGING_NOICE_API_LIBRARY_S3_PREFIX }}
+
+      - name: Authorize runner's SSH access to EC2 host
+        run: |
+          aws ec2 authorize-security-group-ingress --group-id "$AWS_EC2_SG_ID" \
+            --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
+
+      - name: Upload JAR and configuration files to EC2 host
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.AWS_EC2_HOST }}
+          username: ${{ env.AWS_EC2_SSH_USER }}
+          key: ${{ env.AWS_EC2_SSH_KEY }}
+          source: build/libs/api.jar,conf/*,deploy/systemd/*,deploy/logrotate.d/*
+          target: ${{ env.SCP_DEST_PATH }}
+          rm: true
+
+      - name: Configure EC2 host to use the updated JAR and configurations
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.AWS_EC2_HOST }}
+          username: ${{ env.AWS_EC2_SSH_USER }}
+          key: ${{ env.AWS_EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            sudo systemctl stop noice-api.service || true
+            sudo rm -rf /usr/local/share/noice /etc/noice
+
+            sudo mkdir -p /var/log/noice
+            sudo chown -R nobody:nogroup /var/log/noice
+            sudo chmod -R 755 /var/log/noice
+
+            sudo mv ${{ env.SCP_DEST_PATH }}/build/libs /usr/local/share/noice
+            sudo chown -R nobody:nogroup /usr/local/share/noice
+            sudo chmod -R 755 /usr/local/share/noice
+
+            sudo mv ${{ env.SCP_DEST_PATH }}/conf /etc/noice
+            sudo chown -R nobody:nogroup /etc/noice
+            sudo chmod -R 700 /etc/noice
+
+            sudo chown root:root ${{ env.SCP_DEST_PATH }}/deploy/logrotate.d/*
+            sudo chmod 644 ${{ env.SCP_DEST_PATH }}/deploy/logrotate.d/*
+            sudo mv ${{ env.SCP_DEST_PATH }}/deploy/logrotate.d/* /etc/logrotate.d/
+
+            sudo chown root:root ${{ env.SCP_DEST_PATH }}/deploy/systemd/*
+            sudo chmod 644 ${{ env.SCP_DEST_PATH }}/deploy/systemd/*
+            sudo mv ${{ env.SCP_DEST_PATH }}/deploy/systemd/* /etc/systemd/system/
+
+            sudo systemctl daemon-reload
+            sudo systemctl reenable logrotate.timer
+            sudo systemctl reenable noice-api.service
+            sudo systemctl restart noice-api.service
+            sudo rm -rf ${{ env.SCP_DEST_PATH }}
+
+      - name: Revoke runner's SSH access from EC2 host
+        if: ${{ always() }}
+        run: |
+          aws ec2 revoke-security-group-ingress --group-id "$AWS_EC2_SG_ID" \
+            --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
+
+      - name: Clean up sensitive configuration from the runner
+        if: ${{ always() }}
+        run: rm -rf conf

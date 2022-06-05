@@ -1,5 +1,5 @@
 [Unit]
-Description=The Noice API server
+Description=Noice API server
 After=syslog.target network-online.target remote-fs.target nss-lookup.target
 Wants=network-online.target
 
@@ -8,6 +8,7 @@ User=nobody
 Group=nogroup
 Type=simple
 ExecStart=/usr/bin/authbind --deep /usr/bin/java -jar /usr/local/share/noice/api.jar --spring.config.additional-location=file:///etc/noice/api.properties --logging.file.name=/var/log/noice/api.log
+EnvironmentFile=/etc/noice/api.env
 SuccessExitStatus=143
 Restart=on-failure
 
