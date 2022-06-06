@@ -1,90 +1,91 @@
 # Noice API
 
+The back-end API for Noice.
+
+## Configuration
+
+The [`application.properties`][app-props] file declares all the configuration
+options that the API server accepts in addition to configuration options of the
+Spring Framework.
+
+When started using the [`bootRun`][build.gradle] Gradle task, the API server
+loads the [`application-dev-default.properties`][app-dev-default-props] and
+[`application-dev.properties`][app-dev-props-stub] files. See "[Development
+Configuration](#development-configuration)" for more details.
+
 ## Development
 
-### Recommendations
+### Database
 
-- Use IntelliJ IDEA for editing.
-- Use Docker to run database server.
-
-### Build & Run
-
-Create a PostgreSQL instance before running the API server. The `./scripts` directory contains a
-Docker Compose config to create PostgreSQL and pgadmin containers. It also creates a fresh `develop`
-database when the PostgreSQL container starts. Furthermore, it is the default database configuration
-declared in API server's [`application.properties`](src/main/resources/application.properties).
+Create a PostgreSQL instance before running the API server. The `./scripts`
+directory contains a Docker Compose helper configuration to create PostgreSQL
+and PGAdmin containers. It also creates a fresh `develop` database as soon as
+the PostgreSQL container starts. It is also the default data-source
+configuration in [`application-dev-default.properties`][app-dev-default-props].
 
 ```sh
 docker-compose -f scripts/postgres-with-docker-compose.yaml up -d
 ```
 
-Use [**API** run configuration](.idea/runConfigurations/API.xml) to run the server from IntelliJ
-IDEA. To hot-reload a running API server instance, recompile project files using `Ctrl (Cmd) + F9`.
-A development configuration _might be needed_ for the hot-reload to work.
-
-To run from the terminal, use the Gradle wrapper.
+To delete and recreate the develop database, restart the `postgres-init`
+container.
 
 ```sh
-./gradlew build --continuous # to continuously build the new changes
-./gradlew bootRun # to run once and/or auto restart whenever the build mutates
+docker-compose -f scripts/postgres-with-docker-compose.yaml restart postgres-init
+```
+
+### Build and Run
+
+Use [**API** run configuration][idea-run-api] to start the API server from
+IntelliJ IDEA. Hot-reloading is pre-configured in
+[`application-dev-default.properties`][app-dev-default-props]. Recompile the
+project source using `Ctrl` (`Cmd`) + `F9` to hot-reload a running API server
+instance.
+
+To run from a terminal, use the Gradle wrapper.
+
+```sh
+./gradlew bootRun
+```
+
+To enable hot-reload, build the source continuously while running the `bootRun`
+Gradle task in parallel.
+
+```sh
+./gradlew build --continuous
 ```
 
 ### Development Configuration
 
 Both the `bootRun` Gradle task and the [**API** IntelliJ run
-configuration](.idea/runConfigurations/API.xml), activate the `dev-default` and `dev` Spring
-profiles.
-[`application-dev-default.properties`](src/main/resources/application-dev-default.properties)
-contains some sensible defaults required for development, whereas,
-[`application-dev.properties`](src/main/resources/application-dev.properties) is gitignored and
-meant to store developer's personalised configuration (such as API secrets, etc.).
+configuration][idea-run-api], activate the `dev-default` and `dev` Spring
+profiles. [`application-dev-default.properties`][app-dev-default-props] contains
+some sensible defaults required for development.
+[`application-dev.properties`][app-dev-props-stub] is gitignored and meant to
+store personal configuration, such as API secrets, etc.
 
 ### Integration Tests
 
-[`application-test.properties`](src/integrationTest/resources/application-test.properties) contain
-configuration critical for running integration tests. Both, the ["Integration Tests" IntelliJ run
-configuration](.idea/runConfigurations/Integration_Tests.xml) and the `integrationTest` Gradle task,
-enable `test` profile by default to load this configuration before running integration tests.
+[`application-test.properties`][app-test-props] contains configuration critical
+for running integration tests. Both, the ["Integration Tests" IntelliJ run
+configuration][idea-run-itests] and the `integrationTest` Gradle task, enable
+the `test` profile to load this configuration.
 
 The `test` profile configures the application to use the [PostgreSQL
-module](https://www.testcontainers.org/modules/databases/postgres/) of
-[Testcontainers](https://www.testcontainers.org). It requires access to an active Docker daemon. It
-creates one PostgreSQL container per test class and one database per test. One should note that a
-[`ParameterizedTest`](https://junit.org/junit5/docs/current/user-guide/#writing-tests-parameterized-tests)
-set is considered a single test, i.e. all cases in a parameterized test will share the same
-database.
+module][testcontainers-pg] of [Testcontainers][testcontainers]. It requires
+access to an active Docker daemon. It creates one PostgreSQL container per test
+class and one database per test.
 
-## Production Configuration
+## License
 
-All production configuration must be accepted through a separate properties file. The following
-properties must be configured before deploying the application to the production environment.
+[GNU GPL v3](LICENSE)
 
-| Name                                               | Description                                                      |
-|----------------------------------------------------|------------------------------------------------------------------|
-| `spring.datasource.url`                            | Spring datasource URL (PostgreSQL DSN)                           |
-| `spring.datasource.username`                       | PostgreSQL user name                                             |
-| `spring.datasource.password`                       | PostgreSQL user password                                         |
-| `app.cors.allowed-origins`                         | Comma-separated list of allowed origins patterns for CORS        |
-|                                                    | `https://*.domain1.com` - all endings with domain1.com           |
-|                                                    | `https://*.domain1.com:[8080,8081]` - all endings with           |
-|                                                    | domain1.com on port 8080 or 8081                                 |
-|                                                    | `https://*.domain1.com:[*]` - all endings with domain1.com       |
-|                                                    | with any port (including default port)                           |
-| `app.auth.hmac-secret`                             | HMAC secret for signing JWTs                                     |
-| `app.auth.refresh-token-expiry`                    | Duration for the expiry of refresh token (default: `7d`)         |
-| `app.auth.access-token-expiry`                     | Duration for the expiry of access token (default: `30m`)         |
-| `app.auth.sign-in-token-expiry`                    | Duration for the expiry of sign-in token (default: `15m`)        |
-| `app.auth.sign-in-reattempt-max-delay`             | Maximum duration to lock accounts with too many incomplete       |
-|                                                    | sign-in attempts (default: `1h`)                                 |
-| `app.auth.cookie-domain`                           | Domain value to use when sending cookies to clients              |
-| `app.subscriptions.android-publisher-api-key-path` | Path of the service account key to access Android Publisher API  |
-| `app.subscriptions.stripe-api-key`                 | Secret API key to access Stripe API                              |
-| `app.subscriptions.stripe-webhook-secret`          | Secret to verify webhook event payload using HMAC-256 signatures |
-| `app.subscriptions.cache-ttl`                      | TTL for caching subscription related data (default: 5m)          |
-| `app.subscriptions.enable-google-play-test-mode`   | If enabled, API server will only handle test purchase            |
-|                                                    | notifications from Google Play. If disabled, it will only handle |
-|                                                    | real purchase notifications. (default: `false`)                  |
-| `app.sounds.library-manifest-s3-bucket`            | Name of the S3 bucket that hosts the library manifest            |
-| `app.sounds.library-manifest-cache-ttl`            | TTL for library manifest cache from the S3 bucket (default: 5m)  |
-| `app.sounds.free-bitrates`                         | Comma-separated list of audio bitrates available to stream for   |
-|                                                    | free (default: `32k,128k`)                                       |
+[app-props]: src/main/resources/application.properties
+[app-dev-default-props]: src/main/resources/application-dev-default.properties
+[app-dev-props-stub]: src/main/resources/application-dev.properties
+[app-test-props]: src/integrationTest/resources/application-test.properties
+[build.gradle]: build.gradle
+[idea-run-api]: .idea/runConfigurations/API.xml
+[idea-run-itests]: .idea/runConfigurations/Integration_Tests.xml
+[testcontainers]: https://www.testcontainers.org
+[testcontainers-pg]: https://www.testcontainers.org/modules/databases/postgres/
