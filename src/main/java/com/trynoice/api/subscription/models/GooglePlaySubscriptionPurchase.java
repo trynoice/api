@@ -17,7 +17,7 @@ import java.util.Objects;
 @Builder
 @With
 @AllArgsConstructor
-public class AndroidSubscriptionPurchase {
+public class GooglePlaySubscriptionPurchase {
 
     private final String productId;
     private final String subscriptionState;
@@ -30,7 +30,7 @@ public class AndroidSubscriptionPurchase {
     private final boolean isAcknowledged;
     private final boolean isTestPurchase;
 
-    public AndroidSubscriptionPurchase(SubscriptionPurchaseV2 purchaseV2) {
+    public GooglePlaySubscriptionPurchase(SubscriptionPurchaseV2 purchaseV2) {
         // https://developer.android.com/google/play/billing/compatibility#subscriptionpurchasev2-fields
 
         this.productId = purchaseV2.getLineItems() == null ? null : purchaseV2.getLineItems()

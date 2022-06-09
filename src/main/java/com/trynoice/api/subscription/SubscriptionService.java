@@ -16,8 +16,8 @@ import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundExceptio
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
-import com.trynoice.api.subscription.models.AndroidSubscriptionPurchase;
 import com.trynoice.api.subscription.models.GooglePlayDeveloperNotification;
+import com.trynoice.api.subscription.models.GooglePlaySubscriptionPurchase;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
@@ -361,7 +361,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             return;
         }
 
-        final AndroidSubscriptionPurchase purchase;
+        final GooglePlaySubscriptionPurchase purchase;
         try {
             purchase = androidPublisherApi.getSubscriptionPurchase(notification.getPurchaseToken());
         } catch (IOException e) {

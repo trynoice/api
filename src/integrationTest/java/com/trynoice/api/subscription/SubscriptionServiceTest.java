@@ -4,8 +4,8 @@ import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
-import com.trynoice.api.subscription.models.AndroidSubscriptionPurchase;
 import com.trynoice.api.subscription.models.GooglePlayDeveloperNotification;
+import com.trynoice.api.subscription.models.GooglePlaySubscriptionPurchase;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,7 @@ public class SubscriptionServiceTest {
     @ParameterizedTest(name = "{displayName} - expectedIsActive={3} expectedIsPaymentPending={4}")
     @MethodSource("handleGooglePlayWebhookEventTestCases")
     void handleGooglePlayWebhookEvent(
-        @NonNull AndroidSubscriptionPurchase purchase,
+        @NonNull GooglePlaySubscriptionPurchase purchase,
         boolean wasActive,
         boolean wasPaymentPending,
         boolean isActive,
@@ -87,7 +87,7 @@ public class SubscriptionServiceTest {
     static Stream<Arguments> handleGooglePlayWebhookEventTestCases() {
         val futureMillis = System.currentTimeMillis() + 60 * 60 * 1000L;
         val pastMillis = System.currentTimeMillis() - 60 * 60 * 1000L;
-        val basePurchase = AndroidSubscriptionPurchase.builder()
+        val basePurchase = GooglePlaySubscriptionPurchase.builder()
             .productId("test-product-id")
             .startTimeMillis(System.currentTimeMillis())
             .isTestPurchase(true)
@@ -155,7 +155,7 @@ public class SubscriptionServiceTest {
         val newPurchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
         val subscription = buildSubscription(authUser, oldPlan, true, false, oldPurchaseToken);
-        val purchase = AndroidSubscriptionPurchase.builder()
+        val purchase = GooglePlaySubscriptionPurchase.builder()
             .productId(newPlan.getProviderPlanId())
             .startTimeMillis(System.currentTimeMillis())
             .expiryTimeMillis(System.currentTimeMillis() + 60 * 60 * 1000L)
@@ -187,7 +187,7 @@ public class SubscriptionServiceTest {
         val purchaseToken = UUID.randomUUID().toString();
         val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
         val subscription2 = buildSubscription(authUser, plan, false, false, null);
-        val purchase = AndroidSubscriptionPurchase.builder()
+        val purchase = GooglePlaySubscriptionPurchase.builder()
             .productId(plan.getProviderPlanId())
             .startTimeMillis(System.currentTimeMillis())
             .expiryTimeMillis(System.currentTimeMillis() * 60 * 60 * 1000L)

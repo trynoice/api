@@ -6,7 +6,7 @@ import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.trynoice.api.subscription.models.AndroidSubscriptionPurchase;
+import com.trynoice.api.subscription.models.GooglePlaySubscriptionPurchase;
 import lombok.NonNull;
 import lombok.val;
 
@@ -40,8 +40,8 @@ public class AndroidPublisherApi {
      * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptionsv2#get(String, String)
      */
     @NonNull
-    AndroidSubscriptionPurchase getSubscriptionPurchase(@NonNull String purchaseToken) throws IOException {
-        return new AndroidSubscriptionPurchase(
+    GooglePlaySubscriptionPurchase getSubscriptionPurchase(@NonNull String purchaseToken) throws IOException {
+        return new GooglePlaySubscriptionPurchase(
             client.purchases()
                 .subscriptionsv2()
                 .get(clientAppId, purchaseToken)
