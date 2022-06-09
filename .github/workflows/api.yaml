@@ -105,7 +105,7 @@ jobs:
             } > conf/api.env
 
             # write google play api key
-            echo "$PROD_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/google-play-service-account-key.json
+            echo "$PROD_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/gcp-service-account-key.json
           else
             {
               echo "AWS_DEFAULT_REGION=$STAGING_AWS_DEFAULT_REGION";
@@ -139,7 +139,7 @@ jobs:
             } > conf/api.env
 
             # write google play api key
-            echo "$STAGING_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/google-play-service-account-key.json
+            echo "$STAGING_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/gcp-service-account-key.json
           fi
         env:
           PROD_AWS_DEFAULT_REGION: ${{ secrets.PROD_AWS_DEFAULT_REGION }}
@@ -152,6 +152,8 @@ jobs:
           PROD_NOICE_API_PG_DSN: ${{ secrets.NOICE_API_PG_DSN }}
           PROD_NOICE_API_PG_USER: ${{ secrets.NOICE_API_PG_USER }}
           PROD_NOICE_API_PG_PASSWORD: ${{ secrets.NOICE_API_PG_PASSWORD }}
+          PROD_NOICE_API_GCP_PROJECT_ID: ${{ secrets.PROD_NOICE_API_GCP_PROJECT_ID }}
+          PROD_NOICE_API_GCP_PUBSUB_SUB_NAME: ${{ secrets.PROD_NOICE_API_GCP_PUBSUB_SUB_NAME }}
           PROD_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.NOICE_API_AUTH_HMAC_SECRET }}
           PROD_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.NOICE_API_GOOGLE_PLAY_API_KEY }}
           PROD_NOICE_API_STRIPE_API_KEY: ${{ secrets.NOICE_API_STRIPE_API_KEY }}
@@ -167,6 +169,8 @@ jobs:
           STAGING_NOICE_API_PG_DSN: ${{ secrets.STAGING_NOICE_API_PG_DSN }}
           STAGING_NOICE_API_PG_USER: ${{ secrets.STAGING_NOICE_API_PG_USER }}
           STAGING_NOICE_API_PG_PASSWORD: ${{ secrets.STAGING_NOICE_API_PG_PASSWORD }}
+          STAGING_NOICE_API_GCP_PROJECT_ID: ${{ secrets.STAGING_NOICE_API_GCP_PROJECT_ID }}
+          STAGING_NOICE_API_GCP_PUBSUB_SUB_NAME: ${{ secrets.STAGING_NOICE_API_GCP_PUBSUB_SUB_NAME }}
           STAGING_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.STAGING_NOICE_API_AUTH_HMAC_SECRET }}
           STAGING_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.STAGING_NOICE_API_GOOGLE_PLAY_API_KEY }}
           STAGING_NOICE_API_STRIPE_API_KEY: ${{ secrets.STAGING_NOICE_API_STRIPE_API_KEY }}
