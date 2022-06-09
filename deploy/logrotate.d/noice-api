@@ -3,6 +3,7 @@
   rotate 30
   copytruncate
   nocompress
+  nodelaycompress
   notifempty
   missingok
 }
