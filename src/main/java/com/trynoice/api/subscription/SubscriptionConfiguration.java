@@ -24,6 +24,9 @@ class SubscriptionConfiguration {
     @NotBlank
     private final String googlePlayApiKeyPath;
 
+    @NotBlank
+    private final String gcpPubsubSubName;
+
     @NotNull
     private final boolean googlePlayTestModeEnabled;
 

@@ -1,6 +1,5 @@
 package com.trynoice.api.subscription;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
@@ -236,44 +235,6 @@ class SubscriptionController {
             return ResponseEntity.noContent().build();
         } catch (SubscriptionNotFoundException e) {
             return ResponseEntity.notFound().build();
-        }
-    }
-
-    /**
-     * <p>
-     * On receiving an event, it finds the mutated subscription entity and reconciles its state in
-     * the app by re-requesting referenced subscription purchase from the Google Play API.</p>
-     *
-     * <p><b>See also:</b></p>
-     * <ul>
-     *     <li><a href="https://developer.android.com/google/play/billing/rtdn-reference#sub">Google
-     *     Play real-time developer notifications reference</a></li>
-     *     <li><a href="https://developer.android.com/google/play/billing/subscriptions">Google Play
-     *     subscription documentation</a></li>
-     *     <li><a href="https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions">
-     *     Android Publisher REST API reference</a></li>
-     * </ul>
-     *
-     * @return <ul>
-     * <li>{@code HTTP 200} on successfully processing the event.</li>
-     * <li>{@code HTTP 400} if the server was unable to parse the event payload.</li>
-     * <li>{@code HTTP 422} if the server was unable to process the event.</li>
-     * <li>{@code HTTP 500} on internal server errors.</li>
-     * </ul>
-     */
-    @Operation(hidden = true)
-    @NonNull
-    @PostMapping("/googlePlay/webhook")
-    ResponseEntity<Void> googlePlayWebhook(@Valid @NotNull @RequestBody JsonNode requestBody) {
-        try {
-            subscriptionService.handleGooglePlayWebhookEvent(requestBody);
-            return ResponseEntity.ok(null);
-        } catch (WebhookPayloadException e) {
-            log.info("failed to parse the event payload", e);
-            return ResponseEntity.badRequest().build();
-        } catch (WebhookEventException e) {
-            log.info("failed to process the event payload", e);
-            return ResponseEntity.unprocessableEntity().build();
         }
     }
 

@@ -118,4 +118,4 @@ gradle-app.setting
 # gradle/wrapper/gradle-wrapper.properties
 
 # google service account key used for accessing Android publisher APIs during development
-android-publisher-api-key.json
+gcp-service-account-key.json

@@ -1,6 +1,5 @@
 package com.trynoice.api.subscription;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
@@ -18,6 +17,7 @@ import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProvi
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.models.AndroidSubscriptionPurchase;
+import com.trynoice.api.subscription.models.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.models.SubscriptionFlowParams;
 import com.trynoice.api.subscription.models.SubscriptionFlowResult;
 import com.trynoice.api.subscription.models.SubscriptionPlanView;
@@ -30,13 +30,13 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
 import java.time.OffsetDateTime;
-import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -339,11 +339,10 @@ class SubscriptionService implements SubscriptionServiceContract {
     /**
      * <p>
      * Reconciles the internal state of the subscription entities by querying the changed
-     * subscription purchase from the Google API.</p>
+     * subscription purchase from the Google Play Developers API.</p>
      *
      * @param payload event payload.
-     * @throws WebhookPayloadException on failing to correctly parse the event payload.
-     * @throws WebhookEventException   on failing to correctly process the event.
+     * @throws WebhookEventException on failing to correctly process the event.
      * @see <a href="https://developer.android.com/google/play/billing/rtdn-reference#sub">Google
      * Play real-time developer notifications reference</a>
      * @see <a href="https://developer.android.com/google/play/billing/subscriptions">Google Play
@@ -351,42 +350,20 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @see <a href="https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptions">
      * Android Publisher REST API reference</a>
      */
+    @ServiceActivator(inputChannel = SubscriptionBeans.GOOGLE_PLAY_DEVELOPER_NOTIFICATION_CHANNEL)
     @Transactional(rollbackFor = Throwable.class)
-    public void handleGooglePlayWebhookEvent(
-        @NonNull JsonNode payload
-    ) throws WebhookPayloadException, WebhookEventException {
-        val data = payload.at("/message/data");
-        if (!data.isTextual()) {
-            throw new WebhookPayloadException("'message.data' field is missing or invalid in the payload");
-        }
-
-        final JsonNode event;
-        try {
-            event = objectMapper.readTree(Base64.getDecoder().decode(data.asText()));
-        } catch (IOException | IllegalArgumentException e) {
-            throw new WebhookPayloadException("failed to decode base64 or json in 'message.data'", e);
-        }
-
-        val subscriptionNotification = event.at("/subscriptionNotification");
-        if (!subscriptionNotification.isObject()) {
+    public void handleGooglePlayDeveloperNotification(
+        @NonNull GooglePlayDeveloperNotification payload
+    ) throws WebhookEventException {
+        val notification = payload.getSubscriptionNotification();
+        if (notification == null) {
             // this is not a subscription notification if the object is missing. return normally.
             return;
         }
 
-        val notificationType = subscriptionNotification.at("/notificationType");
-        if (!notificationType.isInt()) {
-            throw new WebhookPayloadException("'notificationType' is missing or invalid in 'subscriptionNotification'");
-        }
-
-        val purchaseTokenNode = subscriptionNotification.at("/purchaseToken");
-        if (!purchaseTokenNode.isTextual()) {
-            throw new WebhookPayloadException("'purchaseToken' is missing or invalid in 'subscriptionNotification'");
-        }
-
-        val purchaseToken = purchaseTokenNode.textValue();
         final AndroidSubscriptionPurchase purchase;
         try {
-            purchase = androidPublisherApi.getSubscriptionPurchase(purchaseToken);
+            purchase = androidPublisherApi.getSubscriptionPurchase(notification.getPurchaseToken());
         } catch (IOException e) {
             throw new RuntimeException("failed to retrieve purchase data from google play", e);
         }
@@ -408,10 +385,10 @@ class SubscriptionService implements SubscriptionServiceContract {
         // upgrade/downgrade happens, we need prevent the old subscription's notification from
         // mutating our internal state. To achieve that, we rely on querying internal subscription
         // objects using purchase tokens (provider subscription id).
-        val subscription = notificationType.asInt() == 4 // = new purchase
+        val subscription = notification.getNotificationType() == GooglePlayDeveloperNotification.SubscriptionNotification.TYPE_PURCHASED
             ? subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription entity for this purchase"))
-            : subscriptionRepository.findByProviderSubscriptionId(purchaseToken)
+            : subscriptionRepository.findByProviderSubscriptionId(notification.getPurchaseToken())
             .orElseGet(() -> purchase.getLinkedPurchaseToken() != null
                 ? subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken()).orElse(null)
                 : null);
@@ -422,7 +399,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             return;
         }
 
-        subscription.setProviderSubscriptionId(purchaseToken);
+        subscription.setProviderSubscriptionId(notification.getPurchaseToken());
         if (hasAnotherActiveSubscription(subscription)) {
             subscription.setAutoRenewing(false);
             subscription.setPaymentPending(false);
@@ -473,7 +450,7 @@ class SubscriptionService implements SubscriptionServiceContract {
 
         if (!purchase.isAcknowledged()) {
             try {
-                androidPublisherApi.acknowledgePurchase(purchase.getProductId(), purchaseToken);
+                androidPublisherApi.acknowledgePurchase(purchase.getProductId(), notification.getPurchaseToken());
             } catch (IOException e) {
                 throw new RuntimeException("failed to acknowledge subscription purchase", e);
             }

@@ -1,17 +1,29 @@
 package com.trynoice.api.subscription;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.spring.pubsub.core.PubSubTemplate;
+import com.google.cloud.spring.pubsub.integration.AckMode;
+import com.google.cloud.spring.pubsub.integration.inbound.PubSubInboundChannelAdapter;
+import com.google.cloud.spring.pubsub.support.converter.JacksonPubSubMessageConverter;
+import com.google.cloud.spring.pubsub.support.converter.PubSubMessageConverter;
+import com.trynoice.api.subscription.models.GooglePlayDeveloperNotification;
 import lombok.NonNull;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.caffeine.CaffeineCache;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
+import org.springframework.integration.channel.PublishSubscribeChannel;
+import org.springframework.messaging.MessageChannel;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -24,6 +36,7 @@ import java.security.GeneralSecurityException;
 class SubscriptionBeans {
 
     static final String CACHE_NAME = "subscription_cache";
+    static final String GOOGLE_PLAY_DEVELOPER_NOTIFICATION_CHANNEL = "googlePlayDeveloperNotificationChannel";
 
     @NonNull
     GoogleCredentials googlePlayApiCredentials(@NonNull SubscriptionConfiguration config) throws IOException {
@@ -68,5 +81,30 @@ class SubscriptionBeans {
             .maximumSize(1000)
             .recordStats()
             .build());
+    }
+
+    @Bean(name = GOOGLE_PLAY_DEVELOPER_NOTIFICATION_CHANNEL)
+    public MessageChannel googlePlayDeveloperNotificationChannel() {
+        return new PublishSubscribeChannel();
+    }
+
+    @Bean
+    @Primary
+    public PubSubMessageConverter pubSubMessageConverter(@NonNull ObjectMapper objectMapper) {
+        return new JacksonPubSubMessageConverter(objectMapper);
+    }
+
+    @Bean
+    @Profile("!test")
+    public PubSubInboundChannelAdapter gcpPubSubInboundChannelAdapter(
+        @NonNull SubscriptionConfiguration config,
+        @NonNull PubSubTemplate pubSubTemplate,
+        @NonNull @Qualifier(GOOGLE_PLAY_DEVELOPER_NOTIFICATION_CHANNEL) MessageChannel channel
+    ) {
+        PubSubInboundChannelAdapter adapter = new PubSubInboundChannelAdapter(pubSubTemplate, config.getGcpPubsubSubName());
+        adapter.setOutputChannel(channel);
+        adapter.setAckMode(AckMode.AUTO);
+        adapter.setPayloadType(GooglePlayDeveloperNotification.class);
+        return adapter;
     }
 }
