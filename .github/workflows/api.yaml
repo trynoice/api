@@ -52,7 +52,7 @@ jobs:
 
       - name: Build API jar
         run: |
-          if [[ "$GITHUB_REF" =~ "refs/tags/*" ]]; then
+          if [[ "$GITHUB_REF" =~ refs/tags/* ]]; then
             VERSION_NAME="${GITHUB_REF/'refs/tags/v'/''}"
           else
             VERSION_NAME="0.0.0-staging"
@@ -72,7 +72,7 @@ jobs:
 
           mkdir conf
 
-          if [[ "$GITHUB_REF" =~ "refs/tags/*" ]]; then
+          if [[ "$GITHUB_REF" =~ refs/tags/* ]]; then
             {
               echo "AWS_DEFAULT_REGION=$PROD_AWS_DEFAULT_REGION";
               echo "AWS_ACCESS_KEY_ID=$PROD_AWS_ACCESS_KEY_ID";
@@ -149,16 +149,16 @@ jobs:
           PROD_AWS_EC2_SG_ID: ${{ secrets.PROD_AWS_EC2_SG_ID }}
           PROD_AWS_EC2_SSH_KEY: ${{ secrets.PROD_AWS_EC2_SSH_KEY }}
           PROD_AWS_EC2_SSH_USER: ${{ secrets.PROD_AWS_EC2_SSH_USER }}
-          PROD_NOICE_API_PG_DSN: ${{ secrets.NOICE_API_PG_DSN }}
-          PROD_NOICE_API_PG_USER: ${{ secrets.NOICE_API_PG_USER }}
-          PROD_NOICE_API_PG_PASSWORD: ${{ secrets.NOICE_API_PG_PASSWORD }}
+          PROD_NOICE_API_PG_DSN: ${{ secrets.PROD_NOICE_API_PG_DSN }}
+          PROD_NOICE_API_PG_USER: ${{ secrets.PROD_NOICE_API_PG_USER }}
+          PROD_NOICE_API_PG_PASSWORD: ${{ secrets.PROD_NOICE_API_PG_PASSWORD }}
           PROD_NOICE_API_GCP_PROJECT_ID: ${{ secrets.PROD_NOICE_API_GCP_PROJECT_ID }}
           PROD_NOICE_API_GCP_PUBSUB_SUB_NAME: ${{ secrets.PROD_NOICE_API_GCP_PUBSUB_SUB_NAME }}
-          PROD_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.NOICE_API_AUTH_HMAC_SECRET }}
-          PROD_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.NOICE_API_GOOGLE_PLAY_API_KEY }}
-          PROD_NOICE_API_STRIPE_API_KEY: ${{ secrets.NOICE_API_STRIPE_API_KEY }}
-          PROD_NOICE_API_STRIPE_WH_SECRET: ${{ secrets.NOICE_API_STRIPE_WH_SECRET }}
-          PROD_NOICE_API_LIBRARY_S3_PREFIX: ${{ secrets.NOICE_API_LIBRARY_S3_PREFIX }}
+          PROD_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.PROD_NOICE_API_AUTH_HMAC_SECRET }}
+          PROD_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.PROD_NOICE_API_GOOGLE_PLAY_API_KEY }}
+          PROD_NOICE_API_STRIPE_API_KEY: ${{ secrets.PROD_NOICE_API_STRIPE_API_KEY }}
+          PROD_NOICE_API_STRIPE_WH_SECRET: ${{ secrets.PROD_NOICE_API_STRIPE_WH_SECRET }}
+          PROD_NOICE_API_LIBRARY_S3_PREFIX: ${{ secrets.PROD_NOICE_API_LIBRARY_S3_PREFIX }}
           STAGING_AWS_DEFAULT_REGION: ${{ secrets.STAGING_AWS_DEFAULT_REGION }}
           STAGING_AWS_ACCESS_KEY_ID: ${{ secrets.STAGING_AWS_ACCESS_KEY_ID }}
           STAGING_AWS_SECRET_ACCESS_KEY: ${{ secrets.STAGING_AWS_SECRET_ACCESS_KEY }}
