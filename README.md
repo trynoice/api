@@ -1,6 +1,17 @@
-# Noice API
+<p align="center">
+  <a href="https://trynoice.com">
+    <img alt="Noice Logo" src="https://raw.githubusercontent.com/trynoice/.github/main/graphics/icon-round.png" width="92" />
+  </a>
+</p>
+<h1 align="center">Noice API</h1>
 
-The back-end API for Noice.
+[![Latest release][release-badge]][github-releases]
+[![GitHub license][license-badge]](LICENSE)
+[![API][gw-api-badge]][gw-api]
+[![codecov][codecov-badge]][codecov]
+
+The back-end API for Noice to manage users, authentication, resource
+authorizations and subscriptions.
 
 ## Configuration
 
@@ -80,6 +91,18 @@ class and one database per test.
 
 [GNU GPL v3](LICENSE)
 
+<a href="https://thenounproject.com/icon/white-noise-1287855/">
+  <small>White Noise icon by Juraj Sedlák</small>
+</a>
+
+[release-badge]: https://img.shields.io/github/tag-date/trynoice/api.svg?color=orange&label=release
+[github-releases]: https://github.com/trynoice/api/releases/
+[license-badge]: https://img.shields.io/github/license/trynoice/api.svg
+[license]: LICENSE
+[gw-api-badge]: https://github.com/trynoice/api/actions/workflows/api.yaml/badge.svg?event=push
+[gw-api]: https://github.com/trynoice/api/actions/workflows/api.yaml
+[codecov-badge]: https://codecov.io/gh/trynoice/api/branch/main/graph/badge.svg
+[codecov]: https://app.codecov.io/gh/trynoice/api/branch/main
 [app-props]: src/main/resources/application.properties
 [app-dev-default-props]: src/main/resources/application-dev-default.properties
 [app-dev-props-stub]: src/main/resources/application-dev.properties
