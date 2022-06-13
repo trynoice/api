@@ -3,6 +3,7 @@ plugins {
     id "org.springframework.boot" version "2.7.0"
     id "io.spring.dependency-management" version "1.0.11.RELEASE"
     id "com.adarshr.test-logger" version "3.2.0"
+    id "jacoco"
 }
 
 repositories {
@@ -38,8 +39,10 @@ bootJar {
     archiveFileName = "${archiveBaseName.get()}.${archiveExtension.get()}"
 }
 
-test {
+tasks.withType(Test) {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
+    systemProperty "spring.profiles.active", "test"
 }
 
 task integrationTest(type: Test) {
@@ -49,11 +52,17 @@ task integrationTest(type: Test) {
 
     classpath = sourceSets.integrationTest.runtimeClasspath
     testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    useJUnitPlatform()
-    systemProperty "spring.profiles.active", "test"
 }
 
 check.dependsOn integrationTest
+
+jacocoTestReport {
+    executionData fileTree(buildDir).include("/jacoco/*.exec")
+
+    reports {
+        xml.required = true
+    }
+}
 
 dependencies {
     def springDocVersion = '1.6.9'
