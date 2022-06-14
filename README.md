@@ -10,9 +10,6 @@
 [![API][gw-api-badge]][gw-api]
 [![codecov][codecov-badge]][codecov]
 
-The back-end API for Noice to manage users, authentication, resource
-authorizations and subscriptions.
-
 ## Configuration
 
 The [`application.properties`][app-props] file declares all the configuration
