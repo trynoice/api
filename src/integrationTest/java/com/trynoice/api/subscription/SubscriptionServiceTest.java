@@ -2,8 +2,10 @@ package com.trynoice.api.subscription;
 
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Customer;
+import com.trynoice.api.subscription.entities.CustomerRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
+import com.trynoice.api.subscription.entities.SubscriptionRepository;
 import com.trynoice.api.subscription.models.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.models.GooglePlaySubscriptionPurchase;
 import lombok.NonNull;

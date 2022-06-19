@@ -17,7 +17,7 @@ import java.util.Set;
 @ConfigurationProperties("app.sounds")
 @ConstructorBinding
 @Data
-class SoundConfiguration {
+public class SoundConfiguration {
 
     /**
      * S3 bucket prefix (excluding the library version) that hosts the sound library.

@@ -1,7 +1,6 @@
-package com.trynoice.api.subscription;
+package com.trynoice.api.subscription.entities;
 
 import com.trynoice.api.platform.BasicEntityRepository;
-import com.trynoice.api.subscription.entities.Customer;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

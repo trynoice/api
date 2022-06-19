@@ -1,7 +1,6 @@
-package com.trynoice.api.subscription;
+package com.trynoice.api.subscription.entities;
 
 import com.trynoice.api.platform.BasicEntityRepository;
-import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import lombok.NonNull;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Query;
@@ -16,7 +15,7 @@ import java.util.Optional;
  * com.trynoice.api.platform.BasicEntity BasicEntity}.
  */
 @Repository
-interface SubscriptionPlanRepository extends BasicEntityRepository<SubscriptionPlan, Short> {
+public interface SubscriptionPlanRepository extends BasicEntityRepository<SubscriptionPlan, Short> {
 
     @NonNull
     @Override
