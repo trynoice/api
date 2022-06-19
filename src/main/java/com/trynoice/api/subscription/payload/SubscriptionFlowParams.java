@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.models;
+package com.trynoice.api.subscription.payload;
 
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import io.swagger.v3.oas.annotations.media.Schema;

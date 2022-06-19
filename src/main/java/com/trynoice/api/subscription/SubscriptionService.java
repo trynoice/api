@@ -19,12 +19,12 @@ import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundExceptio
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
-import com.trynoice.api.subscription.models.GooglePlayDeveloperNotification;
-import com.trynoice.api.subscription.models.GooglePlaySubscriptionPurchase;
-import com.trynoice.api.subscription.models.SubscriptionFlowParams;
-import com.trynoice.api.subscription.models.SubscriptionFlowResult;
-import com.trynoice.api.subscription.models.SubscriptionPlanView;
-import com.trynoice.api.subscription.models.SubscriptionView;
+import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
+import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
+import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
+import com.trynoice.api.subscription.payload.SubscriptionFlowResult;
+import com.trynoice.api.subscription.payload.SubscriptionPlanResult;
+import com.trynoice.api.subscription.payload.SubscriptionResult;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,11 +95,11 @@ class SubscriptionService implements SubscriptionServiceContract {
      * subscription plans.</p>
      *
      * @param provider {@code null} or a valid {@link SubscriptionPlan.Provider}.
-     * @return a non-null list of {@link SubscriptionPlanView}.
+     * @return a non-null list of {@link SubscriptionPlanResult}.
      * @throws UnsupportedSubscriptionPlanProviderException if an invalid {@code provider} is given.
      */
     @NonNull
-    List<SubscriptionPlanView> listPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
+    List<SubscriptionPlanResult> listPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
         final Iterable<SubscriptionPlan> plans;
         val sortOrder = Sort.by(Sort.Order.asc("priceInIndianPaise"));
         if (provider != null) {
@@ -221,7 +221,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @return a list of subscription purchased by the given {@code customerId}.
      */
     @NonNull
-    List<SubscriptionView> listSubscriptions(
+    List<SubscriptionResult> listSubscriptions(
         @NonNull Long customerId,
         @NonNull Boolean onlyActive,
         String stripeReturnUrl,
@@ -269,7 +269,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @throws SubscriptionNotFoundException if such a subscription doesn't exist.
      */
     @NonNull
-    public SubscriptionView getSubscription(
+    public SubscriptionResult getSubscription(
         @NonNull Long customerId,
         @NonNull Long subscriptionId,
         String stripeReturnUrl
@@ -675,8 +675,8 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionPlanView buildSubscriptionPlanView(@NonNull SubscriptionPlan plan) {
-        return SubscriptionPlanView.builder()
+    private static SubscriptionPlanResult buildSubscriptionPlanView(@NonNull SubscriptionPlan plan) {
+        return SubscriptionPlanResult.builder()
             .id(plan.getId())
             .provider(plan.getProvider().name().toLowerCase())
             .billingPeriodMonths(plan.getBillingPeriodMonths())
@@ -690,8 +690,8 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionView buildSubscriptionView(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
-        return SubscriptionView.builder()
+    private static SubscriptionResult buildSubscriptionView(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
+        return SubscriptionResult.builder()
             .id(subscription.getId())
             .plan(buildSubscriptionPlanView(subscription.getPlan()))
             .isActive(subscription.isActive())

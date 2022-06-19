@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.models;
+package com.trynoice.api.subscription.payload;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -14,7 +14,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(name = "Subscription")
-public class SubscriptionView {
+public class SubscriptionResult {
 
     @Schema(required = true, description = "id of the subscription purchase")
     @NonNull
@@ -22,7 +22,7 @@ public class SubscriptionView {
 
     @Schema(required = true, description = "plan associated with this subscription purchase")
     @NonNull
-    private SubscriptionPlanView plan;
+    private SubscriptionPlanResult plan;
 
     @Schema(required = true, description = "whether this subscription purchase is currently active")
     @NonNull

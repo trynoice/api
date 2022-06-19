@@ -7,10 +7,10 @@ import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundExceptio
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
-import com.trynoice.api.subscription.models.SubscriptionFlowParams;
-import com.trynoice.api.subscription.models.SubscriptionFlowResult;
-import com.trynoice.api.subscription.models.SubscriptionPlanView;
-import com.trynoice.api.subscription.models.SubscriptionView;
+import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
+import com.trynoice.api.subscription.payload.SubscriptionFlowResult;
+import com.trynoice.api.subscription.payload.SubscriptionPlanResult;
+import com.trynoice.api.subscription.payload.SubscriptionResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -85,7 +85,7 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping("/plans")
-    ResponseEntity<List<SubscriptionPlanView>> listPlans(
+    ResponseEntity<List<SubscriptionPlanResult>> listPlans(
         @Schema(allowableValues = {"google_play", "stripe"}) @RequestParam(value = "provider", required = false) String provider
     ) {
         try {
@@ -167,7 +167,7 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping
-    ResponseEntity<List<SubscriptionView>> listSubscriptions(
+    ResponseEntity<List<SubscriptionResult>> listSubscriptions(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
@@ -198,7 +198,7 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping("/{subscriptionId}")
-    ResponseEntity<SubscriptionView> getSubscription(
+    ResponseEntity<SubscriptionResult> getSubscription(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @Min(1) @PathVariable Long subscriptionId,
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl

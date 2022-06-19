@@ -15,7 +15,7 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
-import com.trynoice.api.subscription.models.SubscriptionFlowParams;
+import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;

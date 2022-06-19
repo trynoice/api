@@ -1,4 +1,4 @@
-package com.trynoice.api.identity.models;
+package com.trynoice.api.identity.payload;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -14,7 +14,8 @@ import lombok.NonNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthCredentials {
+@Schema(name = "AuthCredentials")
+public class AuthCredentialsResult {
 
     @Schema(required = true, description = "rotated refresh token")
     @NonNull
