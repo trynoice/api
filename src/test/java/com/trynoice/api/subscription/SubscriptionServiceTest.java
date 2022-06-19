@@ -1,12 +1,12 @@
 package com.trynoice.api.subscription;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
+import com.trynoice.api.subscription.entities.GiftCardRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.entities.SubscriptionPlanRepository;
@@ -70,6 +70,9 @@ public class SubscriptionServiceTest {
     private SubscriptionRepository subscriptionRepository;
 
     @Mock
+    private GiftCardRepository giftCardRepository;
+
+    @Mock
     private AccountServiceContract accountServiceContract;
 
     @Mock
@@ -90,7 +93,7 @@ public class SubscriptionServiceTest {
             customerRepository,
             subscriptionPlanRepository,
             subscriptionRepository,
-            new ObjectMapper(),
+            giftCardRepository,
             accountServiceContract,
             androidPublisherApi,
             stripeApi,

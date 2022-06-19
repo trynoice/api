@@ -2,6 +2,9 @@ package com.trynoice.api.subscription;
 
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
+import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
+import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
@@ -40,6 +43,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.util.List;
 
 /**
@@ -143,6 +147,43 @@ class SubscriptionController {
             return ResponseEntity.badRequest().build();
         } catch (DuplicateSubscriptionException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
+    /**
+     * Redeems an issued Gift Card and creates a subscription for the authenticated user.
+     *
+     * @param giftCardCode must not be blank.
+     * @return the newly activated subscription on successful redemption of the gift card.
+     */
+    @Operation(summary = "Redeem a gift card")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "404", description = "gift card doesn't exist", content = @Content),
+        @ApiResponse(responseCode = "409", description = "user already has an active subscription", content = @Content),
+        @ApiResponse(responseCode = "410", description = "gift card has expired", content = @Content),
+        @ApiResponse(responseCode = "422", description = "gift card has already been redeemed", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @PostMapping("/giftCards/{giftCardCode}/redeem")
+    ResponseEntity<SubscriptionResult> redeemGiftCard(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
+    ) {
+        try {
+            val result = subscriptionService.redeemGiftCard(principalId, giftCardCode);
+            return ResponseEntity.ok(result);
+        } catch (GiftCardNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (DuplicateSubscriptionException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        } catch (GiftCardExpiredException e) {
+            return ResponseEntity.status(HttpStatus.GONE).build();
+        } catch (GiftCardRedeemedException e) {
+            return ResponseEntity.unprocessableEntity().build();
         }
     }
 
