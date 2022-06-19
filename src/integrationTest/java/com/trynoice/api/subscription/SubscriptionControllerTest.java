@@ -12,10 +12,13 @@ import com.stripe.model.SubscriptionItemCollection;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Customer;
+import com.trynoice.api.subscription.entities.CustomerRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
-import com.trynoice.api.subscription.models.SubscriptionFlowParams;
-import com.trynoice.api.subscription.models.SubscriptionPlanView;
+import com.trynoice.api.subscription.entities.SubscriptionPlanRepository;
+import com.trynoice.api.subscription.entities.SubscriptionRepository;
+import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
+import com.trynoice.api.subscription.payload.SubscriptionPlanResult;
 import com.trynoice.api.testing.AuthTestUtils;
 import lombok.NonNull;
 import lombok.val;
@@ -114,7 +117,7 @@ public class SubscriptionControllerTest {
         if (expectedResponseStatus == HttpStatus.OK.value()) {
             val plans = objectMapper.readValue(
                 result.getResponse().getContentAsByteArray(),
-                SubscriptionPlanView[].class);
+                SubscriptionPlanResult[].class);
 
             assertNotEquals(0, plans.length);
             if (provider != null) {

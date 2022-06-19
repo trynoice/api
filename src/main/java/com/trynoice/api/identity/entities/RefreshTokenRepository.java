@@ -1,6 +1,5 @@
-package com.trynoice.api.identity;
+package com.trynoice.api.identity.entities;
 
-import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.platform.BasicEntityRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Modifying;

@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.models;
+package com.trynoice.api.subscription.payload;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -14,7 +14,7 @@ public class SubscriptionFlowResult {
 
     @Schema(required = true, description = "the newly created subscription")
     @NonNull
-    private SubscriptionView subscription;
+    private SubscriptionResult subscription;
 
     @Schema(description = "Checkout url for billing this subscription. Only present if the provider is 'stripe'")
     private String stripeCheckoutSessionUrl;

@@ -4,11 +4,11 @@ import com.trynoice.api.identity.exceptions.AccountNotFoundException;
 import com.trynoice.api.identity.exceptions.DuplicateEmailException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.models.AuthCredentials;
-import com.trynoice.api.identity.models.Profile;
-import com.trynoice.api.identity.models.SignInParams;
-import com.trynoice.api.identity.models.SignUpParams;
-import com.trynoice.api.identity.models.UpdateProfileParams;
+import com.trynoice.api.identity.payload.AuthCredentialsResult;
+import com.trynoice.api.identity.payload.ProfileResult;
+import com.trynoice.api.identity.payload.SignInParams;
+import com.trynoice.api.identity.payload.SignUpParams;
+import com.trynoice.api.identity.payload.UpdateProfileParams;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -213,7 +213,7 @@ class AccountController {
     })
     @NonNull
     @GetMapping(value = "/credentials")
-    ResponseEntity<AuthCredentials> issueCredentials(
+    ResponseEntity<AuthCredentialsResult> issueCredentials(
         @Valid @NotBlank @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
         @Valid @Size(min = 1, max = 128) @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
     ) {
@@ -238,7 +238,7 @@ class AccountController {
     })
     @NonNull
     @GetMapping(value = "/profile")
-    ResponseEntity<Profile> getProfile(@NonNull @AuthenticationPrincipal Long principalId) {
+    ResponseEntity<ProfileResult> getProfile(@NonNull @AuthenticationPrincipal Long principalId) {
         return ResponseEntity.ok(accountService.getProfile(principalId));
     }
 

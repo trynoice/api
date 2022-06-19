@@ -1,4 +1,4 @@
-package com.trynoice.api.identity;
+package com.trynoice.api.identity.entities;
 
 import lombok.val;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,7 @@
 package com.trynoice.api.sound;
 
 import com.trynoice.api.contracts.SubscriptionServiceContract;
+import com.trynoice.api.sound.entities.LibraryManifestRepository;
 import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
 import lombok.NonNull;
 import lombok.val;

@@ -1,4 +1,4 @@
-package com.trynoice.api.identity.models;
+package com.trynoice.api.identity.payload;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -14,7 +14,8 @@ import lombok.NonNull;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Profile {
+@Schema(name = "Profile")
+public class ProfileResult {
 
     @Schema(required = true, description = "id of the account")
     @NonNull

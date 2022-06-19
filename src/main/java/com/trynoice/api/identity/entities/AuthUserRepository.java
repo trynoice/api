@@ -1,6 +1,5 @@
-package com.trynoice.api.identity;
+package com.trynoice.api.identity.entities;
 
-import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.platform.BasicEntityRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
@@ -14,7 +13,7 @@ import java.util.Optional;
  * com.trynoice.api.platform.BasicEntity BasicEntity}.
  */
 @Repository
-interface AuthUserRepository extends BasicEntityRepository<AuthUser, Long> {
+public interface AuthUserRepository extends BasicEntityRepository<AuthUser, Long> {
 
     /**
      * Retrieves a user by its email.

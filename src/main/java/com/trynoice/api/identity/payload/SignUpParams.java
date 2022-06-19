@@ -1,4 +1,4 @@
-package com.trynoice.api.identity.models;
+package com.trynoice.api.identity.payload;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;

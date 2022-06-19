@@ -6,7 +6,7 @@ import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.trynoice.api.subscription.models.GooglePlaySubscriptionPurchase;
+import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
 import lombok.NonNull;
 import lombok.val;
 

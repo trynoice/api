@@ -15,9 +15,9 @@ import software.amazon.awssdk.services.s3.S3Client;
  * Spring Beans used by the sound package.
  */
 @Configuration
-class SoundBeans {
+public class SoundBeans {
 
-    static final String CACHE_NAME = "sound_cache";
+    public static final String CACHE_NAME = "sound_cache";
 
     @NonNull
     @Bean(name = CACHE_NAME)

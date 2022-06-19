@@ -1,7 +1,8 @@
-package com.trynoice.api.sound;
+package com.trynoice.api.sound.entities;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.trynoice.api.sound.entities.LibraryManifest;
+import com.trynoice.api.sound.SoundBeans;
+import com.trynoice.api.sound.SoundConfiguration;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +30,7 @@ public class LibraryManifestRepository {
     private final SoundConfiguration soundConfig;
 
     @Autowired
-    LibraryManifestRepository(@NonNull S3Client s3Client, @NonNull ObjectMapper objectMapper, @NonNull SoundConfiguration soundConfig) {
+    public LibraryManifestRepository(@NonNull S3Client s3Client, @NonNull ObjectMapper objectMapper, @NonNull SoundConfiguration soundConfig) {
         this.s3Client = s3Client;
         this.objectMapper = objectMapper;
         this.soundConfig = soundConfig;

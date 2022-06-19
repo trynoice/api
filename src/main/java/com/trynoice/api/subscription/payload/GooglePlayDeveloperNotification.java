@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.models;
+package com.trynoice.api.subscription.payload;
 
 import lombok.Builder;
 import lombok.Data;

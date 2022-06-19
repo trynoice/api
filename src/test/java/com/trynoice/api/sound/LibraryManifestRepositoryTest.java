@@ -1,6 +1,7 @@
 package com.trynoice.api.sound;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.trynoice.api.sound.entities.LibraryManifestRepository;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

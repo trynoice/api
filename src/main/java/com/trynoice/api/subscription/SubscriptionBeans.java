@@ -10,7 +10,7 @@ import com.google.cloud.spring.pubsub.integration.AckMode;
 import com.google.cloud.spring.pubsub.integration.inbound.PubSubInboundChannelAdapter;
 import com.google.cloud.spring.pubsub.support.converter.JacksonPubSubMessageConverter;
 import com.google.cloud.spring.pubsub.support.converter.PubSubMessageConverter;
-import com.trynoice.api.subscription.models.GooglePlayDeveloperNotification;
+import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;

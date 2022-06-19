@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.models;
+package com.trynoice.api.subscription.payload;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -15,7 +15,7 @@ import lombok.NonNull;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(name = "SubscriptionPlan")
-public class SubscriptionPlanView {
+public class SubscriptionPlanResult {
 
     @Schema(required = true, description = "id of the subscription plan")
     @NonNull
