@@ -90,6 +90,7 @@ class AccountService implements AccountServiceContract {
      */
     @Transactional(rollbackFor = Throwable.class)
     public void signUp(@NonNull SignUpParams params) throws TooManySignInAttemptsException {
+        params.setEmail(params.getEmail().toLowerCase());
         val user = authUserRepository.findByEmail(params.getEmail())
             .orElseGet(() -> authUserRepository.save(
                 AuthUser.builder()
@@ -111,6 +112,7 @@ class AccountService implements AccountServiceContract {
      */
     @Transactional(rollbackFor = Throwable.class)
     public void signIn(@NonNull SignInParams params) throws AccountNotFoundException, TooManySignInAttemptsException {
+        params.setEmail(params.getEmail().toLowerCase());
         val user = authUserRepository.findByEmail(params.getEmail())
             .orElseThrow(() -> {
                 val msg = String.format("account with email '%s' doesn't exist", params.getEmail());

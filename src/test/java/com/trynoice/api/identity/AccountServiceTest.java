@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -130,6 +132,19 @@ class AccountServiceTest {
     }
 
     @Test
+    void signUp_emailCaseInsensitivity() {
+        val email = "ABcD@api.test";
+        val authUser = buildAuthUser();
+        authUser.setEmail(email);
+        val refreshToken = buildRefreshToken(authUser);
+        when(authUserRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(authUserRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
+        assertDoesNotThrow(() -> service.signUp(new SignUpParams(authUser.getEmail(), authUser.getName())));
+        verify(authUserRepository, atLeastOnce()).save(argThat(a -> a.getEmail().equals(email.toLowerCase())));
+    }
+
+    @Test
     void signIn_withExistingAccount() throws AccountNotFoundException, TooManySignInAttemptsException {
         val authUser = buildAuthUser();
         val refreshToken = buildRefreshToken(authUser);
@@ -165,6 +180,17 @@ class AccountServiceTest {
         authUser.setIncompleteSignInAttempts((short) 5);
         when(authUserRepository.findByEmail(authUser.getEmail())).thenReturn(Optional.of(authUser));
         assertThrows(TooManySignInAttemptsException.class, () -> service.signIn(new SignInParams(authUser.getEmail())));
+    }
+
+    @Test
+    void signIn_emailCaseInsensitivity() {
+        val email = "ABcD@api.test";
+        val authUser = buildAuthUser();
+        authUser.setEmail(email);
+        val refreshToken = buildRefreshToken(authUser);
+        when(authUserRepository.findByEmail(email.toLowerCase())).thenReturn(Optional.of(authUser));
+        when(refreshTokenRepository.save(any())).thenReturn(refreshToken);
+        assertDoesNotThrow(() -> service.signIn(new SignInParams(authUser.getEmail())));
     }
 
     @Test
