@@ -1,6 +1,5 @@
 package com.trynoice.api.subscription;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
@@ -9,11 +8,15 @@ import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.contracts.SubscriptionServiceContract;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
+import com.trynoice.api.subscription.entities.GiftCardRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.entities.SubscriptionPlanRepository;
 import com.trynoice.api.subscription.entities.SubscriptionRepository;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
+import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
+import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
@@ -57,7 +60,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     private final CustomerRepository customerRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionRepository subscriptionRepository;
-    private final ObjectMapper objectMapper;
+    private final GiftCardRepository giftCardRepository;
     private final AccountServiceContract accountServiceContract;
     private final AndroidPublisherApi androidPublisherApi;
     private final StripeApi stripeApi;
@@ -69,7 +72,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         @NonNull CustomerRepository customerRepository,
         @NonNull SubscriptionPlanRepository subscriptionPlanRepository,
         @NonNull SubscriptionRepository subscriptionRepository,
-        @NonNull ObjectMapper objectMapper,
+        @NonNull GiftCardRepository giftCardRepository,
         @NonNull AccountServiceContract accountServiceContract,
         @NonNull AndroidPublisherApi androidPublisherApi,
         @NonNull StripeApi stripeApi,
@@ -79,7 +82,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         this.customerRepository = customerRepository;
         this.subscriptionPlanRepository = subscriptionPlanRepository;
         this.subscriptionRepository = subscriptionRepository;
-        this.objectMapper = objectMapper;
+        this.giftCardRepository = giftCardRepository;
         this.accountServiceContract = accountServiceContract;
         this.androidPublisherApi = androidPublisherApi;
         this.stripeApi = stripeApi;
@@ -167,12 +170,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             throw new DuplicateSubscriptionException();
         }
 
-        val customer = customerRepository.findById(customerId)
-            .orElseGet(() -> customerRepository.save(
-                Customer.builder()
-                    .userId(customerId)
-                    .build()));
-
+        val customer = getOrCreateCustomer(customerId);
         val subscription = subscriptionRepository.save(
             Subscription.builder()
                 .customer(customer)
@@ -205,6 +203,72 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
 
         return result;
+    }
+
+    /**
+     * Redeems an issued gift card with the given {@code giftCardCode} for the customer with the
+     * given {@code customerId}.
+     *
+     * @param customerId   must not be {@literal null}.
+     * @param giftCardCode must not be {@literal null}.
+     * @return the created subscription on the successful redemption of the gift card.
+     * @throws GiftCardNotFoundException      if the gift card doesn't exist or belong to the customer.
+     * @throws GiftCardRedeemedException      if the gift card was already redeemed.
+     * @throws GiftCardExpiredException       if the gift card has expired.
+     * @throws DuplicateSubscriptionException if the customer has another active subscription.
+     */
+    @NonNull
+    @Transactional(rollbackFor = Throwable.class)
+    public SubscriptionResult redeemGiftCard(
+        @NonNull Long customerId,
+        @NonNull String giftCardCode
+    ) throws GiftCardNotFoundException, GiftCardRedeemedException, GiftCardExpiredException, DuplicateSubscriptionException {
+        val giftCard = giftCardRepository.findByCode(giftCardCode).orElseThrow(GiftCardNotFoundException::new);
+        val customer = giftCard.getCustomer() == null ? getOrCreateCustomer(customerId) : giftCard.getCustomer();
+        if (customer.getUserId() != customerId) {
+            throw new GiftCardNotFoundException();
+        }
+
+        if (giftCard.isRedeemed()) {
+            throw new GiftCardRedeemedException();
+        }
+
+        val now = OffsetDateTime.now();
+        if (giftCard.getExpiresAt() != null && giftCard.getExpiresAt().isBefore(now)) {
+            throw new GiftCardExpiredException();
+        }
+
+        if (subscriptionRepository.existsActiveByCustomerUserId(customerId)) {
+            throw new DuplicateSubscriptionException();
+        }
+
+        giftCard.setCustomer(customer);
+        giftCard.setRedeemed(true);
+        giftCardRepository.save(giftCard);
+
+        val then = now.plusHours(giftCard.getHourCredits());
+        val subscription = subscriptionRepository.save(
+            Subscription.builder()
+                .customer(customer)
+                .plan(giftCard.getPlan())
+                .providerSubscriptionId(String.valueOf(giftCard.getId()))
+                .isPaymentPending(false)
+                .isAutoRenewing(false)
+                .isRefunded(false)
+                .startAt(now)
+                .endAt(then)
+                .build());
+
+        return buildSubscriptionView(subscription, null);
+    }
+
+    @NonNull
+    private Customer getOrCreateCustomer(long customerId) {
+        return customerRepository.findById(customerId)
+            .orElseGet(() -> customerRepository.save(
+                Customer.builder()
+                    .userId(customerId)
+                    .build()));
     }
 
     /**

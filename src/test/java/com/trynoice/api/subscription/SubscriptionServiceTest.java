@@ -1,17 +1,21 @@
 package com.trynoice.api.subscription;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
+import com.trynoice.api.subscription.entities.GiftCard;
+import com.trynoice.api.subscription.entities.GiftCardRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.entities.SubscriptionPlanRepository;
 import com.trynoice.api.subscription.entities.SubscriptionRepository;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
+import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
+import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
@@ -70,6 +74,9 @@ public class SubscriptionServiceTest {
     private SubscriptionRepository subscriptionRepository;
 
     @Mock
+    private GiftCardRepository giftCardRepository;
+
+    @Mock
     private AccountServiceContract accountServiceContract;
 
     @Mock
@@ -90,7 +97,7 @@ public class SubscriptionServiceTest {
             customerRepository,
             subscriptionPlanRepository,
             subscriptionRepository,
-            new ObjectMapper(),
+            giftCardRepository,
             accountServiceContract,
             androidPublisherApi,
             stripeApi,
@@ -244,6 +251,52 @@ public class SubscriptionServiceTest {
     }
 
     @Test
+    void redeemGiftCard_withNonExistingCode() {
+        val code = "test-code-1";
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.empty());
+        assertThrows(GiftCardNotFoundException.class, () -> service.redeemGiftCard(1L, code));
+
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(buildGiftCard(code, 2L)));
+        assertThrows(GiftCardNotFoundException.class, () -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
+    void redeemGiftCard_withExpiredCode() {
+        val code = "test-code-2";
+        val card = buildGiftCard(code, 1L);
+        card.setExpiresAt(OffsetDateTime.now().minusHours(1));
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        assertThrows(GiftCardExpiredException.class, () -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
+    void redeemGiftCard_withRedeemedCode() {
+        val code = "test-code-2";
+        val card = buildGiftCard(code, 1L);
+        card.setRedeemed(true);
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        assertThrows(GiftCardRedeemedException.class, () -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
+    void redeemGiftCard_withExistingSubscription() {
+        val code = "test-code-3";
+        val card = buildGiftCard(code, 1L);
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        when(subscriptionRepository.existsActiveByCustomerUserId(1L)).thenReturn(true);
+        assertThrows(DuplicateSubscriptionException.class, () -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
+    void redeemGiftCard_withValidCode() {
+        val code = "test-code-2";
+        val card = buildGiftCard(code, 1L);
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        when(subscriptionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        assertDoesNotThrow(() -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
     void listSubscriptions() throws StripeException {
         val userId1 = 1L;
         val userId2 = 2L;
@@ -363,7 +416,7 @@ public class SubscriptionServiceTest {
 
     @NonNull
     private static Subscription buildSubscription(
-        @NonNull Long ownerId,
+        long ownerId,
         @NonNull SubscriptionPlan plan,
         boolean isActive,
         boolean isPaymentPending
@@ -377,6 +430,15 @@ public class SubscriptionServiceTest {
             .isPaymentPending(isPaymentPending)
             .startAt(now.plusHours(-2))
             .endAt(now.plusHours(isActive ? 2 : -1))
+            .build();
+    }
+
+    @NonNull
+    private static GiftCard buildGiftCard(@NonNull String code, Long customerId) {
+        return GiftCard.builder()
+            .code(code)
+            .customer(customerId == null ? null : Customer.builder().userId(customerId).build())
+            .plan(buildSubscriptionPlan(SubscriptionPlan.Provider.GIFT_CARD, "gift-card"))
             .build();
     }
 }

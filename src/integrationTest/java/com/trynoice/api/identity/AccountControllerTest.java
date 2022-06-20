@@ -338,7 +338,7 @@ class AccountControllerTest {
         val user = createAuthUser(entityManager);
         val accessToken = createSignedAccessJwt(hmacSecret, user, JwtType.VALID);
         val anotherUser = createAuthUser(entityManager);
-        val urlFmt = "/v1/accounts/%d";
+        val urlFmt = "/v1/accounts/{accountId}";
 
         val refreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, user))
@@ -346,13 +346,13 @@ class AccountControllerTest {
 
         // try deleting someone else's account
         mockMvc.perform(
-                delete(String.format(urlFmt, anotherUser.getId()))
+                delete(urlFmt, anotherUser.getId())
                     .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().is(HttpStatus.BAD_REQUEST.value()));
 
         // delete auth user's account
         mockMvc.perform(
-                delete(String.format(urlFmt, user.getId()))
+                delete(urlFmt, user.getId())
                     .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().is(HttpStatus.NO_CONTENT.value()));
 
@@ -361,7 +361,7 @@ class AccountControllerTest {
 
         // perform the request again to ensure access token no longer works
         mockMvc.perform(
-                delete(String.format(urlFmt, anotherUser.getId()))
+                delete(urlFmt, anotherUser.getId())
                     .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().is(HttpStatus.UNAUTHORIZED.value()));
     }

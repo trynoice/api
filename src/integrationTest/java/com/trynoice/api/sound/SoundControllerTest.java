@@ -109,10 +109,10 @@ public class SoundControllerTest {
             buildSubscription(authUser, isSubscribed, isPaymentPending);
         }
 
-        val requestUrlFmt = "/v1/sounds/%s/segments/%s/authorize?audioBitrate=%s&libraryVersion=%s";
-        val freeSegmentRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "128k", libraryVersion));
-        val premiumSegmentRequest = get(String.format(requestUrlFmt, soundId, premiumSegmentId, "128k", libraryVersion));
-        val premiumBitrateRequest = get(String.format(requestUrlFmt, soundId, freeSegmentId, "320k", libraryVersion));
+        val requestUrlFmt = "/v1/sounds/{soundId}/segments/{segmentId}/authorize?audioBitrate={bitrate}&libraryVersion={libraryVersion}";
+        val freeSegmentRequest = get(requestUrlFmt, soundId, freeSegmentId, "128k", libraryVersion);
+        val premiumSegmentRequest = get(requestUrlFmt, soundId, premiumSegmentId, "128k", libraryVersion);
+        val premiumBitrateRequest = get(requestUrlFmt, soundId, freeSegmentId, "320k", libraryVersion);
         if (isSignedIn) {
             val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
             freeSegmentRequest.header("Authorization", "Bearer " + accessToken);
