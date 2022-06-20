@@ -175,7 +175,7 @@ class SubscriptionController {
     ) {
         try {
             val result = subscriptionService.redeemGiftCard(principalId, giftCardCode);
-            return ResponseEntity.ok(result);
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
         } catch (GiftCardNotFoundException e) {
             return ResponseEntity.notFound().build();
         } catch (DuplicateSubscriptionException e) {

@@ -1,6 +1,8 @@
 package com.trynoice.api.subscription.entities;
 
 import com.trynoice.api.platform.BasicEntity;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -16,7 +18,9 @@ import java.time.OffsetDateTime;
  */
 @Entity
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class GiftCard extends BasicEntity {
 
