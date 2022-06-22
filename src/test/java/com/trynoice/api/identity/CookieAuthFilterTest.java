@@ -1,7 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
-import com.trynoice.api.identity.payload.AuthCredentialsResult;
+import com.trynoice.api.identity.payload.AuthCredentialsResponse;
 import lombok.val;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,7 +74,7 @@ class CookieAuthFilterTest {
             .thenThrow(new RefreshTokenVerificationException("test-error"));
 
         lenient().when(accountService.issueAuthCredentials(eq(VALID_JWT), any()))
-            .thenReturn(new AuthCredentialsResult(VALID_JWT, VALID_JWT));
+            .thenReturn(new AuthCredentialsResponse(VALID_JWT, VALID_JWT));
     }
 
     @AfterEach

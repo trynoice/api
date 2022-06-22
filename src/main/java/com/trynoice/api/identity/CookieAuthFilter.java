@@ -1,7 +1,7 @@
 package com.trynoice.api.identity;
 
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
-import com.trynoice.api.identity.payload.AuthCredentialsResult;
+import com.trynoice.api.identity.payload.AuthCredentialsResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
@@ -111,7 +111,7 @@ public class CookieAuthFilter extends OncePerRequestFilter {
         SecurityContextHolder.setContext(context);
     }
 
-    private AuthCredentialsResult issueCredentials(String refreshToken, String userAgent) {
+    private AuthCredentialsResponse issueCredentials(String refreshToken, String userAgent) {
         if (refreshToken == null) {
             return null;
         }

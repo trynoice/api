@@ -10,11 +10,11 @@ import lombok.NonNull;
  */
 @Data
 @NoArgsConstructor
-public class SubscriptionFlowResult {
+public class SubscriptionFlowResponse {
 
     @Schema(required = true, description = "the newly created subscription")
     @NonNull
-    private SubscriptionResult subscription;
+    private SubscriptionResponse subscription;
 
     @Schema(description = "Checkout url for billing this subscription. Only present if the provider is 'stripe'")
     private String stripeCheckoutSessionUrl;

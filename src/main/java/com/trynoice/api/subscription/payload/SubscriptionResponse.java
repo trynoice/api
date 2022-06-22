@@ -14,7 +14,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(name = "Subscription")
-public class SubscriptionResult {
+public class SubscriptionResponse {
 
     @Schema(required = true, description = "id of the subscription purchase")
     @NonNull
@@ -22,7 +22,7 @@ public class SubscriptionResult {
 
     @Schema(required = true, description = "plan associated with this subscription purchase")
     @NonNull
-    private SubscriptionPlanResult plan;
+    private SubscriptionPlanResponse plan;
 
     @Schema(required = true, description = "whether this subscription purchase is currently active")
     @NonNull

@@ -16,8 +16,8 @@ import com.trynoice.api.identity.exceptions.DuplicateEmailException;
 import com.trynoice.api.identity.exceptions.RefreshTokenVerificationException;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.exceptions.TooManySignInAttemptsException;
-import com.trynoice.api.identity.payload.AuthCredentialsResult;
-import com.trynoice.api.identity.payload.ProfileResult;
+import com.trynoice.api.identity.payload.AuthCredentialsResponse;
+import com.trynoice.api.identity.payload.ProfileResponse;
 import com.trynoice.api.identity.payload.SignInParams;
 import com.trynoice.api.identity.payload.SignUpParams;
 import com.trynoice.api.identity.payload.UpdateProfileParams;
@@ -168,12 +168,12 @@ class AccountService implements AccountServiceContract {
      *
      * @param refreshToken refresh token provided by the client
      * @param userAgent    user-agent that the client used to make this request. It can be {@code null}.
-     * @return a fresh pair of refresh and access tokens as {@link AuthCredentialsResult}.
+     * @return a fresh pair of refresh and access tokens as {@link AuthCredentialsResponse}.
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
     @NonNull
     @Transactional(rollbackFor = Throwable.class, noRollbackFor = RefreshTokenVerificationException.class)
-    public AuthCredentialsResult issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
+    public AuthCredentialsResponse issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
 
         // ordinal 0 implies that this refresh token is being used to sign in, so persist userAgent
@@ -196,7 +196,7 @@ class AccountService implements AccountServiceContract {
             .withExpiresAt(Date.from(accessTokenExpiry.toInstant()))
             .sign(jwtAlgorithm);
 
-        return AuthCredentialsResult.builder()
+        return AuthCredentialsResponse.builder()
             .refreshToken(token.getJwt(jwtAlgorithm))
             .accessToken(signedAccessToken)
             .build();
@@ -230,12 +230,12 @@ class AccountService implements AccountServiceContract {
      * Returns an externalised view of an account's data, containing fields that are accessible by
      * account owners.
      *
-     * @return a non-null {@link ProfileResult}.
+     * @return a non-null {@link ProfileResponse}.
      */
     @NonNull
-    ProfileResult getProfile(@NonNull Long userId) {
+    ProfileResponse getProfile(@NonNull Long userId) {
         val authUser = authUserRepository.findById(userId).orElseThrow();
-        return ProfileResult.builder()
+        return ProfileResponse.builder()
             .accountId(authUser.getId())
             .name(authUser.getName())
             .email(authUser.getEmail())

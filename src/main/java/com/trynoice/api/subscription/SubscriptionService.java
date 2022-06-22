@@ -25,9 +25,9 @@ import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
-import com.trynoice.api.subscription.payload.SubscriptionFlowResult;
-import com.trynoice.api.subscription.payload.SubscriptionPlanResult;
-import com.trynoice.api.subscription.payload.SubscriptionResult;
+import com.trynoice.api.subscription.payload.SubscriptionFlowResponse;
+import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
+import com.trynoice.api.subscription.payload.SubscriptionResponse;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,11 +98,11 @@ class SubscriptionService implements SubscriptionServiceContract {
      * subscription plans.</p>
      *
      * @param provider {@code null} or a valid {@link SubscriptionPlan.Provider}.
-     * @return a non-null list of {@link SubscriptionPlanResult}.
+     * @return a non-null list of {@link SubscriptionPlanResponse}.
      * @throws UnsupportedSubscriptionPlanProviderException if an invalid {@code provider} is given.
      */
     @NonNull
-    List<SubscriptionPlanResult> listPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
+    List<SubscriptionPlanResponse> listPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
         final Iterable<SubscriptionPlan> plans;
         val sortOrder = Sort.by(Sort.Order.asc("priceInIndianPaise"));
         if (provider != null) {
@@ -131,7 +131,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      *
      * <p>
      * If the requested plan is provided by {@link SubscriptionPlan.Provider#STRIPE}, it also
-     * returns a non-null {@link SubscriptionFlowResult#getStripeCheckoutSessionUrl() checkout
+     * returns a non-null {@link SubscriptionFlowResponse#getStripeCheckoutSessionUrl() checkout
      * session url}. The clients must redirect user to the checkout session url to conclude the
      * subscription flow.</p>
      *
@@ -143,13 +143,13 @@ class SubscriptionService implements SubscriptionServiceContract {
      *
      * @param customerId id of the customer (user) that initiated the subscription flow.
      * @param params     subscription flow parameters.
-     * @return a non-null {@link SubscriptionFlowResult}.
+     * @return a non-null {@link SubscriptionFlowResponse}.
      * @throws SubscriptionPlanNotFoundException if the specified plan doesn't exist.
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
      */
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
-    public SubscriptionFlowResult createSubscription(
+    public SubscriptionFlowResponse createSubscription(
         @NonNull Long customerId,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
@@ -177,7 +177,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .plan(plan)
                 .build());
 
-        val result = new SubscriptionFlowResult();
+        val result = new SubscriptionFlowResponse();
         result.setSubscription(buildSubscriptionView(subscription, null));
         if (plan.getProvider() != SubscriptionPlan.Provider.STRIPE) {
             return result;
@@ -219,7 +219,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      */
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
-    public SubscriptionResult redeemGiftCard(
+    public SubscriptionResponse redeemGiftCard(
         @NonNull Long customerId,
         @NonNull String giftCardCode
     ) throws GiftCardNotFoundException, GiftCardRedeemedException, GiftCardExpiredException, DuplicateSubscriptionException {
@@ -285,7 +285,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @return a list of subscription purchased by the given {@code customerId}.
      */
     @NonNull
-    List<SubscriptionResult> listSubscriptions(
+    List<SubscriptionResponse> listSubscriptions(
         @NonNull Long customerId,
         @NonNull Boolean onlyActive,
         String stripeReturnUrl,
@@ -333,7 +333,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @throws SubscriptionNotFoundException if such a subscription doesn't exist.
      */
     @NonNull
-    public SubscriptionResult getSubscription(
+    public SubscriptionResponse getSubscription(
         @NonNull Long customerId,
         @NonNull Long subscriptionId,
         String stripeReturnUrl
@@ -739,8 +739,8 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionPlanResult buildSubscriptionPlanView(@NonNull SubscriptionPlan plan) {
-        return SubscriptionPlanResult.builder()
+    private static SubscriptionPlanResponse buildSubscriptionPlanView(@NonNull SubscriptionPlan plan) {
+        return SubscriptionPlanResponse.builder()
             .id(plan.getId())
             .provider(plan.getProvider().name().toLowerCase())
             .billingPeriodMonths(plan.getBillingPeriodMonths())
@@ -754,8 +754,8 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionResult buildSubscriptionView(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
-        return SubscriptionResult.builder()
+    private static SubscriptionResponse buildSubscriptionView(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
+        return SubscriptionResponse.builder()
             .id(subscription.getId())
             .plan(buildSubscriptionPlanView(subscription.getPlan()))
             .isActive(subscription.isActive())

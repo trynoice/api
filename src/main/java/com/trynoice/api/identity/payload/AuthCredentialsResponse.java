@@ -15,7 +15,7 @@ import lombok.NonNull;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(name = "AuthCredentials")
-public class AuthCredentialsResult {
+public class AuthCredentialsResponse {
 
     @Schema(required = true, description = "rotated refresh token")
     @NonNull

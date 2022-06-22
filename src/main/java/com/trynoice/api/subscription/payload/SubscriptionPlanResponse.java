@@ -15,7 +15,7 @@ import lombok.NonNull;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(name = "SubscriptionPlan")
-public class SubscriptionPlanResult {
+public class SubscriptionPlanResponse {
 
     @Schema(required = true, description = "id of the subscription plan")
     @NonNull

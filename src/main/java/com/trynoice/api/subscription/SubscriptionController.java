@@ -11,9 +11,9 @@ import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProvi
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
-import com.trynoice.api.subscription.payload.SubscriptionFlowResult;
-import com.trynoice.api.subscription.payload.SubscriptionPlanResult;
-import com.trynoice.api.subscription.payload.SubscriptionResult;
+import com.trynoice.api.subscription.payload.SubscriptionFlowResponse;
+import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
+import com.trynoice.api.subscription.payload.SubscriptionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -89,7 +89,7 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping("/plans")
-    ResponseEntity<List<SubscriptionPlanResult>> listPlans(
+    ResponseEntity<List<SubscriptionPlanResponse>> listPlans(
         @Schema(allowableValues = {"google_play", "stripe"}) @RequestParam(value = "provider", required = false) String provider
     ) {
         try {
@@ -136,7 +136,7 @@ class SubscriptionController {
     })
     @NonNull
     @PostMapping
-    ResponseEntity<SubscriptionFlowResult> createSubscription(
+    ResponseEntity<SubscriptionFlowResponse> createSubscription(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
@@ -169,7 +169,7 @@ class SubscriptionController {
     })
     @NonNull
     @PostMapping("/giftCards/{giftCardCode}/redeem")
-    ResponseEntity<SubscriptionResult> redeemGiftCard(
+    ResponseEntity<SubscriptionResponse> redeemGiftCard(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
     ) {
@@ -208,7 +208,7 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping
-    ResponseEntity<List<SubscriptionResult>> listSubscriptions(
+    ResponseEntity<List<SubscriptionResponse>> listSubscriptions(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
@@ -239,7 +239,7 @@ class SubscriptionController {
     })
     @NonNull
     @GetMapping("/{subscriptionId}")
-    ResponseEntity<SubscriptionResult> getSubscription(
+    ResponseEntity<SubscriptionResponse> getSubscription(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @Min(1) @PathVariable Long subscriptionId,
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl

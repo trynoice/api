@@ -3,7 +3,7 @@ package com.trynoice.api.identity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
-import com.trynoice.api.identity.payload.AuthCredentialsResult;
+import com.trynoice.api.identity.payload.AuthCredentialsResponse;
 import com.trynoice.api.identity.payload.SignInParams;
 import com.trynoice.api.identity.payload.SignUpParams;
 import com.trynoice.api.identity.payload.UpdateProfileParams;
@@ -233,7 +233,7 @@ class AccountControllerTest {
 
         if (expectedResponseStatus == HttpStatus.OK.value()) {
             val authCredentials = objectMapper.readValue(
-                result.getResponse().getContentAsByteArray(), AuthCredentialsResult.class);
+                result.getResponse().getContentAsByteArray(), AuthCredentialsResponse.class);
 
             assertValidJWT(hmacSecret, authCredentials.getRefreshToken());
             assertValidJWT(hmacSecret, authCredentials.getAccessToken());

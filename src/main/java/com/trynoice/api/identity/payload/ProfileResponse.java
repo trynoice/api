@@ -15,7 +15,7 @@ import lombok.NonNull;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(name = "Profile")
-public class ProfileResult {
+public class ProfileResponse {
 
     @Schema(required = true, description = "id of the account")
     @NonNull
