@@ -251,52 +251,6 @@ public class SubscriptionServiceTest {
     }
 
     @Test
-    void redeemGiftCard_withNonExistingCode() {
-        val code = "test-code-1";
-        when(giftCardRepository.findByCode(code)).thenReturn(Optional.empty());
-        assertThrows(GiftCardNotFoundException.class, () -> service.redeemGiftCard(1L, code));
-
-        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(buildGiftCard(code, 2L)));
-        assertThrows(GiftCardNotFoundException.class, () -> service.redeemGiftCard(1L, code));
-    }
-
-    @Test
-    void redeemGiftCard_withExpiredCode() {
-        val code = "test-code-2";
-        val card = buildGiftCard(code, 1L);
-        card.setExpiresAt(OffsetDateTime.now().minusHours(1));
-        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
-        assertThrows(GiftCardExpiredException.class, () -> service.redeemGiftCard(1L, code));
-    }
-
-    @Test
-    void redeemGiftCard_withRedeemedCode() {
-        val code = "test-code-2";
-        val card = buildGiftCard(code, 1L);
-        card.setRedeemed(true);
-        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
-        assertThrows(GiftCardRedeemedException.class, () -> service.redeemGiftCard(1L, code));
-    }
-
-    @Test
-    void redeemGiftCard_withExistingSubscription() {
-        val code = "test-code-3";
-        val card = buildGiftCard(code, 1L);
-        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
-        when(subscriptionRepository.existsActiveByCustomerUserId(1L)).thenReturn(true);
-        assertThrows(DuplicateSubscriptionException.class, () -> service.redeemGiftCard(1L, code));
-    }
-
-    @Test
-    void redeemGiftCard_withValidCode() {
-        val code = "test-code-2";
-        val card = buildGiftCard(code, 1L);
-        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
-        when(subscriptionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
-        assertDoesNotThrow(() -> service.redeemGiftCard(1L, code));
-    }
-
-    @Test
     void listSubscriptions() throws StripeException {
         val userId1 = 1L;
         val userId2 = 2L;
@@ -383,6 +337,71 @@ public class SubscriptionServiceTest {
     @Test
     void handleStripeWebhookEvent() {
         // skipped unit tests, wrote integration tests instead.
+    }
+
+    @Test
+    void getGiftCard_withNonExistingCode() {
+        val code = "test-code-1";
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.empty());
+        assertThrows(GiftCardNotFoundException.class, () -> service.getGiftCard(1L, code));
+
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(buildGiftCard(code, 2L)));
+        assertThrows(GiftCardNotFoundException.class, () -> service.getGiftCard(1L, code));
+    }
+
+    @Test
+    void getGiftCard_withValidCode() {
+        val code = "test-code-1";
+        val card = buildGiftCard(code, 2L);
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        val response = assertDoesNotThrow(() -> service.getGiftCard(2L, code));
+        assertEquals(card.getCode(), response.getCode());
+        assertEquals(card.getHourCredits(), response.getHourCredits());
+        assertEquals(card.isRedeemed(), response.isRedeemed());
+        assertEquals(card.getExpiresAt(), response.getExpiresAt());
+    }
+
+    @Test
+    void redeemGiftCard_withNonExistingCode() {
+        val code = "test-code-1";
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.empty());
+        assertThrows(GiftCardNotFoundException.class, () -> service.redeemGiftCard(1L, code));
+
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(buildGiftCard(code, 2L)));
+        assertThrows(GiftCardNotFoundException.class, () -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
+    void redeemGiftCard_withExpiredCode() {
+        val code = "test-code-2";
+        val card = buildGiftCard(code, 1L);
+        card.setExpiresAt(OffsetDateTime.now().minusHours(1));
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        assertThrows(GiftCardExpiredException.class, () -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
+    void redeemGiftCard_withRedeemedCode() {
+        val code = "test-code-2";
+        val card = buildGiftCard(code, 1L);
+        card.setRedeemed(true);
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        assertThrows(GiftCardRedeemedException.class, () -> service.redeemGiftCard(1L, code));
+    }
+
+    @Test
+    void redeemGiftCard_withExistingSubscription() {
+        when(subscriptionRepository.existsActiveByCustomerUserId(1L)).thenReturn(true);
+        assertThrows(DuplicateSubscriptionException.class, () -> service.redeemGiftCard(1L, "test-code-3"));
+    }
+
+    @Test
+    void redeemGiftCard_withValidCode() {
+        val code = "test-code-2";
+        val card = buildGiftCard(code, 1L);
+        when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
+        when(subscriptionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        assertDoesNotThrow(() -> service.redeemGiftCard(1L, code));
     }
 
     @Test

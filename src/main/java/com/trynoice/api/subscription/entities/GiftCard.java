@@ -30,7 +30,7 @@ public class GiftCard extends BasicEntity {
     @NonNull
     private String code;
 
-    private short hourCredits;
+    private int hourCredits;
 
     @NonNull
     @ManyToOne

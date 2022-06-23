@@ -203,51 +203,6 @@ public class SubscriptionControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - exists={0} owned={1} redeemed={2} expired={3} subscribed={4} expectedResponseStatus={5}")
-    @MethodSource("redeemGiftCard")
-    void redeemGiftCard(
-        boolean exists,
-        Boolean owned,
-        boolean redeemed,
-        Boolean expired,
-        boolean subscribed,
-        int expectedResponseStatus
-    ) throws Exception {
-        val code = "test-gift-card";
-        val authUser = createAuthUser(entityManager);
-        if (exists) {
-            val owner = owned == null ? null : buildCustomer(owned ? authUser : createAuthUser(entityManager));
-            buildGiftCard(code, owner, redeemed, expired);
-        }
-
-        if (subscribed) {
-            val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan");
-            buildSubscription(authUser, plan, true, false, "test-sub");
-        }
-
-        val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
-        mockMvc.perform(
-                post("/v1/subscriptions/giftCards/{code}/redeem", code)
-                    .header("Authorization", "Bearer " + accessToken))
-            .andExpect(status().is(expectedResponseStatus));
-    }
-
-    static Stream<Arguments> redeemGiftCard() {
-        return Stream.of(
-            // exists, owned, redeemed, expired, subscribed, response status
-            arguments(false, null, false, false, false, HttpStatus.NOT_FOUND.value()),
-            arguments(true, false, false, false, false, HttpStatus.NOT_FOUND.value()),
-            arguments(true, null, false, false, false, HttpStatus.CREATED.value()),
-            arguments(true, true, false, false, false, HttpStatus.CREATED.value()),
-            arguments(true, null, true, false, false, HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments(true, true, true, false, false, HttpStatus.UNPROCESSABLE_ENTITY.value()),
-            arguments(true, false, true, false, false, HttpStatus.NOT_FOUND.value()),
-            arguments(true, true, false, true, false, HttpStatus.GONE.value()),
-            arguments(true, true, false, null, false, HttpStatus.CREATED.value()),
-            arguments(true, true, false, false, true, HttpStatus.CONFLICT.value())
-        );
-    }
-
     @Test
     void listSubscriptions() throws Exception {
         val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
@@ -593,6 +548,78 @@ public class SubscriptionControllerTest {
             .andExpect(status().is(HttpStatus.OK.value()));
 
         assertNull(customerRepository.findById(authUser.getId()).orElseThrow().getStripeId());
+    }
+
+    @ParameterizedTest(name = "{displayName} - exists={0} owned={1} expectedResponseStatus={2}")
+    @MethodSource("getGiftCardTestCases")
+    void getGiftCard(boolean exists, Boolean owned, int expectedResponseStatus) throws Exception {
+        val code = "test-gift-card-1";
+        val authUser = createAuthUser(entityManager);
+        if (exists) {
+            val owner = owned == null ? null : buildCustomer(owned ? authUser : createAuthUser(entityManager));
+            buildGiftCard(code, owner, false, false);
+        }
+
+        val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
+        mockMvc.perform(
+                get("/v1/subscriptions/giftCards/{code}", code)
+                    .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().is(expectedResponseStatus));
+    }
+
+    static Stream<Arguments> getGiftCardTestCases() {
+        return Stream.of(
+            // exists, owned, response status
+            arguments(false, null, HttpStatus.NOT_FOUND.value()),
+            arguments(true, null, HttpStatus.OK.value()),
+            arguments(true, false, HttpStatus.NOT_FOUND.value()),
+            arguments(true, true, HttpStatus.OK.value())
+        );
+    }
+
+    @ParameterizedTest(name = "{displayName} - exists={0} owned={1} redeemed={2} expired={3} subscribed={4} expectedResponseStatus={5}")
+    @MethodSource("redeemGiftCardTestCases")
+    void redeemGiftCard(
+        boolean exists,
+        Boolean owned,
+        boolean redeemed,
+        Boolean expired,
+        boolean subscribed,
+        int expectedResponseStatus
+    ) throws Exception {
+        val code = "test-gift-card-2";
+        val authUser = createAuthUser(entityManager);
+        if (exists) {
+            val owner = owned == null ? null : buildCustomer(owned ? authUser : createAuthUser(entityManager));
+            buildGiftCard(code, owner, redeemed, expired);
+        }
+
+        if (subscribed) {
+            val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan");
+            buildSubscription(authUser, plan, true, false, "test-sub");
+        }
+
+        val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
+        mockMvc.perform(
+                post("/v1/subscriptions/giftCards/{code}/redeem", code)
+                    .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().is(expectedResponseStatus));
+    }
+
+    static Stream<Arguments> redeemGiftCardTestCases() {
+        return Stream.of(
+            // exists, owned, redeemed, expired, subscribed, response status
+            arguments(false, null, false, false, false, HttpStatus.NOT_FOUND.value()),
+            arguments(true, false, false, false, false, HttpStatus.NOT_FOUND.value()),
+            arguments(true, null, false, false, false, HttpStatus.CREATED.value()),
+            arguments(true, true, false, false, false, HttpStatus.CREATED.value()),
+            arguments(true, null, true, false, false, HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(true, true, true, false, false, HttpStatus.UNPROCESSABLE_ENTITY.value()),
+            arguments(true, false, true, false, false, HttpStatus.NOT_FOUND.value()),
+            arguments(true, true, false, true, false, HttpStatus.GONE.value()),
+            arguments(true, true, false, null, false, HttpStatus.CREATED.value()),
+            arguments(true, true, false, false, true, HttpStatus.CONFLICT.value())
+        );
     }
 
     @NonNull

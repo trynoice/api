@@ -8,6 +8,7 @@ import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.contracts.SubscriptionServiceContract;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
+import com.trynoice.api.subscription.entities.GiftCard;
 import com.trynoice.api.subscription.entities.GiftCardRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
@@ -22,6 +23,7 @@ import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundExceptio
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
+import com.trynoice.api.subscription.payload.GiftCardResponse;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
@@ -120,7 +122,7 @@ class SubscriptionService implements SubscriptionServiceContract {
 
         return StreamSupport.stream(plans.spliterator(), false)
             .filter(p -> p.getProvider() != SubscriptionPlan.Provider.GIFT_CARD) // do not return GIFT_CARD plan(s)
-            .map(SubscriptionService::buildSubscriptionPlanView)
+            .map(SubscriptionService::buildSubscriptionPlanResponse)
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -178,7 +180,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .build());
 
         val result = new SubscriptionFlowResponse();
-        result.setSubscription(buildSubscriptionView(subscription, null));
+        result.setSubscription(buildSubscriptionResponse(subscription, null));
         if (plan.getProvider() != SubscriptionPlan.Provider.STRIPE) {
             return result;
         }
@@ -203,63 +205,6 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
 
         return result;
-    }
-
-    /**
-     * Redeems an issued gift card with the given {@code giftCardCode} for the customer with the
-     * given {@code customerId}.
-     *
-     * @param customerId   must not be {@literal null}.
-     * @param giftCardCode must not be {@literal null}.
-     * @return the created subscription on the successful redemption of the gift card.
-     * @throws GiftCardNotFoundException      if the gift card doesn't exist or belong to the customer.
-     * @throws GiftCardRedeemedException      if the gift card was already redeemed.
-     * @throws GiftCardExpiredException       if the gift card has expired.
-     * @throws DuplicateSubscriptionException if the customer has another active subscription.
-     */
-    @NonNull
-    @Transactional(rollbackFor = Throwable.class)
-    public SubscriptionResponse redeemGiftCard(
-        @NonNull Long customerId,
-        @NonNull String giftCardCode
-    ) throws GiftCardNotFoundException, GiftCardRedeemedException, GiftCardExpiredException, DuplicateSubscriptionException {
-        val giftCard = giftCardRepository.findByCode(giftCardCode).orElseThrow(GiftCardNotFoundException::new);
-        val customer = giftCard.getCustomer() == null ? getOrCreateCustomer(customerId) : giftCard.getCustomer();
-        if (customer.getUserId() != customerId) {
-            throw new GiftCardNotFoundException();
-        }
-
-        if (giftCard.isRedeemed()) {
-            throw new GiftCardRedeemedException();
-        }
-
-        val now = OffsetDateTime.now();
-        if (giftCard.getExpiresAt() != null && giftCard.getExpiresAt().isBefore(now)) {
-            throw new GiftCardExpiredException();
-        }
-
-        if (subscriptionRepository.existsActiveByCustomerUserId(customerId)) {
-            throw new DuplicateSubscriptionException();
-        }
-
-        giftCard.setCustomer(customer);
-        giftCard.setRedeemed(true);
-        giftCardRepository.save(giftCard);
-
-        val then = now.plusHours(giftCard.getHourCredits());
-        val subscription = subscriptionRepository.save(
-            Subscription.builder()
-                .customer(customer)
-                .plan(giftCard.getPlan())
-                .providerSubscriptionId(String.valueOf(giftCard.getId()))
-                .isPaymentPending(false)
-                .isAutoRenewing(false)
-                .isRefunded(false)
-                .startAt(now)
-                .endAt(then)
-                .build());
-
-        return buildSubscriptionView(subscription, null);
     }
 
     @NonNull
@@ -307,7 +252,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             : null;
 
         return subscriptions.stream()
-            .map(subscription -> buildSubscriptionView(subscription, stripeCustomerPortalUrl))
+            .map(subscription -> buildSubscriptionResponse(subscription, stripeCustomerPortalUrl))
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -349,7 +294,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             throw new SubscriptionNotFoundException("subscription has not started yet");
         }
 
-        return buildSubscriptionView(
+        return buildSubscriptionResponse(
             subscription,
             subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
                 ? createStripeCustomerSession(subscription.getCustomer(), stripeReturnUrl)
@@ -726,6 +671,84 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     /**
+     * Returns the gift card with the given {@code giftCardCode} for the customer with the given
+     * {@code customerId}.
+     *
+     * @param customerId   must not be {@literal null}.
+     * @param giftCardCode must not be {@literal null}.
+     * @return the requested gift card.
+     * @throws GiftCardNotFoundException if the gift card doesn't exist or belong to the customer.
+     */
+    @NonNull
+    public GiftCardResponse getGiftCard(@NonNull Long customerId, @NonNull String giftCardCode) throws GiftCardNotFoundException {
+        val giftCard = giftCardRepository.findByCode(giftCardCode).orElseThrow(GiftCardNotFoundException::new);
+        if (giftCard.getCustomer() != null && giftCard.getCustomer().getUserId() != customerId) {
+            throw new GiftCardNotFoundException();
+        }
+
+        return buildGiftCardResponse(giftCard);
+    }
+
+    /**
+     * Redeems an issued gift card with the given {@code giftCardCode} for the customer with the
+     * given {@code customerId}.
+     *
+     * @param customerId   must not be {@literal null}.
+     * @param giftCardCode must not be {@literal null}.
+     * @return the created subscription on the successful redemption of the gift card.
+     * @throws GiftCardNotFoundException      if the gift card doesn't exist or belong to the customer.
+     * @throws GiftCardRedeemedException      if the gift card was already redeemed.
+     * @throws GiftCardExpiredException       if the gift card has expired.
+     * @throws DuplicateSubscriptionException if the customer has another active subscription.
+     */
+    @NonNull
+    @Transactional(rollbackFor = Throwable.class)
+    public SubscriptionResponse redeemGiftCard(
+        @NonNull Long customerId,
+        @NonNull String giftCardCode
+    ) throws GiftCardNotFoundException, GiftCardRedeemedException, GiftCardExpiredException, DuplicateSubscriptionException {
+        if (subscriptionRepository.existsActiveByCustomerUserId(customerId)) {
+            throw new DuplicateSubscriptionException();
+        }
+
+        val giftCard = giftCardRepository.findByCode(giftCardCode).orElseThrow(GiftCardNotFoundException::new);
+        if (giftCard.getCustomer() != null && giftCard.getCustomer().getUserId() != customerId) {
+            throw new GiftCardNotFoundException();
+        }
+
+        if (giftCard.getExpiresAt() != null && giftCard.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new GiftCardExpiredException();
+        }
+
+        if (giftCard.isRedeemed()) {
+            throw new GiftCardRedeemedException();
+        }
+
+        if (giftCard.getCustomer() == null) {
+            giftCard.setCustomer(getOrCreateCustomer(customerId));
+        }
+
+        giftCard.setRedeemed(true);
+        giftCardRepository.save(giftCard);
+
+        val now = OffsetDateTime.now();
+        val then = now.plusHours(giftCard.getHourCredits());
+        val subscription = subscriptionRepository.save(
+            Subscription.builder()
+                .customer(giftCard.getCustomer())
+                .plan(giftCard.getPlan())
+                .providerSubscriptionId(String.valueOf(giftCard.getId()))
+                .isPaymentPending(false)
+                .isAutoRenewing(false)
+                .isRefunded(false)
+                .startAt(now)
+                .endAt(then)
+                .build());
+
+        return buildSubscriptionResponse(subscription, null);
+    }
+
+    /**
      * @return if the user with given {@code userId} owns an active subscription.
      */
     @Override
@@ -739,7 +762,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionPlanResponse buildSubscriptionPlanView(@NonNull SubscriptionPlan plan) {
+    private static SubscriptionPlanResponse buildSubscriptionPlanResponse(@NonNull SubscriptionPlan plan) {
         return SubscriptionPlanResponse.builder()
             .id(plan.getId())
             .provider(plan.getProvider().name().toLowerCase())
@@ -754,10 +777,10 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionResponse buildSubscriptionView(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
+    private static SubscriptionResponse buildSubscriptionResponse(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
         return SubscriptionResponse.builder()
             .id(subscription.getId())
-            .plan(buildSubscriptionPlanView(subscription.getPlan()))
+            .plan(buildSubscriptionPlanResponse(subscription.getPlan()))
             .isActive(subscription.isActive())
             // redundant sanity check, only an active subscription can have a pending payment.
             .isPaymentPending(subscription.isActive() && subscription.isPaymentPending())
@@ -774,6 +797,16 @@ class SubscriptionService implements SubscriptionServiceContract {
             .googlePlayPurchaseToken(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
                     ? subscription.getProviderSubscriptionId() : null)
+            .build();
+    }
+
+    @NonNull
+    private static GiftCardResponse buildGiftCardResponse(@NonNull GiftCard giftCard) {
+        return GiftCardResponse.builder()
+            .code(giftCard.getCode())
+            .hourCredits(giftCard.getHourCredits())
+            .isRedeemed(giftCard.isRedeemed())
+            .expiresAt(giftCard.getExpiresAt())
             .build();
     }
 }

@@ -4,7 +4,7 @@ CREATE TABLE gift_card (
   deleted_at timestamp with time zone,
   version bigint NOT NULL,
   code varchar(32) NOT NULL,
-  hour_credits smallint NOT NULL,
+  hour_credits integer NOT NULL,
   plan_id smallint NOT NULL,
   customer_user_id bigint,
   is_redeemed boolean NOT NULL,
