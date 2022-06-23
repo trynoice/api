@@ -281,7 +281,7 @@ public class SubscriptionServiceTest {
         // skipped unit tests, wrote integration tests instead.
     }
 
-    @ParameterizedTest(name = "{displayName} #{index}")
+    @ParameterizedTest
     @MethodSource("cancelSubscriptionTestCases")
     <T extends Throwable> void cancelSubscription(
         @NonNull Subscription subscription,

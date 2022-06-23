@@ -36,7 +36,7 @@ public class BearerTokenAuthFilterTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @ParameterizedTest(name = "{displayName} - tokenType={0} requestPath={1} responseStatus={2}")
+    @ParameterizedTest
     @MethodSource("authTestCases")
     void auth(JwtType tokenType, String requestPath, int responseStatus) throws Exception {
         val authUser = createAuthUser(entityManager);

@@ -74,7 +74,7 @@ class AccountControllerTest {
     @MockBean
     private SignInTokenDispatchStrategy signInTokenDispatchStrategy;
 
-    @ParameterizedTest(name = "{displayName} - email={0} name={1} responseStatus={2} expectingSignInTokenDispatch={3}")
+    @ParameterizedTest
     @MethodSource("signUpTestCases")
     void signUp(String email, String name, int expectedResponseStatus, boolean isExpectingSignInTokenDispatch) throws Exception {
         doNothing()
@@ -113,7 +113,7 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - email={0} responseStatus={1} expectingSignInTokenDispatch={2}")
+    @ParameterizedTest
     @MethodSource("signInTestCases")
     void signIn(String email, int expectedResponseStatus, boolean isExpectingSignInTokenDispatch) throws Exception {
         // create auth user for test-cases that expect it.
@@ -158,7 +158,7 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - tokenType={0} responseStatus={1}")
+    @ParameterizedTest
     @MethodSource("signOutTestCases")
     void signOut_withHeader(JwtType tokenType, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
@@ -182,7 +182,7 @@ class AccountControllerTest {
         }
     }
 
-    @ParameterizedTest(name = "{displayName} - tokenType={0} responseStatus={1}")
+    @ParameterizedTest
     @MethodSource("signOutTestCases")
     void signOut_withCookie(JwtType tokenType, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
@@ -218,7 +218,7 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - tokenType={0} userAgent={1} responseStatus={2}")
+    @ParameterizedTest
     @MethodSource("issueCredentialsTestCases")
     void issueCredentials(JwtType tokenType, String userAgent, int expectedResponseStatus) throws Exception {
         // create signed refresh-tokens as expected by various test cases.
@@ -256,7 +256,7 @@ class AccountControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - incompleteSignInAttempts={0} lastSignInAttemptAt={1} responseStatus={2}")
+    @ParameterizedTest
     @MethodSource("emailBlacklistingTestCases")
     void emailBlacklisting(int incompleteSignInAttempts, OffsetDateTime lastSignInAttemptAt, int expectedResponseStatus) throws Exception {
         val user = createAuthUser(entityManager);
@@ -308,7 +308,7 @@ class AccountControllerTest {
         assertEquals(authUser.getEmail(), profile.findValue("email").asText());
     }
 
-    @ParameterizedTest(name = "{displayName} - updatedName={0} updatedEmail={1} responseStatus={2}")
+    @ParameterizedTest
     @MethodSource("updateProfileTestCases")
     void updateProfile(String updatedName, String updatedEmail, int expectedResponseStatus) throws Exception {
         val authUser = createAuthUser(entityManager);

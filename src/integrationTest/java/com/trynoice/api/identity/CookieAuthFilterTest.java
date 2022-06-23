@@ -42,7 +42,7 @@ public class CookieAuthFilterTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @ParameterizedTest(name = "{displayName} - refresh={0} access={1} path={2} responseStatus={3} expectingNewCookies={4}")
+    @ParameterizedTest
     @MethodSource("authTestCases")
     void doFilter(
         JwtType refreshTokenType,

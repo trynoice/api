@@ -52,7 +52,7 @@ public class SubscriptionServiceTest {
     @Autowired
     private SubscriptionService service;
 
-    @ParameterizedTest(name = "{displayName} - expectedIsActive={3} expectedIsPaymentPending={4}")
+    @ParameterizedTest
     @MethodSource("handleGooglePlayWebhookEventTestCases")
     void handleGooglePlayWebhookEvent(
         @NonNull GooglePlaySubscriptionPurchase purchase,

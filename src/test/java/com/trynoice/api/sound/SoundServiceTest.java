@@ -43,7 +43,7 @@ public class SoundServiceTest {
         service = new SoundService(soundConfig, libraryManifestRepository, subscriptionServiceContract);
     }
 
-    @ParameterizedTest(name = "{displayName} - isSubscribed={1} isRequestingPremiumSegment={2} requestedAudioBitrate={3} hasAccess={4}")
+    @ParameterizedTest
     @MethodSource("authorizeSegmentRequestTestCases")
     void authorizeSegmentRequest(
         Long principalId,

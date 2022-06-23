@@ -107,7 +107,7 @@ public class SubscriptionControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @ParameterizedTest(name = "{displayName} - provider={0} responseStatus={1}")
+    @ParameterizedTest
     @MethodSource("listPlansTestCases")
     void listPlans(String provider, int expectedResponseStatus) throws Exception {
         val request = get("/v1/subscriptions/plans");
@@ -142,7 +142,7 @@ public class SubscriptionControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - provider={0} wasSubscriptionActive={1} expectedResponseStatus={2}")
+    @ParameterizedTest
     @MethodSource("createSubscriptionTestCases")
     void createSubscription(
         @NonNull SubscriptionPlan.Provider provider,
@@ -328,7 +328,7 @@ public class SubscriptionControllerTest {
             .header("Authorization", "Bearer " + accessToken));
     }
 
-    @ParameterizedTest(name = "{displayName} - provider={0} isSubscriptionActive={1} expectedResponseStatus={2}")
+    @ParameterizedTest
     @MethodSource("cancelSubscriptionTestCases")
     void cancelSubscription(
         @NonNull SubscriptionPlan.Provider provider,
@@ -380,7 +380,7 @@ public class SubscriptionControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - session.status={0} session.paymentStatus={1} isSubscriptionActive={2}")
+    @ParameterizedTest
     @MethodSource("handleStripeWebhookEvent_checkoutSessionCompleteTestCases")
     void handleStripeWebhookEvent_checkoutSessionComplete(
         @NonNull String sessionStatus,
@@ -422,7 +422,7 @@ public class SubscriptionControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - stripeStatus={0} isSubscriptionActive={3} isPaymentPending={4}")
+    @ParameterizedTest
     @MethodSource("handleStripeWebhookEvent_subscriptionEventsTestCases")
     void handleStripeWebhookEvent_subscriptionEvents(
         @NonNull String stripeSubscriptionStatus,
@@ -550,7 +550,7 @@ public class SubscriptionControllerTest {
         assertNull(customerRepository.findById(authUser.getId()).orElseThrow().getStripeId());
     }
 
-    @ParameterizedTest(name = "{displayName} - exists={0} owned={1} expectedResponseStatus={2}")
+    @ParameterizedTest
     @MethodSource("getGiftCardTestCases")
     void getGiftCard(boolean exists, Boolean owned, int expectedResponseStatus) throws Exception {
         val code = "test-gift-card-1";
@@ -577,7 +577,7 @@ public class SubscriptionControllerTest {
         );
     }
 
-    @ParameterizedTest(name = "{displayName} - exists={0} owned={1} redeemed={2} expired={3} subscribed={4} expectedResponseStatus={5}")
+    @ParameterizedTest
     @MethodSource("redeemGiftCardTestCases")
     void redeemGiftCard(
         boolean exists,

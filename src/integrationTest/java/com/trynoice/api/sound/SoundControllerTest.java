@@ -56,7 +56,7 @@ public class SoundControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @ParameterizedTest(name = "{displayName} - isSignedIn={0} isSubscribed={1} isPaymentPending={2} responseStatus={3}")
+    @ParameterizedTest
     @MethodSource("authorizeSegmentRequestTestCases")
     void authorizeSegmentRequest(
         boolean isSignedIn,
