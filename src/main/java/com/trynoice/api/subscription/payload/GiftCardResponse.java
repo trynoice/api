@@ -25,7 +25,8 @@ public class GiftCardResponse {
     private int hourCredits;
 
     @Schema(required = true, description = "whether the gift card has been redeemed.")
-    private boolean isRedeemed;
+    @NonNull
+    private Boolean isRedeemed;
 
     @Schema(type = "integer", format = "int64", description = "optional epoch millis when the gift card expires.")
     private OffsetDateTime expiresAt;

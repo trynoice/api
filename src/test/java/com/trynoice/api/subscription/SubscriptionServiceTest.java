@@ -357,7 +357,7 @@ public class SubscriptionServiceTest {
         val response = assertDoesNotThrow(() -> service.getGiftCard(2L, code));
         assertEquals(card.getCode(), response.getCode());
         assertEquals(card.getHourCredits(), response.getHourCredits());
-        assertEquals(card.isRedeemed(), response.isRedeemed());
+        assertEquals(card.isRedeemed(), response.getIsRedeemed());
         assertEquals(card.getExpiresAt(), response.getExpiresAt());
     }
 
