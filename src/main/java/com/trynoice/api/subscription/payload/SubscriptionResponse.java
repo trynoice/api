@@ -57,4 +57,7 @@ public class SubscriptionResponse {
     @Schema(description = "purchase token corresponding to this subscription purchase. only present when the " +
         "subscription is active and provided by Google Play")
     private String googlePlayPurchaseToken;
+
+    @Schema(description = "the gift card code if this subscription was activated using a gift card.")
+    private String giftCardCode;
 }

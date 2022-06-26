@@ -737,7 +737,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             Subscription.builder()
                 .customer(giftCard.getCustomer())
                 .plan(giftCard.getPlan())
-                .providerSubscriptionId(String.valueOf(giftCard.getId()))
+                .providerSubscriptionId(giftCardCode)
                 .isPaymentPending(false)
                 .isAutoRenewing(false)
                 .isRefunded(false)
@@ -797,6 +797,10 @@ class SubscriptionService implements SubscriptionServiceContract {
             .googlePlayPurchaseToken(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
                     ? subscription.getProviderSubscriptionId() : null)
+            .giftCardCode(
+                subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GIFT_CARD
+                    ? subscription.getProviderSubscriptionId()
+                    : null)
             .build();
     }
 

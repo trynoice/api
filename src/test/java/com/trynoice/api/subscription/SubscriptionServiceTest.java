@@ -401,7 +401,8 @@ public class SubscriptionServiceTest {
         val card = buildGiftCard(code, 1L);
         when(giftCardRepository.findByCode(code)).thenReturn(Optional.of(card));
         when(subscriptionRepository.save(any())).thenAnswer(i -> i.getArgument(0));
-        assertDoesNotThrow(() -> service.redeemGiftCard(1L, code));
+        val response = assertDoesNotThrow(() -> service.redeemGiftCard(1L, code));
+        assertEquals(card.getCode(), response.getGiftCardCode());
     }
 
     @Test
