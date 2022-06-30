@@ -4,6 +4,7 @@ import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.AccountServiceContract;
+import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
 import com.trynoice.api.subscription.entities.GiftCard;
@@ -48,6 +49,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,6 +90,9 @@ public class SubscriptionServiceTest {
     @Mock
     private Cache cache;
 
+    @Mock
+    private ForeignExchangeRatesProvider exchangeRatesProvider;
+
     private SubscriptionService service;
 
     @BeforeEach
@@ -101,7 +106,8 @@ public class SubscriptionServiceTest {
             accountServiceContract,
             androidPublisherApi,
             stripeApi,
-            cache);
+            cache,
+            exchangeRatesProvider);
     }
 
     @Test
@@ -124,6 +130,9 @@ public class SubscriptionServiceTest {
             .when(subscriptionPlanRepository.findAllByProvider(eq(SubscriptionPlan.Provider.STRIPE), any()))
             .thenReturn(List.of(stripePlan));
 
+        lenient()
+            .when(exchangeRatesProvider.getRateForCurrency(any(), any())).thenReturn(Optional.of(1.0));
+
         val testCases = new HashMap<SubscriptionPlan.Provider, List<SubscriptionPlan>>();
         testCases.put(null, List.of(googlePlayPlan, stripePlan));
         testCases.put(SubscriptionPlan.Provider.GOOGLE_PLAY, List.of(googlePlayPlan));
@@ -132,7 +141,8 @@ public class SubscriptionServiceTest {
         for (val entry : testCases.entrySet()) {
             val provider = entry.getKey();
             val result = entry.getValue();
-            val plans = service.listPlans(provider == null ? null : provider.name());
+            val requestingCurrencyCode = "USD";
+            val plans = service.listPlans(provider == null ? null : provider.name(), requestingCurrencyCode);
 
             assertEquals(result.size(), plans.size());
             for (int i = 0; i < result.size(); i++) {
@@ -144,6 +154,8 @@ public class SubscriptionServiceTest {
                 assertEquals(expecting.getBillingPeriodMonths(), got.getBillingPeriodMonths());
                 assertEquals(expecting.getTrialPeriodDays(), got.getTrialPeriodDays());
                 assertEquals(expecting.getPriceInIndianPaise(), got.getPriceInIndianPaise());
+                assertEquals(expecting.getPriceInIndianPaise() / 100.0, got.getPriceInRequestedCurrency());
+                assertEquals(requestingCurrencyCode, got.getRequestedCurrencyCode());
                 assertEquals(
                     expecting.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
                         ? expecting.getProviderPlanId()
@@ -157,7 +169,7 @@ public class SubscriptionServiceTest {
     void listPlans_withUnsupportedProvider() {
         assertThrows(
             UnsupportedSubscriptionPlanProviderException.class,
-            () -> service.listPlans("unsupported-provider"));
+            () -> service.listPlans("unsupported-provider", null));
     }
 
     @Test
@@ -267,13 +279,18 @@ public class SubscriptionServiceTest {
         lenient().when(stripeApi.createCustomerPortalSession(any(), any()))
             .thenReturn(mock(com.stripe.model.billingportal.Session.class));
 
-        val result1 = service.listSubscriptions(userId1, false, null, 0);
+        lenient().when(exchangeRatesProvider.getRateForCurrency(any(), any()))
+            .thenReturn(Optional.of(1.0));
+
+        val result1 = service.listSubscriptions(userId1, false, null, null, 0);
         assertEquals(1, result1.size());
         assertEquals(subscription1.getId(), result1.get(0).getId());
+        assertNull(result1.get(0).getPlan().getPriceInRequestedCurrency());
 
-        val result2 = service.listSubscriptions(userId2, false, null, 0);
+        val result2 = service.listSubscriptions(userId2, false, null, "USD", 0);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
+        assertNotNull(result2.get(0).getPlan().getPriceInRequestedCurrency());
     }
 
     @Test

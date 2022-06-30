@@ -6,6 +6,7 @@ import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.contracts.SubscriptionServiceContract;
+import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
 import com.trynoice.api.subscription.entities.GiftCard;
@@ -39,6 +40,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +69,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     private final AndroidPublisherApi androidPublisherApi;
     private final StripeApi stripeApi;
     private final Cache cache;
+    private final ForeignExchangeRatesProvider exchangeRatesProvider;
 
     @Autowired
     SubscriptionService(
@@ -78,7 +81,8 @@ class SubscriptionService implements SubscriptionServiceContract {
         @NonNull AccountServiceContract accountServiceContract,
         @NonNull AndroidPublisherApi androidPublisherApi,
         @NonNull StripeApi stripeApi,
-        @NonNull @Qualifier(SubscriptionBeans.CACHE_NAME) Cache cache
+        @NonNull @Qualifier(SubscriptionBeans.CACHE_NAME) Cache cache,
+        @NonNull ForeignExchangeRatesProvider exchangeRatesProvider
     ) {
         this.subscriptionConfig = subscriptionConfig;
         this.customerRepository = customerRepository;
@@ -89,6 +93,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         this.androidPublisherApi = androidPublisherApi;
         this.stripeApi = stripeApi;
         this.cache = cache;
+        this.exchangeRatesProvider = exchangeRatesProvider;
     }
 
     /**
@@ -104,7 +109,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      * @throws UnsupportedSubscriptionPlanProviderException if an invalid {@code provider} is given.
      */
     @NonNull
-    List<SubscriptionPlanResponse> listPlans(String provider) throws UnsupportedSubscriptionPlanProviderException {
+    List<SubscriptionPlanResponse> listPlans(String provider, String currencyCode) throws UnsupportedSubscriptionPlanProviderException {
         final Iterable<SubscriptionPlan> plans;
         val sortOrder = Sort.by(Sort.Order.asc("priceInIndianPaise"));
         if (provider != null) {
@@ -120,9 +125,10 @@ class SubscriptionService implements SubscriptionServiceContract {
             plans = subscriptionPlanRepository.findAll(sortOrder);
         }
 
+        val exchangeRate = currencyCode == null ? null : exchangeRatesProvider.getRateForCurrency("INR", currencyCode).orElse(null);
         return StreamSupport.stream(plans.spliterator(), false)
             .filter(p -> p.getProvider() != SubscriptionPlan.Provider.GIFT_CARD) // do not return GIFT_CARD plan(s)
-            .map(SubscriptionService::buildSubscriptionPlanResponse)
+            .map(p -> buildSubscriptionPlanResponse(p, currencyCode, exchangeRate))
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -180,7 +186,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .build());
 
         val result = new SubscriptionFlowResponse();
-        result.setSubscription(buildSubscriptionResponse(subscription, null));
+        result.setSubscription(buildSubscriptionResponse(subscription, null, null, null));
         if (plan.getProvider() != SubscriptionPlan.Provider.STRIPE) {
             return result;
         }
@@ -234,6 +240,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         @NonNull Long customerId,
         @NonNull Boolean onlyActive,
         String stripeReturnUrl,
+        String currencyCode,
         @NonNull Integer pageNumber
     ) {
         final List<Subscription> subscriptions;
@@ -251,8 +258,9 @@ class SubscriptionService implements SubscriptionServiceContract {
             ? createStripeCustomerSession(subscriptions.get(0).getCustomer(), stripeReturnUrl)
             : null;
 
+        val exchangeRate = currencyCode == null ? null : exchangeRatesProvider.getRateForCurrency("INR", currencyCode).orElse(null);
         return subscriptions.stream()
-            .map(subscription -> buildSubscriptionResponse(subscription, stripeCustomerPortalUrl))
+            .map(subscription -> buildSubscriptionResponse(subscription, stripeCustomerPortalUrl, currencyCode, exchangeRate))
             .collect(Collectors.toUnmodifiableList());
     }
 
@@ -281,7 +289,8 @@ class SubscriptionService implements SubscriptionServiceContract {
     public SubscriptionResponse getSubscription(
         @NonNull Long customerId,
         @NonNull Long subscriptionId,
-        String stripeReturnUrl
+        String stripeReturnUrl,
+        String currencyCode
     ) throws SubscriptionNotFoundException {
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new SubscriptionNotFoundException("subscription with given id doesn't exist"));
@@ -298,7 +307,11 @@ class SubscriptionService implements SubscriptionServiceContract {
             subscription,
             subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
                 ? createStripeCustomerSession(subscription.getCustomer(), stripeReturnUrl)
-                : null);
+                : null,
+            currencyCode,
+            currencyCode == null
+                ? null
+                : exchangeRatesProvider.getRateForCurrency("INR", currencyCode).orElse(null));
     }
 
     /**
@@ -745,7 +758,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .endAt(then)
                 .build());
 
-        return buildSubscriptionResponse(subscription, null);
+        return buildSubscriptionResponse(subscription, null, null, null);
     }
 
     /**
@@ -757,18 +770,26 @@ class SubscriptionService implements SubscriptionServiceContract {
         return subscriptionRepository.existsActiveByCustomerUserId(userId);
     }
 
+    @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")
+    void updateForeignExchangeRates() {
+        exchangeRatesProvider.maybeUpdateRates();
+    }
+
     private void evictIsSubscribedCache(long userId) {
         cache.evictIfPresent(String.format("isSubscribed:%d", userId));
     }
 
     @NonNull
-    private static SubscriptionPlanResponse buildSubscriptionPlanResponse(@NonNull SubscriptionPlan plan) {
+    private static SubscriptionPlanResponse buildSubscriptionPlanResponse(@NonNull SubscriptionPlan plan, String currencyCode, Double exchangeRate) {
+        val convertedPrice = exchangeRate == null ? null : (plan.getPriceInIndianPaise() / 100) * exchangeRate;
         return SubscriptionPlanResponse.builder()
             .id(plan.getId())
             .provider(plan.getProvider().name().toLowerCase())
             .billingPeriodMonths(plan.getBillingPeriodMonths())
             .trialPeriodDays(plan.getTrialPeriodDays())
             .priceInIndianPaise(plan.getPriceInIndianPaise())
+            .priceInRequestedCurrency(convertedPrice)
+            .requestedCurrencyCode(convertedPrice == null ? null : currencyCode)
             .googlePlaySubscriptionId(
                 plan.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
                     ? plan.getProviderPlanId()
@@ -777,10 +798,15 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionResponse buildSubscriptionResponse(@NonNull Subscription subscription, String stripeCustomerPortalUrl) {
+    private static SubscriptionResponse buildSubscriptionResponse(
+        @NonNull Subscription subscription,
+        String stripeCustomerPortalUrl,
+        String currencyCode,
+        Double exchangeRate
+    ) {
         return SubscriptionResponse.builder()
             .id(subscription.getId())
-            .plan(buildSubscriptionPlanResponse(subscription.getPlan()))
+            .plan(buildSubscriptionPlanResponse(subscription.getPlan(), currencyCode, exchangeRate))
             .isActive(subscription.isActive())
             // redundant sanity check, only an active subscription can have a pending payment.
             .isPaymentPending(subscription.isActive() && subscription.isPaymentPending())

@@ -1,6 +1,7 @@
 package com.trynoice.api.subscription;
 
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
+import com.trynoice.api.platform.validation.annotations.NullOrNotBlank;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
 import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
@@ -78,6 +79,7 @@ class SubscriptionController {
      * </ul>
      *
      * @param provider filter listed plans by the given provider.
+     * @param currency an optional ISO 4217 currency code for including converted prices with plans.
      * @return a list of available subscription plans.
      */
     @Operation(summary = "List available plans")
@@ -91,10 +93,11 @@ class SubscriptionController {
     @NonNull
     @GetMapping("/plans")
     ResponseEntity<List<SubscriptionPlanResponse>> listPlans(
-        @Schema(allowableValues = {"google_play", "stripe"}) @RequestParam(value = "provider", required = false) String provider
+        @Schema(allowableValues = {"google_play", "stripe"}) @RequestParam(value = "provider", required = false) String provider,
+        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
     ) {
         try {
-            return ResponseEntity.ok(subscriptionService.listPlans(provider));
+            return ResponseEntity.ok(subscriptionService.listPlans(provider, currency));
         } catch (UnsupportedSubscriptionPlanProviderException e) {
             log.trace("unsupported subscription plan provider: {}", provider);
             return ResponseEntity.unprocessableEntity().build();
@@ -159,6 +162,8 @@ class SubscriptionController {
      *
      * @param onlyActive      return only the active subscription (single instance).
      * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
+     * @param currency        an optional ISO 4217 currency code for including converted prices with
+     *                        the subscription's plan.
      * @param page            0-indexed page number.
      * @return a list of subscription purchases; empty list if the page number is higher than
      * available data.
@@ -176,6 +181,7 @@ class SubscriptionController {
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
         @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
+        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency,
         @Valid @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
     ) {
         return ResponseEntity.ok(
@@ -183,6 +189,7 @@ class SubscriptionController {
                 principalId,
                 onlyActive,
                 stripeReturnUrl,
+                currency,
                 page));
     }
 
@@ -191,6 +198,8 @@ class SubscriptionController {
      * doesn't return subscription entities that were initiated, but were never started.
      *
      * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
+     * @param currency        an optional ISO 4217 currency code for including converted prices with
+     *                        the subscription's plan.
      * @return the requested subscription.
      */
     @Operation(summary = "Get subscription")
@@ -206,10 +215,11 @@ class SubscriptionController {
     ResponseEntity<SubscriptionResponse> getSubscription(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotNull @Min(1) @PathVariable Long subscriptionId,
-        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl
+        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
+        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
     ) {
         try {
-            val subscription = subscriptionService.getSubscription(principalId, subscriptionId, stripeReturnUrl);
+            val subscription = subscriptionService.getSubscription(principalId, subscriptionId, stripeReturnUrl, currency);
             return ResponseEntity.ok(subscription);
         } catch (SubscriptionNotFoundException e) {
             return ResponseEntity.notFound().build();

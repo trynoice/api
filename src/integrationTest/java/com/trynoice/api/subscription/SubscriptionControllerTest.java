@@ -109,10 +109,14 @@ public class SubscriptionControllerTest {
 
     @ParameterizedTest
     @MethodSource("listPlansTestCases")
-    void listPlans(String provider, int expectedResponseStatus) throws Exception {
+    void listPlans(String provider, String currency, int expectedResponseStatus) throws Exception {
         val request = get("/v1/subscriptions/plans");
         if (provider != null) {
             request.queryParam("provider", provider);
+        }
+
+        if (currency != null) {
+            request.queryParam("currency", currency);
         }
 
         val result = mockMvc.perform(request)
@@ -126,19 +130,23 @@ public class SubscriptionControllerTest {
 
             assertNotEquals(0, plans.length);
             if (provider != null) {
-                assertTrue(
-                    Arrays.stream(plans)
-                        .allMatch(p -> provider.equalsIgnoreCase(p.getProvider())));
+                assertTrue(Arrays.stream(plans).allMatch(p -> provider.equalsIgnoreCase(p.getProvider())));
+            }
+
+            if (currency != null) {
+                assertTrue(Arrays.stream(plans).allMatch(p -> p.getPriceInRequestedCurrency() != null));
+                assertTrue(Arrays.stream(plans).allMatch(p -> p.getRequestedCurrencyCode() != null));
             }
         }
     }
 
     static Stream<Arguments> listPlansTestCases() {
         return Stream.of(
-            arguments(null, HttpStatus.OK.value()),
-            arguments("GOOGLE_PLAY", HttpStatus.OK.value()),
-            arguments("STRIPE", HttpStatus.OK.value()),
-            arguments("UNSUPPORTED_PROVIDER", HttpStatus.UNPROCESSABLE_ENTITY.value())
+            // provider, currency, expected response code
+            arguments(null, null, HttpStatus.OK.value()),
+            arguments("GOOGLE_PLAY", "USD", HttpStatus.OK.value()),
+            arguments("STRIPE", "EUR", HttpStatus.OK.value()),
+            arguments("UNSUPPORTED_PROVIDER", null, HttpStatus.UNPROCESSABLE_ENTITY.value())
         );
     }
 
@@ -225,6 +233,7 @@ public class SubscriptionControllerTest {
         for (val entry : data.entrySet()) {
             val testReturnUrl = "https://test-return-url";
             val testCustomerPortalUrl = "test-customer-portal-url";
+            val addCurrencyParam = entry.getKey().getId() % 2 == 0;
             val mockSession = mock(com.stripe.model.billingportal.Session.class);
             lenient().when(mockSession.getUrl()).thenReturn(testCustomerPortalUrl);
 
@@ -241,9 +250,15 @@ public class SubscriptionControllerTest {
                 });
 
             val accessToken = createSignedAccessJwt(hmacSecret, entry.getKey(), AuthTestUtils.JwtType.VALID);
-            val result = mockMvc.perform(
-                    get("/v1/subscriptions?stripeReturnUrl=" + testReturnUrl)
-                        .header("Authorization", "Bearer " + accessToken))
+            val requestBuilder = get("/v1/subscriptions")
+                .queryParam("stripeReturnUrl", testReturnUrl)
+                .header("Authorization", "Bearer " + accessToken);
+
+            if (addCurrencyParam) {
+                requestBuilder.queryParam("currency", "USD");
+            }
+
+            val result = mockMvc.perform(requestBuilder)
                 .andExpect(status().is(HttpStatus.OK.value()))
                 .andReturn();
 
@@ -265,10 +280,17 @@ public class SubscriptionControllerTest {
                 val actualIsActive = actualSubscription.at("/isActive").asBoolean(false);
                 val actualProvider = actualSubscription.at("/plan/provider").asText();
                 val stripeCustomerPortalUrlNode = actualSubscription.at("/stripeCustomerPortalUrl");
+                val priceInRequestedCurrencyNode = actualSubscription.at("/plan/priceInRequestedCurrency");
                 if (actualIsActive && actualProvider.equalsIgnoreCase(SubscriptionPlan.Provider.STRIPE.name())) {
                     assertEquals(testCustomerPortalUrl, stripeCustomerPortalUrlNode.asText());
                 } else {
                     assertTrue(stripeCustomerPortalUrlNode.isMissingNode() || stripeCustomerPortalUrlNode.isNull());
+                }
+
+                if (addCurrencyParam) {
+                    assertTrue(priceInRequestedCurrencyNode.isNumber());
+                } else {
+                    assertTrue(priceInRequestedCurrencyNode.isMissingNode() || priceInRequestedCurrencyNode.isNull());
                 }
             }
         }
@@ -286,14 +308,16 @@ public class SubscriptionControllerTest {
         val accessToken = createSignedAccessJwt(hmacSecret, owner, AuthTestUtils.JwtType.VALID);
         for (var entry : pageSizes.entrySet()) {
             mockMvc.perform(
-                    get("/v1/subscriptions?page=" + entry.getKey())
+                    get("/v1/subscriptions")
+                        .queryParam("page", entry.getKey().toString())
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().is(HttpStatus.OK.value()))
                 .andExpect(jsonPath("$.length()").value(entry.getValue()));
         }
 
         mockMvc.perform(
-                get("/v1/subscriptions?page=" + 2)
+                get("/v1/subscriptions")
+                    .queryParam("page", "2")
                     .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().is(HttpStatus.OK.value()))
             .andExpect(jsonPath("$.length()").value(0));
@@ -307,25 +331,34 @@ public class SubscriptionControllerTest {
         val subscription = buildSubscription(owner, plan, false, false, null);
 
         val impersonatorToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
-        doGetSubscriptionRequest(impersonatorToken, subscription.getId())
+        doGetSubscriptionRequest(impersonatorToken, subscription.getId(), null)
             .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
 
         val ownerAccessToken = createSignedAccessJwt(hmacSecret, owner, AuthTestUtils.JwtType.VALID);
-        doGetSubscriptionRequest(ownerAccessToken, subscription.getId())
+        doGetSubscriptionRequest(ownerAccessToken, subscription.getId(), null)
             .andExpect(status().is(HttpStatus.OK.value()))
             .andExpect(jsonPath("$.id").value(subscription.getId()));
+
+        doGetSubscriptionRequest(ownerAccessToken, subscription.getId(), "USD")
+            .andExpect(status().is(HttpStatus.OK.value()))
+            .andExpect(jsonPath("$.plan.priceInRequestedCurrency").isNumber());
 
         val unstartedSubscription = buildSubscription(owner, plan, false, false, null);
         unstartedSubscription.setStartAt(null);
         unstartedSubscription.setEndAt(null);
         subscriptionRepository.save(unstartedSubscription);
-        doGetSubscriptionRequest(ownerAccessToken, unstartedSubscription.getId())
+        doGetSubscriptionRequest(ownerAccessToken, unstartedSubscription.getId(), null)
             .andExpect(status().is(HttpStatus.NOT_FOUND.value()));
     }
 
-    private ResultActions doGetSubscriptionRequest(String accessToken, long subscriptionId) throws Exception {
-        return mockMvc.perform(get("/v1/subscriptions/" + subscriptionId)
-            .header("Authorization", "Bearer " + accessToken));
+    private ResultActions doGetSubscriptionRequest(String accessToken, long subscriptionId, String currency) throws Exception {
+        val requestBuilder = get("/v1/subscriptions/{subscriptionId}", subscriptionId)
+            .header("Authorization", "Bearer " + accessToken);
+        if (currency != null) {
+            requestBuilder.queryParam("currency", currency);
+        }
+
+        return mockMvc.perform(requestBuilder);
     }
 
     @ParameterizedTest
