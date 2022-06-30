@@ -37,6 +37,7 @@ bootRun {
 
 bootJar {
     archiveFileName = "${archiveBaseName.get()}.${archiveExtension.get()}"
+    exclude 'application-dev*.properties'
 }
 
 tasks.withType(Test) {
