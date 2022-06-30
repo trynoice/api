@@ -27,6 +27,7 @@ import org.springframework.boot.info.BuildProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -38,10 +39,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 // exclude user details service from Spring security. We're not using it.
 @SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
 @EnableCaching
+@EnableScheduling
 @ConfigurationPropertiesScan(basePackageClasses = Application.class)
 public class Application {
 
-    @SuppressWarnings("resource") // run returns an AutoCloseable.
     public static void main(String[] args) {
         new SpringApplicationBuilder(Application.class)
             .bannerMode(Banner.Mode.OFF)

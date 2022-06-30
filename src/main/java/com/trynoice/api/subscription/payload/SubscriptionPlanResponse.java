@@ -41,6 +41,14 @@ public class SubscriptionPlanResponse {
     @NonNull
     private Integer priceInIndianPaise;
 
+    @Schema(description = "an optional converted and formatted price string if currency was provided in the " +
+        "request parameters. It may be absent despite specifying the currency in the request parameters.")
+    private Double priceInRequestedCurrency;
+
+    @Schema(description = "an optional currency code for the priceInRequestedCurrency. It is only present if " +
+        "priceInRequestedCurrency is also present.")
+    private String requestedCurrencyCode;
+
     @Schema(description = "Google Play assigned id of the subscription plan. Only present if provider is 'google_play'")
     private String googlePlaySubscriptionId;
 }

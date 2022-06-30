@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
 /**
  * Validates the annotated {@link String} field as a {@literal null} or a not blank string.
  */
-@Target({ElementType.FIELD})
+@Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Constraint(validatedBy = NullOrNotBlankValidator.class)

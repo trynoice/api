@@ -10,6 +10,7 @@ import com.google.cloud.spring.pubsub.integration.AckMode;
 import com.google.cloud.spring.pubsub.integration.inbound.PubSubInboundChannelAdapter;
 import com.google.cloud.spring.pubsub.support.converter.JacksonPubSubMessageConverter;
 import com.google.cloud.spring.pubsub.support.converter.PubSubMessageConverter;
+import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,6 +25,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.integration.channel.PublishSubscribeChannel;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -83,20 +85,23 @@ class SubscriptionBeans {
             .build());
     }
 
+    @NonNull
     @Bean(name = GOOGLE_PLAY_DEVELOPER_NOTIFICATION_CHANNEL)
-    public MessageChannel googlePlayDeveloperNotificationChannel() {
+    MessageChannel googlePlayDeveloperNotificationChannel() {
         return new PublishSubscribeChannel();
     }
 
+    @NonNull
     @Bean
     @Primary
-    public PubSubMessageConverter pubSubMessageConverter(@NonNull ObjectMapper objectMapper) {
+    PubSubMessageConverter pubSubMessageConverter(@NonNull ObjectMapper objectMapper) {
         return new JacksonPubSubMessageConverter(objectMapper);
     }
 
+    @NonNull
     @Bean
     @Profile("!test")
-    public PubSubInboundChannelAdapter gcpPubSubInboundChannelAdapter(
+    PubSubInboundChannelAdapter gcpPubSubInboundChannelAdapter(
         @NonNull SubscriptionConfiguration config,
         @NonNull PubSubTemplate pubSubTemplate,
         @NonNull @Qualifier(GOOGLE_PLAY_DEVELOPER_NOTIFICATION_CHANNEL) MessageChannel channel
@@ -106,5 +111,11 @@ class SubscriptionBeans {
         adapter.setAckMode(AckMode.AUTO);
         adapter.setPayloadType(GooglePlayDeveloperNotification.class);
         return adapter;
+    }
+
+    @NonNull
+    @Bean
+    ForeignExchangeRatesProvider foreignExchangeRatesProvider() {
+        return new ForeignExchangeRatesProvider(new RestTemplate());
     }
 }
