@@ -76,7 +76,7 @@ dependencies {
 
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
-    implementation 'com.auth0:java-jwt:3.19.2'
+    implementation 'com.auth0:java-jwt:4.0.0'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.1'
     implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20220609-1.32.1'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.8.0'
