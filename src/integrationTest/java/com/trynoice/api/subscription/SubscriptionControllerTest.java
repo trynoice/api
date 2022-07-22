@@ -183,18 +183,27 @@ public class SubscriptionControllerTest {
                 .thenReturn(mockSession);
         }
 
-        val resultActions = mockMvc.perform(
+        val params = objectMapper.writeValueAsString(new SubscriptionFlowParams(plan.getId(), successUrl, cancelUrl));
+        val resultActionsV1 = mockMvc.perform(
                 post("/v1/subscriptions")
                     .header("Authorization", "bearer " + createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(
-                        new SubscriptionFlowParams(plan.getId(), successUrl, cancelUrl))))
+                    .content(params))
+            .andExpect(status().is(expectedResponseStatus));
+
+        val resultActionsV2 = mockMvc.perform(
+                post("/v2/subscriptions")
+                    .header("Authorization", "bearer " + createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(params))
             .andExpect(status().is(expectedResponseStatus));
 
         if (expectedResponseStatus == HttpStatus.CREATED.value()) {
-            resultActions.andExpect(jsonPath("$.subscription").isMap());
+            resultActionsV1.andExpect(jsonPath("$.subscription").isMap());
+            resultActionsV2.andExpect(jsonPath("$.subscriptionId").isNumber());
             if (provider == SubscriptionPlan.Provider.STRIPE) {
-                resultActions.andExpect(jsonPath("$.stripeCheckoutSessionUrl").isString());
+                resultActionsV1.andExpect(jsonPath("$.stripeCheckoutSessionUrl").isString());
+                resultActionsV2.andExpect(jsonPath("$.stripeCheckoutSessionUrl").isString());
             }
         }
     }

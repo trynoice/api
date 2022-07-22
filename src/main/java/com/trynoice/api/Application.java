@@ -140,7 +140,7 @@ public class Application {
         // use request filter to use SecurityContext for authorizing requests.
         http.authorizeRequests()
             .mvcMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
-            .antMatchers("/v1/**").fullyAuthenticated()
+            .antMatchers("/v?*/**").fullyAuthenticated()
             .anyRequest().permitAll();
 
         // add custom filter to set SecurityContext based on Authorization bearer JWT.

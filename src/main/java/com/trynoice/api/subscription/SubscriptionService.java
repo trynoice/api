@@ -28,7 +28,7 @@ import com.trynoice.api.subscription.payload.GiftCardResponse;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
-import com.trynoice.api.subscription.payload.SubscriptionFlowResponse;
+import com.trynoice.api.subscription.payload.SubscriptionFlowResponseV2;
 import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
 import com.trynoice.api.subscription.payload.SubscriptionResponse;
 import lombok.NonNull;
@@ -139,7 +139,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      *
      * <p>
      * If the requested plan is provided by {@link SubscriptionPlan.Provider#STRIPE}, it also
-     * returns a non-null {@link SubscriptionFlowResponse#getStripeCheckoutSessionUrl() checkout
+     * returns a non-null {@link SubscriptionFlowResponseV2#getStripeCheckoutSessionUrl() checkout
      * session url}. The clients must redirect user to the checkout session url to conclude the
      * subscription flow.</p>
      *
@@ -151,13 +151,13 @@ class SubscriptionService implements SubscriptionServiceContract {
      *
      * @param customerId id of the customer (user) that initiated the subscription flow.
      * @param params     subscription flow parameters.
-     * @return a non-null {@link SubscriptionFlowResponse}.
+     * @return a non-null {@link SubscriptionFlowResponseV2}.
      * @throws SubscriptionPlanNotFoundException if the specified plan doesn't exist.
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
      */
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
-    public SubscriptionFlowResponse createSubscription(
+    public SubscriptionFlowResponseV2 createSubscription(
         @NonNull Long customerId,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
@@ -185,8 +185,9 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .plan(plan)
                 .build());
 
-        val result = new SubscriptionFlowResponse();
+        val result = new SubscriptionFlowResponseV2();
         result.setSubscription(buildSubscriptionResponse(subscription, null, null, null));
+        result.setSubscriptionId(subscription.getId());
         if (plan.getProvider() != SubscriptionPlan.Provider.STRIPE) {
             return result;
         }

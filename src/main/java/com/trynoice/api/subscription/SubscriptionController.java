@@ -130,6 +130,7 @@ class SubscriptionController {
      *
      * @param params {@code successUrl} and {@code cancelUrl} are only required for Stripe plans.
      */
+    @Deprecated
     @Operation(summary = "Initiate the subscription flow")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "subscription flow successfully initiated"),
@@ -145,8 +146,12 @@ class SubscriptionController {
         @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
         try {
-            val response = subscriptionService.createSubscription(principalId, params);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            val responseV2 = subscriptionService.createSubscription(principalId, params);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .body(SubscriptionFlowResponse.builder()
+                    .subscription(responseV2.getSubscription())
+                    .stripeCheckoutSessionUrl(responseV2.getStripeCheckoutSessionUrl())
+                    .build());
         } catch (SubscriptionPlanNotFoundException e) {
             return ResponseEntity.badRequest().build();
         } catch (DuplicateSubscriptionException e) {
