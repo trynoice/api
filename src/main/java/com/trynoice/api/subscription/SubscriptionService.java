@@ -197,7 +197,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             val checkoutSession = stripeApi.createCheckoutSession(
                 params.getSuccessUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
                 params.getCancelUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
-                plan.getProviderPlanId(),
+                plan.getProvidedId(),
                 subscriptionIdStr,
                 customer.getStripeId() == null
                     ? accountServiceContract.findEmailByUser(customerId).orElse(null)
@@ -338,7 +338,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         switch (subscription.getPlan().getProvider()) {
             case GOOGLE_PLAY:
                 try {
-                    androidPublisherApi.cancelSubscription(subscription.getProviderSubscriptionId());
+                    androidPublisherApi.cancelSubscription(subscription.getProvidedId());
                 } catch (IOException e) {
                     throw new RuntimeException("google play api error", e);
                 }
@@ -347,7 +347,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             case STRIPE:
                 try {
                     // cancel at the end of current billing period to match Google Play Subscriptions behaviour.
-                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId());
+                    stripeApi.cancelSubscription(subscription.getProvidedId());
                 } catch (StripeException e) {
                     throw new RuntimeException("stripe api error", e);
                 }
@@ -409,13 +409,13 @@ class SubscriptionService implements SubscriptionServiceContract {
         // delivers its notification before expiring the old subscription. Hence, when an
         // upgrade/downgrade happens, we need prevent the old subscription's notification from
         // mutating our internal state. To achieve that, we rely on querying internal subscription
-        // objects using purchase tokens (provider subscription id).
+        // objects using purchase tokens (provided id).
         val subscription = notification.getNotificationType() == GooglePlayDeveloperNotification.SubscriptionNotification.TYPE_PURCHASED
             ? subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription entity for this purchase"))
-            : subscriptionRepository.findByProviderSubscriptionId(notification.getPurchaseToken())
+            : subscriptionRepository.findByProvidedId(notification.getPurchaseToken())
             .orElseGet(() -> purchase.getLinkedPurchaseToken() != null
-                ? subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken()).orElse(null)
+                ? subscriptionRepository.findByProvidedId(purchase.getLinkedPurchaseToken()).orElse(null)
                 : null);
 
         if (subscription == null) {
@@ -424,7 +424,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             return;
         }
 
-        subscription.setProviderSubscriptionId(notification.getPurchaseToken());
+        subscription.setProvidedId(notification.getPurchaseToken());
         if (hasAnotherActiveSubscription(subscription)) {
             subscription.setAutoRenewing(false);
             subscription.setPaymentPending(false);
@@ -438,9 +438,9 @@ class SubscriptionService implements SubscriptionServiceContract {
             return; // without acknowledging purchase so that Google Play refunds it.
         }
 
-        if (purchase.getProductId() != null && !purchase.getProductId().equals(subscription.getPlan().getProviderPlanId())) {
+        if (purchase.getProductId() != null && !purchase.getProductId().equals(subscription.getPlan().getProvidedId())) {
             subscription.setPlan(
-                subscriptionPlanRepository.findByProviderPlanId(
+                subscriptionPlanRepository.findByProvidedId(
                         SubscriptionPlan.Provider.GOOGLE_PLAY, purchase.getProductId())
                     .orElseThrow(() -> new WebhookEventException("unknown provider plan id")));
         }
@@ -574,7 +574,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription by checkout session's client reference id"));
 
-        subscription.setProviderSubscriptionId(session.getSubscription());
+        subscription.setProvidedId(session.getSubscription());
         val customer = subscription.getCustomer();
         if (!session.getCustomer().equals(customer.getStripeId())) {
             customer.setStripeId(session.getCustomer());
@@ -599,7 +599,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     private void handleStripeSubscriptionEvent(@NonNull String stripeSubscriptionId) throws WebhookPayloadException, WebhookEventException {
-        val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscriptionId)
+        val subscription = subscriptionRepository.findByProvidedId(stripeSubscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription corresponding to stripe object"));
 
         // always fetch subscription entity from Stripe API since retried (or delayed) webhook
@@ -612,7 +612,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     private void copySubscriptionDetailsFromStripeObject(@NonNull Subscription subscription) throws WebhookPayloadException, WebhookEventException {
         final com.stripe.model.Subscription stripeSubscription;
         try {
-            stripeSubscription = stripeApi.getSubscription(subscription.getProviderSubscriptionId());
+            stripeSubscription = stripeApi.getSubscription(subscription.getProvidedId());
         } catch (StripeException e) {
             throw new RuntimeException("failed to get subscription object from stripe api", e);
         }
@@ -626,9 +626,9 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
 
         val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
-        if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
+        if (stripePrice.getId() != null && !subscription.getPlan().getProvidedId().equals(stripePrice.getId())) {
             subscription.setPlan(
-                subscriptionPlanRepository.findByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
+                subscriptionPlanRepository.findByProvidedId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
                     .orElseThrow(() -> new WebhookEventException("updated provider plan id not recognised")));
         }
 
@@ -750,7 +750,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             Subscription.builder()
                 .customer(giftCard.getCustomer())
                 .plan(giftCard.getPlan())
-                .providerSubscriptionId(giftCardCode)
+                .providedId(giftCardCode)
                 .isPaymentPending(false)
                 .isAutoRenewing(false)
                 .isRefunded(false)
@@ -792,7 +792,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             .requestedCurrencyCode(convertedPrice == null ? null : currencyCode)
             .googlePlaySubscriptionId(
                 plan.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
-                    ? plan.getProviderPlanId()
+                    ? plan.getProvidedId()
                     : null)
             .build();
     }
@@ -822,10 +822,10 @@ class SubscriptionService implements SubscriptionServiceContract {
                     ? stripeCustomerPortalUrl : null)
             .googlePlayPurchaseToken(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
-                    ? subscription.getProviderSubscriptionId() : null)
+                    ? subscription.getProvidedId() : null)
             .giftCardCode(
                 subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GIFT_CARD
-                    ? subscription.getProviderSubscriptionId()
+                    ? subscription.getProvidedId()
                     : null)
             .build();
     }

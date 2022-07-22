@@ -42,7 +42,7 @@ public class Subscription extends BasicEntity {
     @ManyToOne(optional = false)
     private SubscriptionPlan plan;
 
-    private String providerSubscriptionId;
+    private String providedId;
 
     private boolean isPaymentPending;
 

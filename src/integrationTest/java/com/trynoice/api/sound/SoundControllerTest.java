@@ -146,7 +146,7 @@ public class SoundControllerTest {
         val subscription = Subscription.builder()
             .customer(customer)
             .plan(buildSubscriptionPlan())
-            .providerSubscriptionId(UUID.randomUUID().toString())
+            .providedId(UUID.randomUUID().toString())
             .isPaymentPending(isPaymentPending)
             .startAt(OffsetDateTime.now().plusHours(-2))
             .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))
@@ -159,7 +159,7 @@ public class SoundControllerTest {
     private SubscriptionPlan buildSubscriptionPlan() {
         val plan = SubscriptionPlan.builder()
             .provider(SubscriptionPlan.Provider.STRIPE)
-            .providerPlanId(UUID.randomUUID().toString().substring(0, 16))
+            .providedId(UUID.randomUUID().toString().substring(0, 16))
             .billingPeriodMonths((short) 1)
             .trialPeriodDays((short) 1)
             .priceInIndianPaise(10000)

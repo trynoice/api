@@ -44,12 +44,12 @@ public interface SubscriptionPlanRepository extends BasicEntityRepository<Subscr
     /**
      * Find a subscription plan by its provider plan id.
      *
-     * @param provider it must be a non-null {@link SubscriptionPlan.Provider}.
-     * @param planId   plan id assigned by the provider. It must be a non-null string.
+     * @param provider   it must be a non-null {@link SubscriptionPlan.Provider}.
+     * @param providedId plan id assigned by the provider. It must be a non-null string.
      * @return a non-empty optional if such a subscription plan exists in the repository.
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from SubscriptionPlan e where e.provider = ?1 and e.providerPlanId = ?2 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<SubscriptionPlan> findByProviderPlanId(@NonNull SubscriptionPlan.Provider provider, @NonNull String planId);
+    @Query("select e from SubscriptionPlan e where e.provider = ?1 and e.providedId = ?2 and" + WHERE_ACTIVE_CLAUSE)
+    Optional<SubscriptionPlan> findByProvidedId(@NonNull SubscriptionPlan.Provider provider, @NonNull String providedId);
 }

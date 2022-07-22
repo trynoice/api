@@ -1,0 +1,3 @@
+ALTER TABLE subscription_plan RENAME provider_plan_id TO provided_id;
+ALTER TABLE subscription RENAME provider_subscription_id TO provided_id;
+ALTER INDEX subscription__provider_subscription_id__unique_idx RENAME TO subscription__provided_id__unique_idx;

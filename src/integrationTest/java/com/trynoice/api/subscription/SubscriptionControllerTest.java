@@ -157,11 +157,11 @@ public class SubscriptionControllerTest {
         Boolean wasSubscriptionActive,
         int expectedResponseStatus
     ) throws Exception {
-        val providerPlanId = "provider-plan-id";
+        val providedId = "provided-id";
         val successUrl = "https://api.test/success";
         val cancelUrl = "https://api.test/cancel";
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan(provider, providerPlanId);
+        val plan = buildSubscriptionPlan(provider, providedId);
         if (wasSubscriptionActive != null) {
             buildSubscription(authUser, plan, wasSubscriptionActive, false, null);
         }
@@ -175,7 +175,7 @@ public class SubscriptionControllerTest {
                 stripeApi.createCheckoutSession(
                     eq(successUrl),
                     eq(cancelUrl),
-                    eq(plan.getProviderPlanId()),
+                    eq(plan.getProvidedId()),
                     any(),
                     eq(null),
                     eq(customer.getStripeId()),
@@ -391,11 +391,11 @@ public class SubscriptionControllerTest {
             switch (provider) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 default:
                     throw new RuntimeException("unknown provider");
@@ -431,7 +431,7 @@ public class SubscriptionControllerTest {
             .thenReturn(event);
 
         lenient().when(stripeApi.getSubscription(any()))
-            .thenReturn(buildStripeSubscription(null, "active", plan.getProviderPlanId()));
+            .thenReturn(buildStripeSubscription(null, "active", plan.getProvidedId()));
 
         mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
                 .header("Stripe-Signature", signature)
@@ -467,7 +467,7 @@ public class SubscriptionControllerTest {
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
         val stripeSubscriptionId = UUID.randomUUID().toString();
         val subscription = buildSubscription(createAuthUser(entityManager), plan, wasSubscriptionActive, wasPaymentPending, stripeSubscriptionId);
-        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus, plan.getProviderPlanId());
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus, plan.getProvidedId());
         val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
         val signature = "dummy-signature";
 
@@ -507,7 +507,7 @@ public class SubscriptionControllerTest {
         val newPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-2");
         val stripeSubscriptionId = UUID.randomUUID().toString();
         val subscription = buildSubscription(createAuthUser(entityManager), oldPlan, true, false, stripeSubscriptionId);
-        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", newPlan.getProviderPlanId());
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", newPlan.getProvidedId());
         val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
         val signature = "dummy-signature";
 
@@ -523,7 +523,7 @@ public class SubscriptionControllerTest {
                 .content(event.toJson()))
             .andExpect(status().is(HttpStatus.OK.value()));
 
-        assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
+        assertEquals(newPlan.getProvidedId(), subscription.getPlan().getProvidedId());
     }
 
     @Test
@@ -535,7 +535,7 @@ public class SubscriptionControllerTest {
         val stripeSubscriptionId = UUID.randomUUID().toString();
         val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
         val subscription2 = buildSubscription(authUser, plan, false, false, null);
-        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", plan.getProviderPlanId());
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", plan.getProvidedId());
         val checkoutSession = buildStripeCheckoutSession("complete", "paid", String.valueOf(subscription2.getId()));
         checkoutSession.setSubscription(stripeSubscriptionId);
         val event = buildStripeEvent("checkout.session.completed", checkoutSession);
@@ -656,10 +656,10 @@ public class SubscriptionControllerTest {
     }
 
     @NonNull
-    private SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providerPlanId) {
+    private SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providedId) {
         val plan = SubscriptionPlan.builder()
             .provider(provider)
-            .providerPlanId(providerPlanId)
+            .providedId(providedId)
             .billingPeriodMonths((short) 1)
             .trialPeriodDays((short) 1)
             .priceInIndianPaise(10000)
@@ -675,7 +675,7 @@ public class SubscriptionControllerTest {
         @NonNull SubscriptionPlan plan,
         boolean isActive,
         boolean isPaymentPending,
-        String providerSubscriptionId
+        String providedId
     ) {
         return subscriptionRepository.save(
             Subscription.builder()
@@ -685,7 +685,7 @@ public class SubscriptionControllerTest {
                             .userId(owner.getId())
                             .build()))
                 .plan(plan)
-                .providerSubscriptionId(providerSubscriptionId)
+                .providedId(providedId)
                 .isPaymentPending(isPaymentPending)
                 .startAt(OffsetDateTime.now().plusHours(-2))
                 .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))

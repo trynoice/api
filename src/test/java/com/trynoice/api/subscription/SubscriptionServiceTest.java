@@ -158,7 +158,7 @@ public class SubscriptionServiceTest {
                 assertEquals(requestingCurrencyCode, got.getRequestedCurrencyCode());
                 assertEquals(
                     expecting.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
-                        ? expecting.getProviderPlanId()
+                        ? expecting.getProvidedId()
                         : null,
                     got.getGooglePlaySubscriptionId());
             }
@@ -316,11 +316,11 @@ public class SubscriptionServiceTest {
             switch (subscription.getPlan().getProvider()) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 default:
                     throw new RuntimeException("unknown provider");
@@ -438,10 +438,10 @@ public class SubscriptionServiceTest {
     }
 
     @NonNull
-    private static SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providerPlanId) {
+    private static SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providedId) {
         val plan = SubscriptionPlan.builder()
             .provider(provider)
-            .providerPlanId(providerPlanId)
+            .providedId(providedId)
             .billingPeriodMonths((short) 2)
             .trialPeriodDays((short) 1)
             .priceInIndianPaise(22500)
@@ -463,7 +463,7 @@ public class SubscriptionServiceTest {
             .id(Math.round(Math.random() * 1000))
             .customer(Customer.builder().userId(ownerId).build())
             .plan(plan)
-            .providerSubscriptionId(UUID.randomUUID().toString())
+            .providedId(UUID.randomUUID().toString())
             .isPaymentPending(isPaymentPending)
             .startAt(now.plusHours(-2))
             .endAt(now.plusHours(isActive ? 2 : -1))
