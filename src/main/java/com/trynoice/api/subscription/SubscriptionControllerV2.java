@@ -1,9 +1,15 @@
 package com.trynoice.api.subscription;
 
+import com.trynoice.api.platform.validation.annotations.NullOrNotBlank;
 import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
+import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
+import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
+import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
+import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
 import com.trynoice.api.subscription.payload.SubscriptionFlowResponseV2;
+import com.trynoice.api.subscription.payload.SubscriptionResponseV2;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,13 +23,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+import java.util.List;
 
 @Validated
 @RestController
@@ -86,6 +99,103 @@ public class SubscriptionControllerV2 {
             return ResponseEntity.badRequest().build();
         } catch (DuplicateSubscriptionException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
+    /**
+     * Lists a {@code page} of subscriptions purchased by the authenticated user. Each {@code page}
+     * contains at-most 20 entries. If {@code onlyActive} is {@literal true}, it lists the currently
+     * active subscription purchase (at most one). It doesn't return subscription entities that were
+     * initiated, but were never started.
+     *
+     * @param onlyActive return only the active subscription (single instance).
+     * @param currency   an optional ISO 4217 currency code for including converted prices with the
+     *                   subscription's plan.
+     * @param page       0-indexed page number.
+     * @return a list of subscription purchases; empty list if the page number is higher than
+     * available data.
+     */
+    @Operation(summary = "List subscriptions")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @GetMapping
+    ResponseEntity<List<SubscriptionResponseV2>> listSubscriptions(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
+        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency,
+        @Valid @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
+    ) {
+        return ResponseEntity.ok(subscriptionService.listSubscriptions(principalId, onlyActive, currency, page));
+    }
+
+    /**
+     * Get a subscription purchased by the authenticated user by its {@code subscriptionId}. It
+     * doesn't return subscription entities that were initiated, but were never started.
+     *
+     * @param currency an optional ISO 4217 currency code for including converted prices with the
+     *                 subscription's plan.
+     * @return the requested subscription.
+     */
+    @Operation(summary = "Get subscription")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "404", description = "subscription with given id doesn't exist", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @GetMapping("/{subscriptionId}")
+    ResponseEntity<SubscriptionResponseV2> getSubscription(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotNull @Min(1) @PathVariable Long subscriptionId,
+        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
+    ) {
+        try {
+            return ResponseEntity.ok(subscriptionService.getSubscription(principalId, subscriptionId, currency));
+        } catch (SubscriptionNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Redeems an issued gift card and creates a subscription for the authenticated user.
+     *
+     * @param giftCardCode must not be blank.
+     * @return the newly activated subscription on successful redemption of the gift card.
+     */
+    @Operation(summary = "Redeem a gift card")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "404", description = "gift card doesn't exist", content = @Content),
+        @ApiResponse(responseCode = "409", description = "user already has an active subscription", content = @Content),
+        @ApiResponse(responseCode = "410", description = "gift card has expired", content = @Content),
+        @ApiResponse(responseCode = "422", description = "gift card has already been redeemed", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @PostMapping("/giftCards/{giftCardCode}/redeem")
+    ResponseEntity<SubscriptionResponseV2> redeemGiftCard(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
+    ) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(subscriptionService.redeemGiftCard(principalId, giftCardCode));
+        } catch (GiftCardNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (DuplicateSubscriptionException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        } catch (GiftCardExpiredException e) {
+            return ResponseEntity.status(HttpStatus.GONE).build();
+        } catch (GiftCardRedeemedException e) {
+            return ResponseEntity.unprocessableEntity().build();
         }
     }
 }

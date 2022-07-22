@@ -30,7 +30,7 @@ import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
 import com.trynoice.api.subscription.payload.SubscriptionFlowResponseV2;
 import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
-import com.trynoice.api.subscription.payload.SubscriptionResponse;
+import com.trynoice.api.subscription.payload.SubscriptionResponseV2;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +48,7 @@ import javax.validation.ConstraintViolationException;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -186,7 +187,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .build());
 
         val result = new SubscriptionFlowResponseV2();
-        result.setSubscription(buildSubscriptionResponse(subscription, null, null, null));
+        result.setSubscription(buildSubscriptionResponse(subscription, null, null));
         result.setSubscriptionId(subscription.getId());
         if (plan.getProvider() != SubscriptionPlan.Provider.STRIPE) {
             return result;
@@ -229,18 +230,15 @@ class SubscriptionService implements SubscriptionServiceContract {
      * pages, it returns an empty list. If {@code onlyActive} is {@literal true}, it lists the
      * currently active subscription purchase (at most one).
      *
-     * @param customerId      id of the customer (user) that purchased the subscriptions.
-     * @param onlyActive      return only the active subscription (if any).
-     * @param stripeReturnUrl optional redirect URL on exiting Stripe Customer portal (only used
-     *                        when an active subscription exists and is provided by Stripe).
-     * @param pageNumber      a not {@literal null} 0-indexed page number.
+     * @param customerId id of the customer (user) that purchased the subscriptions.
+     * @param onlyActive return only the active subscription (if any).
+     * @param pageNumber a not {@literal null} 0-indexed page number.
      * @return a list of subscription purchased by the given {@code customerId}.
      */
     @NonNull
-    List<SubscriptionResponse> listSubscriptions(
+    List<SubscriptionResponseV2> listSubscriptions(
         @NonNull Long customerId,
         @NonNull Boolean onlyActive,
-        String stripeReturnUrl,
         String currencyCode,
         @NonNull Integer pageNumber
     ) {
@@ -254,43 +252,24 @@ class SubscriptionService implements SubscriptionServiceContract {
             subscriptions = subscriptionRepository.findAllStartedByCustomerUserId(customerId, pageable).toList();
         }
 
-        val stripeCustomerPortalUrl = subscriptions.stream()
-            .anyMatch(s -> s.isActive() && s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE)
-            ? createStripeCustomerSession(subscriptions.get(0).getCustomer(), stripeReturnUrl)
-            : null;
-
         val exchangeRate = currencyCode == null ? null : exchangeRatesProvider.getRateForCurrency("INR", currencyCode).orElse(null);
         return subscriptions.stream()
-            .map(subscription -> buildSubscriptionResponse(subscription, stripeCustomerPortalUrl, currencyCode, exchangeRate))
+            .map(subscription -> buildSubscriptionResponse(subscription, currencyCode, exchangeRate))
             .collect(Collectors.toUnmodifiableList());
-    }
-
-    private String createStripeCustomerSession(@NonNull Customer customer, String returnUrl) {
-        if (customer.getStripeId() == null) {
-            return null;
-        }
-
-        try {
-            return stripeApi.createCustomerPortalSession(customer.getStripeId(), returnUrl).getUrl();
-        } catch (StripeException e) {
-            throw new RuntimeException("stripe api error", e);
-        }
     }
 
     /**
      * Get a subscription purchased by a customer by its {@code subscriptionId}.
      *
-     * @param customerId      must not be {@literal null}.
-     * @param subscriptionId  must not be {@literal null}.
-     * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
+     * @param customerId     must not be {@literal null}.
+     * @param subscriptionId must not be {@literal null}.
      * @return the requested subscription, guaranteed to be not {@literal null}.
      * @throws SubscriptionNotFoundException if such a subscription doesn't exist.
      */
     @NonNull
-    public SubscriptionResponse getSubscription(
+    public SubscriptionResponseV2 getSubscription(
         @NonNull Long customerId,
         @NonNull Long subscriptionId,
-        String stripeReturnUrl,
         String currencyCode
     ) throws SubscriptionNotFoundException {
         val subscription = subscriptionRepository.findById(subscriptionId)
@@ -306,9 +285,6 @@ class SubscriptionService implements SubscriptionServiceContract {
 
         return buildSubscriptionResponse(
             subscription,
-            subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
-                ? createStripeCustomerSession(subscription.getCustomer(), stripeReturnUrl)
-                : null,
             currencyCode,
             currencyCode == null
                 ? null
@@ -717,7 +693,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      */
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
-    public SubscriptionResponse redeemGiftCard(
+    public SubscriptionResponseV2 redeemGiftCard(
         @NonNull Long customerId,
         @NonNull String giftCardCode
     ) throws GiftCardNotFoundException, GiftCardRedeemedException, GiftCardExpiredException, DuplicateSubscriptionException {
@@ -759,7 +735,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .endAt(then)
                 .build());
 
-        return buildSubscriptionResponse(subscription, null, null, null);
+        return buildSubscriptionResponse(subscription, null, null);
     }
 
     /**
@@ -769,6 +745,19 @@ class SubscriptionService implements SubscriptionServiceContract {
     @Cacheable(cacheNames = SubscriptionBeans.CACHE_NAME, key = "'isSubscribed:' + #userId")
     public boolean isUserSubscribed(@NonNull Long userId) {
         return subscriptionRepository.existsActiveByCustomerUserId(userId);
+    }
+
+    public Optional<String> createStripeCustomerSession(@NonNull Long customerId, String returnUrl) {
+        val customer = customerRepository.findById(customerId).orElseThrow();
+        if (customer.getStripeId() == null) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(stripeApi.createCustomerPortalSession(customer.getStripeId(), returnUrl).getUrl());
+        } catch (StripeException e) {
+            throw new RuntimeException("stripe api error", e);
+        }
     }
 
     @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")
@@ -799,13 +788,8 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @NonNull
-    private static SubscriptionResponse buildSubscriptionResponse(
-        @NonNull Subscription subscription,
-        String stripeCustomerPortalUrl,
-        String currencyCode,
-        Double exchangeRate
-    ) {
-        return SubscriptionResponse.builder()
+    private static SubscriptionResponseV2 buildSubscriptionResponse(@NonNull Subscription subscription, String currencyCode, Double exchangeRate) {
+        return SubscriptionResponseV2.builder()
             .id(subscription.getId())
             .plan(buildSubscriptionPlanResponse(subscription.getPlan(), currencyCode, exchangeRate))
             .isActive(subscription.isActive())
@@ -818,9 +802,6 @@ class SubscriptionService implements SubscriptionServiceContract {
             .isAutoRenewing(subscription.isActive() && subscription.isAutoRenewing())
             .renewsAt(subscription.isActive() ? subscription.getEndAt() : null)
             .isRefunded(subscription.isRefunded() ? true : null)
-            .stripeCustomerPortalUrl(
-                subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
-                    ? stripeCustomerPortalUrl : null)
             .googlePlayPurchaseToken(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
                     ? subscription.getProvidedId() : null)

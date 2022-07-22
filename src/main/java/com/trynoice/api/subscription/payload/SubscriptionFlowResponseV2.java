@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 public class SubscriptionFlowResponseV2 {
 
     @JsonIgnore
-    private SubscriptionResponse subscription;
+    private SubscriptionResponseV2 subscription;
 
     @Schema(required = true, description = "id of the newly created subscription")
     private long subscriptionId;

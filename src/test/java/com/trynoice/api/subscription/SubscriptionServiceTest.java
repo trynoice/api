@@ -282,12 +282,12 @@ public class SubscriptionServiceTest {
         lenient().when(exchangeRatesProvider.getRateForCurrency(any(), any()))
             .thenReturn(Optional.of(1.0));
 
-        val result1 = service.listSubscriptions(userId1, false, null, null, 0);
+        val result1 = service.listSubscriptions(userId1, false, null, 0);
         assertEquals(1, result1.size());
         assertEquals(subscription1.getId(), result1.get(0).getId());
         assertNull(result1.get(0).getPlan().getPriceInRequestedCurrency());
 
-        val result2 = service.listSubscriptions(userId2, false, null, "USD", 0);
+        val result2 = service.listSubscriptions(userId2, false, "USD", 0);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
         assertNotNull(result2.get(0).getPlan().getPriceInRequestedCurrency());
