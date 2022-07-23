@@ -17,6 +17,7 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
 import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
 import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
+import com.trynoice.api.subscription.exceptions.StripeCustomerPortalUrlException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
@@ -354,6 +355,44 @@ public class SubscriptionServiceTest {
     @Test
     void handleStripeWebhookEvent() {
         // skipped unit tests, wrote integration tests instead.
+    }
+
+    @Test
+    void getStripeCustomerPortalUrl_withNonExistingCustomer() {
+        val customerId = 1L;
+        val returnUrl = "https://api.test/return-url";
+        assertThrows(StripeCustomerPortalUrlException.class, () -> service.getStripeCustomerPortalUrl(customerId, returnUrl));
+    }
+
+    @Test
+    void getStripeCustomerPortalUrl_withNonExistingStripeCustomer() {
+        val customerId = 1L;
+        val returnUrl = "https://api.test/return-url";
+        val customer = Customer.builder()
+            .userId(customerId)
+            .build();
+
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        assertThrows(StripeCustomerPortalUrlException.class, () -> service.getStripeCustomerPortalUrl(customerId, returnUrl));
+    }
+
+    @Test
+    void getStripeCustomerPortalUrl() throws StripeException {
+        val customerId = 1L;
+        val stripeId = "test-id";
+        val returnUrl = "https://api.test/return-url";
+        val customer = Customer.builder()
+            .userId(customerId)
+            .stripeId(stripeId)
+            .build();
+
+        val customerPortalUrl = "https://api.test/customer-portal-url";
+        val customerPortalSession = mock(com.stripe.model.billingportal.Session.class);
+        when(customerPortalSession.getUrl()).thenReturn(customerPortalUrl);
+        when(stripeApi.createCustomerPortalSession(stripeId, returnUrl)).thenReturn(customerPortalSession);
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        val response = assertDoesNotThrow(() -> service.getStripeCustomerPortalUrl(customerId, returnUrl));
+        assertEquals(customerPortalUrl, response.getUrl());
     }
 
     @Test

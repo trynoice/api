@@ -6,12 +6,14 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
 import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
 import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
+import com.trynoice.api.subscription.exceptions.StripeCustomerPortalUrlException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.payload.GiftCardResponse;
+import com.trynoice.api.subscription.payload.StripeCustomerPortalUrlResponse;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
 import com.trynoice.api.subscription.payload.SubscriptionFlowResponse;
 import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
@@ -198,8 +200,7 @@ class SubscriptionController {
                 .map(responseV2 -> {
                     val response = buildSubscriptionResponseV1(responseV2);
                     if (response.getIsActive() && response.getPlan().getProvider().equalsIgnoreCase("stripe")) {
-                        val scpUrl = subscriptionService.createStripeCustomerSession(principalId, stripeReturnUrl).orElse(null);
-                        response.setStripeCustomerPortalUrl(scpUrl);
+                        response.setStripeCustomerPortalUrl(requireStripeCustomerPortalUrl(principalId, stripeReturnUrl));
                     }
                     return response;
                 })
@@ -236,8 +237,7 @@ class SubscriptionController {
             val responseV2 = subscriptionService.getSubscription(principalId, subscriptionId, currency);
             val response = buildSubscriptionResponseV1(responseV2);
             if (response.getIsActive() && response.getPlan().getProvider().equalsIgnoreCase("stripe")) {
-                val scpUrl = subscriptionService.createStripeCustomerSession(principalId, stripeReturnUrl).orElse(null);
-                response.setStripeCustomerPortalUrl(scpUrl);
+                response.setStripeCustomerPortalUrl(requireStripeCustomerPortalUrl(principalId, stripeReturnUrl));
             }
 
             return ResponseEntity.ok(response);
@@ -320,6 +320,34 @@ class SubscriptionController {
     }
 
     /**
+     * Get the Stripe Customer Portal URL to allow customer to manage their subscription purchases.
+     *
+     * @param returnUrl a not blank redirect URL for exiting the Stripe customer portal.
+     * @return a response containing the Stripe Customer Portal URL.
+     */
+    @Operation(summary = "Get the Stripe Customer Portal URL")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "404", description = "customer isn't associated with Stripe", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @GetMapping("/stripe/customerPortalUrl")
+    ResponseEntity<StripeCustomerPortalUrlResponse> stripeCustomerPortalUrl(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotBlank @HttpUrl @RequestParam(required = false) String returnUrl
+    ) {
+        try {
+            val response = subscriptionService.getStripeCustomerPortalUrl(principalId, returnUrl);
+            return ResponseEntity.ok(response);
+        } catch (StripeCustomerPortalUrlException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    /**
      * Gets an issued gift card.
      *
      * @param giftCardCode must not be blank.
@@ -383,6 +411,15 @@ class SubscriptionController {
             return ResponseEntity.status(HttpStatus.GONE).build();
         } catch (GiftCardRedeemedException e) {
             return ResponseEntity.unprocessableEntity().build();
+        }
+    }
+
+    @NonNull
+    private String requireStripeCustomerPortalUrl(@NonNull Long principalId, String returnUrl) {
+        try {
+            return subscriptionService.getStripeCustomerPortalUrl(principalId, returnUrl).getUrl();
+        } catch (StripeCustomerPortalUrlException e) {
+            throw new RuntimeException(e);
         }
     }
 

@@ -19,6 +19,7 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
 import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
 import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
+import com.trynoice.api.subscription.exceptions.StripeCustomerPortalUrlException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
@@ -27,6 +28,7 @@ import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.payload.GiftCardResponse;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
+import com.trynoice.api.subscription.payload.StripeCustomerPortalUrlResponse;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
 import com.trynoice.api.subscription.payload.SubscriptionFlowResponseV2;
 import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
@@ -48,7 +50,6 @@ import javax.validation.ConstraintViolationException;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -747,14 +748,31 @@ class SubscriptionService implements SubscriptionServiceContract {
         return subscriptionRepository.existsActiveByCustomerUserId(userId);
     }
 
-    public Optional<String> createStripeCustomerSession(@NonNull Long customerId, String returnUrl) {
-        val customer = customerRepository.findById(customerId).orElseThrow();
+    /**
+     * Creates a new Stripe Customer Portal session for the given {@code customerId} and returns its
+     * URL.
+     *
+     * @param customerId a not {@literal null} id of the customer.
+     * @param returnUrl  a not {@literal null} redirect url for exiting the customer portal.
+     * @return a not {@literal null} {@link StripeCustomerPortalUrlResponse}.
+     * @throws StripeCustomerPortalUrlException if the customer with given {@code customerId}
+     *                                          doesn't exist on Stripe.
+     */
+    @NonNull
+    public StripeCustomerPortalUrlResponse getStripeCustomerPortalUrl(
+        @NonNull Long customerId,
+        @NonNull String returnUrl
+    ) throws StripeCustomerPortalUrlException {
+        val customer = customerRepository.findById(customerId).orElseThrow(StripeCustomerPortalUrlException::new);
         if (customer.getStripeId() == null) {
-            return Optional.empty();
+            throw new StripeCustomerPortalUrlException();
         }
 
         try {
-            return Optional.of(stripeApi.createCustomerPortalSession(customer.getStripeId(), returnUrl).getUrl());
+            val session = stripeApi.createCustomerPortalSession(customer.getStripeId(), returnUrl);
+            return StripeCustomerPortalUrlResponse.builder()
+                .url(session.getUrl())
+                .build();
         } catch (StripeException e) {
             throw new RuntimeException("stripe api error", e);
         }

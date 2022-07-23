@@ -595,6 +595,43 @@ public class SubscriptionControllerTest {
     }
 
     @ParameterizedTest
+    @MethodSource("getStripeCustomerPortalUrlTestCases")
+    void getStripeCustomerPortalUrl(boolean exists, String stripeId, String returnUrl, int expectedResponseStatus) throws Exception {
+        val user = createAuthUser(entityManager);
+        if (exists) {
+            val customer = buildCustomer(entityManager, user);
+            customer.setStripeId(stripeId);
+            entityManager.persist(customer);
+        }
+
+        val customerPortalUrl = "https://api.test/customer-portal-url";
+        val customerPortalSession = mock(com.stripe.model.billingportal.Session.class);
+        when(customerPortalSession.getUrl()).thenReturn(customerPortalUrl);
+        lenient().when(stripeApi.createCustomerPortalSession(stripeId, returnUrl)).thenReturn(customerPortalSession);
+
+        val accessToken = createSignedAccessJwt(hmacSecret, user, AuthTestUtils.JwtType.VALID);
+        val resultActions = mockMvc.perform(
+                get("/v1/subscriptions/stripe/customerPortalUrl")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .queryParam("returnUrl", returnUrl))
+            .andExpect(status().is(expectedResponseStatus));
+
+        if (expectedResponseStatus == HttpStatus.OK.value()) {
+            resultActions.andExpect(jsonPath("$.url").value(customerPortalUrl));
+        }
+    }
+
+    static Stream<Arguments> getStripeCustomerPortalUrlTestCases() {
+        return Stream.of(
+            // customer exists, stripe customer id, return url, expected response code
+            arguments(false, null, null, 400),
+            arguments(false, null, "https://api.test/return-url", 404),
+            arguments(true, null, "https://api.test/return-url", 404),
+            arguments(true, "test-stripe-id", "https://api.test/return-url", 200)
+        );
+    }
+
+    @ParameterizedTest
     @MethodSource("getGiftCardTestCases")
     void getGiftCard(boolean exists, Boolean owned, int expectedResponseStatus) throws Exception {
         val code = "test-gift-card-1";
