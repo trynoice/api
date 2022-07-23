@@ -182,12 +182,13 @@ public class SubscriptionControllerV2 {
     })
     @NonNull
     @PostMapping("/giftCards/{giftCardCode}/redeem")
-    ResponseEntity<SubscriptionResponseV2> redeemGiftCard(
+    ResponseEntity<Void> redeemGiftCard(
         @NonNull @AuthenticationPrincipal Long principalId,
         @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
     ) {
         try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(subscriptionService.redeemGiftCard(principalId, giftCardCode));
+            subscriptionService.redeemGiftCard(principalId, giftCardCode);
+            return ResponseEntity.status(HttpStatus.CREATED).build();
         } catch (GiftCardNotFoundException e) {
             return ResponseEntity.notFound().build();
         } catch (DuplicateSubscriptionException e) {
