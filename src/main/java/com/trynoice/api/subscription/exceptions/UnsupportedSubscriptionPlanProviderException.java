@@ -6,10 +6,6 @@ package com.trynoice.api.subscription.exceptions;
  */
 public class UnsupportedSubscriptionPlanProviderException extends Exception {
 
-    public UnsupportedSubscriptionPlanProviderException(String message) {
-        super(message);
-    }
-
     public UnsupportedSubscriptionPlanProviderException(Throwable cause) {
         super(cause);
     }
