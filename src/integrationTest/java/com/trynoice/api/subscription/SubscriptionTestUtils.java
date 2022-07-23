@@ -27,7 +27,7 @@ import static org.mockito.Mockito.mock;
 public class SubscriptionTestUtils {
 
     @NonNull
-    static SubscriptionPlan buildSubscriptionPlan(
+    public static SubscriptionPlan buildSubscriptionPlan(
         @NonNull EntityManager entityManager,
         @NonNull SubscriptionPlan.Provider provider,
         @NonNull String providedId
@@ -44,7 +44,7 @@ public class SubscriptionTestUtils {
     }
 
     @NonNull
-    static Subscription buildSubscription(
+    public static Subscription buildSubscription(
         @NonNull EntityManager entityManager,
         @NonNull AuthUser owner,
         @NonNull SubscriptionPlan plan,

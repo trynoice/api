@@ -31,13 +31,10 @@ public class AuthTestUtils {
     @NonNull
     public static AuthUser createAuthUser(@NonNull EntityManager entityManager) {
         val uuid = UUID.randomUUID().toString();
-        val authUser = AuthUser.builder()
+        return entityManager.merge(AuthUser.builder()
             .name(uuid)
             .email(uuid + "@api.test")
-            .build();
-
-        entityManager.persist(authUser);
-        return authUser;
+            .build());
     }
 
     /**
@@ -49,14 +46,11 @@ public class AuthTestUtils {
      */
     @NonNull
     public static RefreshToken createRefreshToken(@NonNull EntityManager entityManager, @NonNull AuthUser owner) {
-        val refreshToken = RefreshToken.builder()
+        return entityManager.merge(RefreshToken.builder()
             .expiresAt(OffsetDateTime.now().plus(Duration.ofHours(1)))
             .userAgent("")
             .owner(owner)
-            .build();
-
-        entityManager.persist(refreshToken);
-        return refreshToken;
+            .build());
     }
 
     /**
@@ -89,13 +83,12 @@ public class AuthTestUtils {
                 break;
         }
 
-        val refreshToken = RefreshToken.builder()
-            .expiresAt(expiresAt)
-            .userAgent("")
-            .owner(owner)
-            .build();
-
-        entityManager.persist(refreshToken);
+        val refreshToken = entityManager.merge(
+            RefreshToken.builder()
+                .expiresAt(expiresAt)
+                .userAgent("")
+                .owner(owner)
+                .build());
 
         val jwtSigningAlgorithm = Algorithm.HMAC256(hmacSecret);
         if (type != JwtType.REUSED) {

@@ -24,6 +24,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildSubscriptionPlan;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -64,7 +65,7 @@ public class SubscriptionServiceTest {
     ) throws Exception {
         val purchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan(purchase.getProductId());
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, purchase.getProductId());
         val subscription = buildSubscription(authUser, plan, wasActive, wasPaymentPending, wasActive ? purchaseToken : null);
         purchase = purchase.withObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
         when(androidPublisherApi.getSubscriptionPurchase(purchaseToken))
@@ -151,8 +152,8 @@ public class SubscriptionServiceTest {
 
     @Test
     void handleGooglePlayWebhookEvent_planUpgrade() throws Exception {
-        val oldPlan = buildSubscriptionPlan("test-plan-1");
-        val newPlan = buildSubscriptionPlan("test-plan-2");
+        val oldPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-plan-1");
+        val newPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-plan-2");
         val oldPurchaseToken = UUID.randomUUID().toString();
         val newPurchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
@@ -185,7 +186,7 @@ public class SubscriptionServiceTest {
         // when user initiates purchase flow twice without completion and then goes on to complete
         // both the flows.
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan("test-plan");
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-plan");
         val purchaseToken = UUID.randomUUID().toString();
         val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
         val subscription2 = buildSubscription(authUser, plan, false, false, null);
@@ -210,20 +211,6 @@ public class SubscriptionServiceTest {
         assertTrue(subscription1.isActive());
         assertFalse(subscription2.isActive());
         verify(androidPublisherApi, times(0)).acknowledgePurchase(plan.getProvidedId(), purchaseToken);
-    }
-
-    @NonNull
-    private SubscriptionPlan buildSubscriptionPlan(@NonNull String providedId) {
-        val plan = SubscriptionPlan.builder()
-            .provider(SubscriptionPlan.Provider.GOOGLE_PLAY)
-            .providedId(providedId)
-            .billingPeriodMonths((short) 1)
-            .trialPeriodDays((short) 1)
-            .priceInIndianPaise(10000)
-            .build();
-
-        entityManager.persist(plan);
-        return plan;
     }
 
     @NonNull
