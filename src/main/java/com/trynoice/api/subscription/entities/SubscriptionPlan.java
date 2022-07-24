@@ -35,7 +35,7 @@ public class SubscriptionPlan extends BasicEntity {
     private Provider provider;
 
     @NonNull
-    private String providerPlanId;
+    private String providedId;
 
     private short billingPeriodMonths;
 

@@ -21,13 +21,13 @@ public interface SubscriptionRepository extends BasicEntityRepository<Subscripti
     /**
      * Find a {@link Subscription} entity by its provider assigned subscription id.
      *
-     * @param providerSubscriptionId it must be a non-null provider assigned subscription id.
+     * @param providedId it must be a non-null provider assigned subscription id.
      * @return an optional {@link Subscription} entity.
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.providerSubscriptionId = ?1 and" + WHERE_ACTIVE_CLAUSE)
-    Optional<Subscription> findByProviderSubscriptionId(@NonNull String providerSubscriptionId);
+    @Query("select e from Subscription e where e.providedId = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    Optional<Subscription> findByProvidedId(@NonNull String providedId);
 
     /**
      * Checks whether an active subscription ({@code startAt < now() < endAt}) exists with the given

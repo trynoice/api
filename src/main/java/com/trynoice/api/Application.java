@@ -29,7 +29,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.stereotype.Component;
@@ -101,18 +100,6 @@ public class Application {
     }
 
     @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        // exclude URLs from the Spring security filter chain.
-        return (web) -> web.ignoring()
-            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp")
-            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn")
-            .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials")
-            .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans")
-            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook")
-            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook");
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(
         @NonNull HttpSecurity http,
         @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
@@ -140,7 +127,13 @@ public class Application {
         // use request filter to use SecurityContext for authorizing requests.
         http.authorizeRequests()
             .mvcMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
-            .antMatchers("/v1/**").fullyAuthenticated()
+            .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans").permitAll()
+            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp").anonymous()
+            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn").anonymous()
+            .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials").anonymous()
+            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook").anonymous()
+            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook").anonymous()
+            .antMatchers("/v?*/**").fullyAuthenticated()
             .anyRequest().permitAll();
 
         // add custom filter to set SecurityContext based on Authorization bearer JWT.

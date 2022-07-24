@@ -1,11 +1,8 @@
 package com.trynoice.api.sound;
 
-import com.trynoice.api.identity.entities.AuthUser;
-import com.trynoice.api.subscription.entities.Customer;
-import com.trynoice.api.subscription.entities.Subscription;
+import com.trynoice.api.subscription.SubscriptionTestUtils;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.testing.AuthTestUtils;
-import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -27,8 +24,6 @@ import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
@@ -106,7 +101,8 @@ public class SoundControllerTest {
 
         val authUser = createAuthUser(entityManager);
         if (isSubscribed != null) {
-            buildSubscription(authUser, isSubscribed, isPaymentPending);
+            val plan = SubscriptionTestUtils.buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "test-id");
+            SubscriptionTestUtils.buildSubscription(entityManager, authUser, plan, isSubscribed, isPaymentPending, "test-id");
         }
 
         val requestUrlFmt = "/v1/sounds/{soundId}/segments/{segmentId}/authorize?audioBitrate={bitrate}&libraryVersion={libraryVersion}";
@@ -133,39 +129,5 @@ public class SoundControllerTest {
             arguments(true, true, true, HttpStatus.NO_CONTENT.value()),
             arguments(true, true, false, HttpStatus.NO_CONTENT.value())
         );
-    }
-
-    private void buildSubscription(@NonNull AuthUser owner, boolean isActive, boolean isPaymentPending) {
-        val customer = Customer.builder()
-            .userId(owner.getId())
-            .stripeId(UUID.randomUUID().toString())
-            .build();
-
-        entityManager.persist(customer);
-
-        val subscription = Subscription.builder()
-            .customer(customer)
-            .plan(buildSubscriptionPlan())
-            .providerSubscriptionId(UUID.randomUUID().toString())
-            .isPaymentPending(isPaymentPending)
-            .startAt(OffsetDateTime.now().plusHours(-2))
-            .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))
-            .build();
-
-        entityManager.persist(subscription);
-    }
-
-    @NonNull
-    private SubscriptionPlan buildSubscriptionPlan() {
-        val plan = SubscriptionPlan.builder()
-            .provider(SubscriptionPlan.Provider.STRIPE)
-            .providerPlanId(UUID.randomUUID().toString().substring(0, 16))
-            .billingPeriodMonths((short) 1)
-            .trialPeriodDays((short) 1)
-            .priceInIndianPaise(10000)
-            .build();
-
-        entityManager.persist(plan);
-        return plan;
     }
 }

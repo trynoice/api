@@ -6,16 +6,19 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
 import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
 import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
+import com.trynoice.api.subscription.exceptions.StripeCustomerPortalUrlException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.payload.GiftCardResponse;
+import com.trynoice.api.subscription.payload.StripeCustomerPortalUrlResponse;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
 import com.trynoice.api.subscription.payload.SubscriptionFlowResponse;
 import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
 import com.trynoice.api.subscription.payload.SubscriptionResponse;
+import com.trynoice.api.subscription.payload.SubscriptionResponseV2;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -47,6 +50,7 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * REST controller for subscription related '{@code /v1/subscriptions}' routes.
@@ -130,6 +134,7 @@ class SubscriptionController {
      *
      * @param params {@code successUrl} and {@code cancelUrl} are only required for Stripe plans.
      */
+    @Deprecated
     @Operation(summary = "Initiate the subscription flow")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "subscription flow successfully initiated"),
@@ -145,8 +150,12 @@ class SubscriptionController {
         @Valid @NotNull @RequestBody SubscriptionFlowParams params
     ) {
         try {
-            val response = subscriptionService.createSubscription(principalId, params);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            val responseV2 = subscriptionService.createSubscription(principalId, params);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .body(SubscriptionFlowResponse.builder()
+                    .subscription(buildSubscriptionResponseV1(responseV2.getSubscription()))
+                    .stripeCheckoutSessionUrl(responseV2.getStripeCheckoutSessionUrl())
+                    .build());
         } catch (SubscriptionPlanNotFoundException e) {
             return ResponseEntity.badRequest().build();
         } catch (DuplicateSubscriptionException e) {
@@ -168,6 +177,7 @@ class SubscriptionController {
      * @return a list of subscription purchases; empty list if the page number is higher than
      * available data.
      */
+    @Deprecated
     @Operation(summary = "List subscriptions")
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
@@ -185,12 +195,16 @@ class SubscriptionController {
         @Valid @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
     ) {
         return ResponseEntity.ok(
-            subscriptionService.listSubscriptions(
-                principalId,
-                onlyActive,
-                stripeReturnUrl,
-                currency,
-                page));
+            subscriptionService.listSubscriptions(principalId, onlyActive, currency, page)
+                .stream()
+                .map(responseV2 -> {
+                    val response = buildSubscriptionResponseV1(responseV2);
+                    if (response.getIsActive() && response.getPlan().getProvider().equalsIgnoreCase("stripe")) {
+                        response.setStripeCustomerPortalUrl(requireStripeCustomerPortalUrl(principalId, stripeReturnUrl));
+                    }
+                    return response;
+                })
+                .collect(Collectors.toUnmodifiableList()));
     }
 
     /**
@@ -202,6 +216,7 @@ class SubscriptionController {
      *                        the subscription's plan.
      * @return the requested subscription.
      */
+    @Deprecated
     @Operation(summary = "Get subscription")
     @ApiResponses({
         @ApiResponse(responseCode = "200"),
@@ -219,8 +234,13 @@ class SubscriptionController {
         @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
     ) {
         try {
-            val subscription = subscriptionService.getSubscription(principalId, subscriptionId, stripeReturnUrl, currency);
-            return ResponseEntity.ok(subscription);
+            val responseV2 = subscriptionService.getSubscription(principalId, subscriptionId, currency);
+            val response = buildSubscriptionResponseV1(responseV2);
+            if (response.getIsActive() && response.getPlan().getProvider().equalsIgnoreCase("stripe")) {
+                response.setStripeCustomerPortalUrl(requireStripeCustomerPortalUrl(principalId, stripeReturnUrl));
+            }
+
+            return ResponseEntity.ok(response);
         } catch (SubscriptionNotFoundException e) {
             return ResponseEntity.notFound().build();
         }
@@ -300,6 +320,34 @@ class SubscriptionController {
     }
 
     /**
+     * Get the Stripe Customer Portal URL to allow customer to manage their subscription purchases.
+     *
+     * @param returnUrl a not blank redirect URL for exiting the Stripe customer portal.
+     * @return a response containing the Stripe Customer Portal URL.
+     */
+    @Operation(summary = "Get the Stripe Customer Portal URL")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200"),
+        @ApiResponse(responseCode = "400", description = "request is not valid", content = @Content),
+        @ApiResponse(responseCode = "401", description = "access token is invalid", content = @Content),
+        @ApiResponse(responseCode = "404", description = "customer isn't associated with Stripe", content = @Content),
+        @ApiResponse(responseCode = "500", description = "internal server error", content = @Content),
+    })
+    @NonNull
+    @GetMapping("/stripe/customerPortalUrl")
+    ResponseEntity<StripeCustomerPortalUrlResponse> stripeCustomerPortalUrl(
+        @NonNull @AuthenticationPrincipal Long principalId,
+        @Valid @NotBlank @HttpUrl @RequestParam(required = false) String returnUrl
+    ) {
+        try {
+            val response = subscriptionService.getStripeCustomerPortalUrl(principalId, returnUrl);
+            return ResponseEntity.ok(response);
+        } catch (StripeCustomerPortalUrlException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    /**
      * Gets an issued gift card.
      *
      * @param giftCardCode must not be blank.
@@ -333,6 +381,7 @@ class SubscriptionController {
      * @param giftCardCode must not be blank.
      * @return the newly activated subscription on successful redemption of the gift card.
      */
+    @Deprecated
     @Operation(summary = "Redeem a gift card")
     @ApiResponses({
         @ApiResponse(responseCode = "201"),
@@ -351,7 +400,8 @@ class SubscriptionController {
         @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
     ) {
         try {
-            val response = subscriptionService.redeemGiftCard(principalId, giftCardCode);
+            val responseV2 = subscriptionService.redeemGiftCard(principalId, giftCardCode);
+            val response = buildSubscriptionResponseV1(responseV2);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (GiftCardNotFoundException e) {
             return ResponseEntity.notFound().build();
@@ -362,5 +412,30 @@ class SubscriptionController {
         } catch (GiftCardRedeemedException e) {
             return ResponseEntity.unprocessableEntity().build();
         }
+    }
+
+    @NonNull
+    private String requireStripeCustomerPortalUrl(@NonNull Long principalId, String returnUrl) {
+        try {
+            return subscriptionService.getStripeCustomerPortalUrl(principalId, returnUrl).getUrl();
+        } catch (StripeCustomerPortalUrlException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private SubscriptionResponse buildSubscriptionResponseV1(@NonNull SubscriptionResponseV2 responseV2) {
+        return SubscriptionResponse.builder()
+            .id(responseV2.getId())
+            .plan(responseV2.getPlan())
+            .isActive(responseV2.getIsActive())
+            .isPaymentPending(responseV2.getIsPaymentPending())
+            .startedAt(responseV2.getStartedAt())
+            .endedAt(responseV2.getEndedAt())
+            .isAutoRenewing(responseV2.getIsAutoRenewing())
+            .isRefunded(responseV2.getIsRefunded())
+            .renewsAt(responseV2.getRenewsAt())
+            .googlePlayPurchaseToken(responseV2.getGooglePlayPurchaseToken())
+            .giftCardCode(responseV2.getGiftCardCode())
+            .build();
     }
 }

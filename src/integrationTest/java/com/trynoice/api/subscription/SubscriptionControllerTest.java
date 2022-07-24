@@ -3,17 +3,11 @@ package com.trynoice.api.subscription;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.exception.StripeException;
-import com.stripe.model.Event;
-import com.stripe.model.EventDataObjectDeserializer;
-import com.stripe.model.Price;
-import com.stripe.model.StripeObject;
-import com.stripe.model.SubscriptionItem;
-import com.stripe.model.SubscriptionItemCollection;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
-import com.trynoice.api.subscription.entities.GiftCard;
 import com.trynoice.api.subscription.entities.GiftCardRepository;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
@@ -40,7 +34,6 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -51,6 +44,13 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildCustomer;
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildGiftCard;
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildStripeCheckoutSession;
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildStripeEvent;
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildStripeSubscription;
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildSubscription;
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildSubscriptionPlan;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static com.trynoice.api.testing.AuthTestUtils.createSignedAccessJwt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -104,6 +104,9 @@ public class SubscriptionControllerTest {
     @MockBean
     private StripeApi stripeApi;
 
+    @MockBean
+    private ForeignExchangeRatesProvider exchangeRatesProvider;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -117,6 +120,8 @@ public class SubscriptionControllerTest {
 
         if (currency != null) {
             request.queryParam("currency", currency);
+            when(exchangeRatesProvider.getRateForCurrency(any(), eq(currency)))
+                .thenReturn(Optional.of(1.0));
         }
 
         val result = mockMvc.perform(request)
@@ -157,25 +162,25 @@ public class SubscriptionControllerTest {
         Boolean wasSubscriptionActive,
         int expectedResponseStatus
     ) throws Exception {
-        val providerPlanId = "provider-plan-id";
+        val providedId = "provided-id";
         val successUrl = "https://api.test/success";
         val cancelUrl = "https://api.test/cancel";
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan(provider, providerPlanId);
+        val plan = buildSubscriptionPlan(entityManager, provider, providedId);
         if (wasSubscriptionActive != null) {
-            buildSubscription(authUser, plan, wasSubscriptionActive, false, null);
+            buildSubscription(entityManager, authUser, plan, wasSubscriptionActive, false, null);
         }
 
         val mockSession = mock(Session.class);
         val sessionUrl = "/checkout-session-url";
         if (provider == SubscriptionPlan.Provider.STRIPE) {
-            val customer = buildCustomer(authUser);
+            val customer = buildCustomer(entityManager, authUser);
             when(mockSession.getUrl()).thenReturn(sessionUrl);
             when(
                 stripeApi.createCheckoutSession(
                     eq(successUrl),
                     eq(cancelUrl),
-                    eq(plan.getProviderPlanId()),
+                    eq(plan.getProvidedId()),
                     any(),
                     eq(null),
                     eq(customer.getStripeId()),
@@ -183,12 +188,12 @@ public class SubscriptionControllerTest {
                 .thenReturn(mockSession);
         }
 
+        val params = objectMapper.writeValueAsString(new SubscriptionFlowParams(plan.getId(), successUrl, cancelUrl));
         val resultActions = mockMvc.perform(
                 post("/v1/subscriptions")
                     .header("Authorization", "bearer " + createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(
-                        new SubscriptionFlowParams(plan.getId(), successUrl, cancelUrl))))
+                    .content(params))
             .andExpect(status().is(expectedResponseStatus));
 
         if (expectedResponseStatus == HttpStatus.CREATED.value()) {
@@ -213,16 +218,16 @@ public class SubscriptionControllerTest {
 
     @Test
     void listSubscriptions() throws Exception {
-        val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
+        val subscriptionPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
         val data = new HashMap<AuthUser, List<Subscription>>();
         for (int i = 0; i < 5; i++) {
             val authUser = createAuthUser(entityManager);
             val subscriptions = new ArrayList<Subscription>(5);
             for (int j = 0; j < 5; j++) {
-                subscriptions.add(buildSubscription(authUser, subscriptionPlan, true, false, null));
+                subscriptions.add(buildSubscription(entityManager, authUser, subscriptionPlan, true, false, null));
             }
 
-            val unstarted = buildSubscription(authUser, subscriptionPlan, false, false, null);
+            val unstarted = buildSubscription(entityManager, authUser, subscriptionPlan, false, false, null);
             unstarted.setStartAt(null);
             unstarted.setEndAt(null);
             subscriptions.add(subscriptionRepository.save(unstarted));
@@ -237,7 +242,7 @@ public class SubscriptionControllerTest {
             val mockSession = mock(com.stripe.model.billingportal.Session.class);
             lenient().when(mockSession.getUrl()).thenReturn(testCustomerPortalUrl);
 
-            val customer = buildCustomer(entry.getKey());
+            val customer = buildCustomer(entityManager, entry.getKey());
             entry.getValue().stream()
                 .filter(s -> s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE)
                 .forEach(s -> {
@@ -255,7 +260,10 @@ public class SubscriptionControllerTest {
                 .header("Authorization", "Bearer " + accessToken);
 
             if (addCurrencyParam) {
-                requestBuilder.queryParam("currency", "USD");
+                val currency = "USD";
+                requestBuilder.queryParam("currency", currency);
+                when(exchangeRatesProvider.getRateForCurrency(any(), eq(currency)))
+                    .thenReturn(Optional.of(1.0));
             }
 
             val result = mockMvc.perform(requestBuilder)
@@ -298,10 +306,10 @@ public class SubscriptionControllerTest {
 
     @Test
     void listSubscriptions_pagination() throws Exception {
-        val subscriptionPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
+        val subscriptionPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
         val owner = createAuthUser(entityManager);
         for (int j = 0; j < 25; j++) {
-            buildSubscription(owner, subscriptionPlan, true, false, null);
+            buildSubscription(entityManager, owner, subscriptionPlan, true, false, null);
         }
 
         val pageSizes = Map.of(0, 20, 1, 5);
@@ -327,8 +335,8 @@ public class SubscriptionControllerTest {
     void getSubscription() throws Exception {
         val owner = createAuthUser(entityManager);
         val impersonator = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
-        val subscription = buildSubscription(owner, plan, false, false, null);
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "test-provider-id");
+        val subscription = buildSubscription(entityManager, owner, plan, false, false, null);
 
         val impersonatorToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
         doGetSubscriptionRequest(impersonatorToken, subscription.getId(), null)
@@ -339,11 +347,14 @@ public class SubscriptionControllerTest {
             .andExpect(status().is(HttpStatus.OK.value()))
             .andExpect(jsonPath("$.id").value(subscription.getId()));
 
-        doGetSubscriptionRequest(ownerAccessToken, subscription.getId(), "USD")
+        val currency = "USD";
+        when(exchangeRatesProvider.getRateForCurrency(any(), eq(currency)))
+            .thenReturn(Optional.of(1.0));
+        doGetSubscriptionRequest(ownerAccessToken, subscription.getId(), currency)
             .andExpect(status().is(HttpStatus.OK.value()))
             .andExpect(jsonPath("$.plan.priceInRequestedCurrency").isNumber());
 
-        val unstartedSubscription = buildSubscription(owner, plan, false, false, null);
+        val unstartedSubscription = buildSubscription(entityManager, owner, plan, false, false, null);
         unstartedSubscription.setStartAt(null);
         unstartedSubscription.setEndAt(null);
         subscriptionRepository.save(unstartedSubscription);
@@ -373,8 +384,8 @@ public class SubscriptionControllerTest {
         val actualOwnerAccessToken = createSignedAccessJwt(hmacSecret, actualOwner, AuthTestUtils.JwtType.VALID);
         val impersonatorAccessToken = createSignedAccessJwt(hmacSecret, impersonator, AuthTestUtils.JwtType.VALID);
 
-        val plan = buildSubscriptionPlan(provider, "provider-plan-id");
-        val subscription = buildSubscription(actualOwner, plan, isSubscriptionActive, false, "test-id");
+        val plan = buildSubscriptionPlan(entityManager, provider, "provider-plan-id");
+        val subscription = buildSubscription(entityManager, actualOwner, plan, isSubscriptionActive, false, "test-id");
 
         mockMvc.perform(
                 delete("/v1/subscriptions/" + subscription.getId())
@@ -391,11 +402,11 @@ public class SubscriptionControllerTest {
             switch (provider) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 default:
                     throw new RuntimeException("unknown provider");
@@ -421,8 +432,8 @@ public class SubscriptionControllerTest {
         boolean isSubscriptionActive,
         int expectedResponseCode
     ) throws Exception {
-        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan");
-        val subscription = buildSubscription(createAuthUser(entityManager), plan, false, false, null);
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "test-plan");
+        val subscription = buildSubscription(entityManager, createAuthUser(entityManager), plan, false, false, null);
         val checkoutSession = buildStripeCheckoutSession(sessionStatus, sessionPaymentStatus, String.valueOf(subscription.getId()));
         val event = buildStripeEvent("checkout.session.completed", checkoutSession);
         val signature = "dummy-signature";
@@ -431,7 +442,7 @@ public class SubscriptionControllerTest {
             .thenReturn(event);
 
         lenient().when(stripeApi.getSubscription(any()))
-            .thenReturn(buildStripeSubscription(null, "active", plan.getProviderPlanId()));
+            .thenReturn(buildStripeSubscription(null, "active", plan.getProvidedId()));
 
         mockMvc.perform(post("/v1/subscriptions/stripe/webhook")
                 .header("Stripe-Signature", signature)
@@ -464,10 +475,10 @@ public class SubscriptionControllerTest {
         boolean isSubscriptionActive,
         boolean isPaymentPending
     ) throws Exception {
-        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
         val stripeSubscriptionId = UUID.randomUUID().toString();
-        val subscription = buildSubscription(createAuthUser(entityManager), plan, wasSubscriptionActive, wasPaymentPending, stripeSubscriptionId);
-        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus, plan.getProviderPlanId());
+        val subscription = buildSubscription(entityManager, createAuthUser(entityManager), plan, wasSubscriptionActive, wasPaymentPending, stripeSubscriptionId);
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, stripeSubscriptionStatus, plan.getProvidedId());
         val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
         val signature = "dummy-signature";
 
@@ -503,11 +514,11 @@ public class SubscriptionControllerTest {
 
     @Test
     void handleStripeWebhookEvent_planUpgrade() throws Exception {
-        val oldPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-1");
-        val newPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-2");
+        val oldPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "provider-plan-1");
+        val newPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "provider-plan-2");
         val stripeSubscriptionId = UUID.randomUUID().toString();
-        val subscription = buildSubscription(createAuthUser(entityManager), oldPlan, true, false, stripeSubscriptionId);
-        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", newPlan.getProviderPlanId());
+        val subscription = buildSubscription(entityManager, createAuthUser(entityManager), oldPlan, true, false, stripeSubscriptionId);
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", newPlan.getProvidedId());
         val event = buildStripeEvent("customer.subscription.updated", stripeSubscription);
         val signature = "dummy-signature";
 
@@ -523,7 +534,7 @@ public class SubscriptionControllerTest {
                 .content(event.toJson()))
             .andExpect(status().is(HttpStatus.OK.value()));
 
-        assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
+        assertEquals(newPlan.getProvidedId(), subscription.getPlan().getProvidedId());
     }
 
     @Test
@@ -531,11 +542,11 @@ public class SubscriptionControllerTest {
         // when user initiates purchase flow twice without completion and then goes on to complete
         // both the flows.
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "provider-plan-id");
         val stripeSubscriptionId = UUID.randomUUID().toString();
-        val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
-        val subscription2 = buildSubscription(authUser, plan, false, false, null);
-        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", plan.getProviderPlanId());
+        val subscription1 = buildSubscription(entityManager, authUser, plan, true, false, UUID.randomUUID().toString());
+        val subscription2 = buildSubscription(entityManager, authUser, plan, false, false, null);
+        val stripeSubscription = buildStripeSubscription(stripeSubscriptionId, "active", plan.getProvidedId());
         val checkoutSession = buildStripeCheckoutSession("complete", "paid", String.valueOf(subscription2.getId()));
         checkoutSession.setSubscription(stripeSubscriptionId);
         val event = buildStripeEvent("checkout.session.completed", checkoutSession);
@@ -584,13 +595,50 @@ public class SubscriptionControllerTest {
     }
 
     @ParameterizedTest
+    @MethodSource("getStripeCustomerPortalUrlTestCases")
+    void getStripeCustomerPortalUrl(boolean exists, String stripeId, String returnUrl, int expectedResponseStatus) throws Exception {
+        val user = createAuthUser(entityManager);
+        if (exists) {
+            val customer = buildCustomer(entityManager, user);
+            customer.setStripeId(stripeId);
+            entityManager.persist(customer);
+        }
+
+        val customerPortalUrl = "https://api.test/customer-portal-url";
+        val customerPortalSession = mock(com.stripe.model.billingportal.Session.class);
+        when(customerPortalSession.getUrl()).thenReturn(customerPortalUrl);
+        lenient().when(stripeApi.createCustomerPortalSession(stripeId, returnUrl)).thenReturn(customerPortalSession);
+
+        val accessToken = createSignedAccessJwt(hmacSecret, user, AuthTestUtils.JwtType.VALID);
+        val resultActions = mockMvc.perform(
+                get("/v1/subscriptions/stripe/customerPortalUrl")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .queryParam("returnUrl", returnUrl))
+            .andExpect(status().is(expectedResponseStatus));
+
+        if (expectedResponseStatus == HttpStatus.OK.value()) {
+            resultActions.andExpect(jsonPath("$.url").value(customerPortalUrl));
+        }
+    }
+
+    static Stream<Arguments> getStripeCustomerPortalUrlTestCases() {
+        return Stream.of(
+            // customer exists, stripe customer id, return url, expected response code
+            arguments(false, null, null, 400),
+            arguments(false, null, "https://api.test/return-url", 404),
+            arguments(true, null, "https://api.test/return-url", 404),
+            arguments(true, "test-stripe-id", "https://api.test/return-url", 200)
+        );
+    }
+
+    @ParameterizedTest
     @MethodSource("getGiftCardTestCases")
     void getGiftCard(boolean exists, Boolean owned, int expectedResponseStatus) throws Exception {
         val code = "test-gift-card-1";
         val authUser = createAuthUser(entityManager);
         if (exists) {
-            val owner = owned == null ? null : buildCustomer(owned ? authUser : createAuthUser(entityManager));
-            buildGiftCard(code, owner, false, false);
+            val owner = owned == null ? null : buildCustomer(entityManager, owned ? authUser : createAuthUser(entityManager));
+            buildGiftCard(entityManager, code, owner, false, false);
         }
 
         val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
@@ -623,13 +671,13 @@ public class SubscriptionControllerTest {
         val code = "test-gift-card-2";
         val authUser = createAuthUser(entityManager);
         if (exists) {
-            val owner = owned == null ? null : buildCustomer(owned ? authUser : createAuthUser(entityManager));
-            buildGiftCard(code, owner, redeemed, expired);
+            val owner = owned == null ? null : buildCustomer(entityManager, owned ? authUser : createAuthUser(entityManager));
+            buildGiftCard(entityManager, code, owner, redeemed, expired);
         }
 
         if (subscribed) {
-            val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-plan");
-            buildSubscription(authUser, plan, true, false, "test-sub");
+            val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "test-plan");
+            buildSubscription(entityManager, authUser, plan, true, false, "test-sub");
         }
 
         val accessToken = createSignedAccessJwt(hmacSecret, authUser, AuthTestUtils.JwtType.VALID);
@@ -653,119 +701,5 @@ public class SubscriptionControllerTest {
             arguments(true, true, false, null, false, HttpStatus.CREATED.value()),
             arguments(true, true, false, false, true, HttpStatus.CONFLICT.value())
         );
-    }
-
-    @NonNull
-    private SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providerPlanId) {
-        val plan = SubscriptionPlan.builder()
-            .provider(provider)
-            .providerPlanId(providerPlanId)
-            .billingPeriodMonths((short) 1)
-            .trialPeriodDays((short) 1)
-            .priceInIndianPaise(10000)
-            .build();
-
-        entityManager.persist(plan);
-        return plan;
-    }
-
-    @NonNull
-    private Subscription buildSubscription(
-        @NonNull AuthUser owner,
-        @NonNull SubscriptionPlan plan,
-        boolean isActive,
-        boolean isPaymentPending,
-        String providerSubscriptionId
-    ) {
-        return subscriptionRepository.save(
-            Subscription.builder()
-                .customer(
-                    customerRepository.save(
-                        Customer.builder()
-                            .userId(owner.getId())
-                            .build()))
-                .plan(plan)
-                .providerSubscriptionId(providerSubscriptionId)
-                .isPaymentPending(isPaymentPending)
-                .startAt(OffsetDateTime.now().plusHours(-2))
-                .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))
-                .build());
-    }
-
-    @NonNull
-    private Customer buildCustomer(@NonNull AuthUser user) {
-        return customerRepository.save(
-            Customer.builder()
-                .userId(user.getId())
-                .stripeId(UUID.randomUUID().toString())
-                .build());
-    }
-
-    @NonNull
-    private GiftCard buildGiftCard(@NonNull String code, Customer customer, boolean isRedeemed, Boolean isExpired) {
-        return giftCardRepository.save(
-            GiftCard.builder()
-                .code(code)
-                .hourCredits((short) 1)
-                .plan(buildSubscriptionPlan(SubscriptionPlan.Provider.GIFT_CARD, "gift-card"))
-                .customer(customer)
-                .isRedeemed(isRedeemed)
-                .expiresAt(isExpired == null ? null : OffsetDateTime.now().plusHours(isExpired ? -1 : 1))
-                .build());
-    }
-
-    @NonNull
-    private static Event buildStripeEvent(@NonNull String type, @NonNull StripeObject dataObject) {
-        // TODO: maybe find a fix in free time.
-        // mock because event data object serialization/deserialization is confusing and all my
-        // attempts failed.
-        val event = mock(Event.class);
-        lenient().when(event.getType()).thenReturn(type);
-
-        val deserializer = mock(EventDataObjectDeserializer.class);
-        lenient().when(deserializer.getObject()).thenReturn(Optional.of(dataObject));
-        lenient().when(event.getDataObjectDeserializer()).thenReturn(deserializer);
-
-        lenient().when(event.toJson()).thenReturn("{}");
-        return event;
-    }
-
-    @NonNull
-    private static Session buildStripeCheckoutSession(@NonNull String status, @NonNull String paymentStatus, String clientReferenceId) {
-        val session = new Session();
-        session.setMode("subscription");
-        session.setStatus(status);
-        session.setPaymentStatus(paymentStatus);
-        session.setSubscription(UUID.randomUUID().toString());
-        session.setCustomer(UUID.randomUUID().toString());
-        session.setClientReferenceId(clientReferenceId);
-        return session;
-    }
-
-    @NonNull
-    private static com.stripe.model.Subscription buildStripeSubscription(String id, @NonNull String status, @NonNull String priceId) {
-        val subscription = new com.stripe.model.Subscription();
-        subscription.setId(id);
-        subscription.setStatus(status);
-
-        val now = OffsetDateTime.now().toEpochSecond();
-        subscription.setCurrentPeriodStart(now);
-        subscription.setStartDate(now);
-        subscription.setCurrentPeriodEnd(now + 60 * 60);
-
-        val items = new SubscriptionItemCollection();
-        items.setData(List.of(buildSubscriptionItem(priceId)));
-        subscription.setItems(items);
-        return subscription;
-    }
-
-    @NonNull
-    private static SubscriptionItem buildSubscriptionItem(@NonNull String priceId) {
-        val price = new Price();
-        price.setId(priceId);
-
-        val subscriptionItem = new SubscriptionItem();
-        subscriptionItem.setPrice(price);
-        return subscriptionItem;
     }
 }

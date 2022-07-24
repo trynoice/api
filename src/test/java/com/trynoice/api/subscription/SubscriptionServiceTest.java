@@ -17,6 +17,7 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
 import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
 import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
+import com.trynoice.api.subscription.exceptions.StripeCustomerPortalUrlException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
@@ -158,7 +159,7 @@ public class SubscriptionServiceTest {
                 assertEquals(requestingCurrencyCode, got.getRequestedCurrencyCode());
                 assertEquals(
                     expecting.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
-                        ? expecting.getProviderPlanId()
+                        ? expecting.getProvidedId()
                         : null,
                     got.getGooglePlaySubscriptionId());
             }
@@ -282,12 +283,12 @@ public class SubscriptionServiceTest {
         lenient().when(exchangeRatesProvider.getRateForCurrency(any(), any()))
             .thenReturn(Optional.of(1.0));
 
-        val result1 = service.listSubscriptions(userId1, false, null, null, 0);
+        val result1 = service.listSubscriptions(userId1, false, null, 0);
         assertEquals(1, result1.size());
         assertEquals(subscription1.getId(), result1.get(0).getId());
         assertNull(result1.get(0).getPlan().getPriceInRequestedCurrency());
 
-        val result2 = service.listSubscriptions(userId2, false, null, "USD", 0);
+        val result2 = service.listSubscriptions(userId2, false, "USD", 0);
         assertEquals(1, result2.size());
         assertEquals(subscription2.getId(), result2.get(0).getId());
         assertNotNull(result2.get(0).getPlan().getPriceInRequestedCurrency());
@@ -316,11 +317,11 @@ public class SubscriptionServiceTest {
             switch (subscription.getPlan().getProvider()) {
                 case GOOGLE_PLAY:
                     verify(androidPublisherApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 case STRIPE:
                     verify(stripeApi, times(1))
-                        .cancelSubscription(subscription.getProviderSubscriptionId());
+                        .cancelSubscription(subscription.getProvidedId());
                     break;
                 default:
                     throw new RuntimeException("unknown provider");
@@ -354,6 +355,44 @@ public class SubscriptionServiceTest {
     @Test
     void handleStripeWebhookEvent() {
         // skipped unit tests, wrote integration tests instead.
+    }
+
+    @Test
+    void getStripeCustomerPortalUrl_withNonExistingCustomer() {
+        val customerId = 1L;
+        val returnUrl = "https://api.test/return-url";
+        assertThrows(StripeCustomerPortalUrlException.class, () -> service.getStripeCustomerPortalUrl(customerId, returnUrl));
+    }
+
+    @Test
+    void getStripeCustomerPortalUrl_withNonExistingStripeCustomer() {
+        val customerId = 1L;
+        val returnUrl = "https://api.test/return-url";
+        val customer = Customer.builder()
+            .userId(customerId)
+            .build();
+
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        assertThrows(StripeCustomerPortalUrlException.class, () -> service.getStripeCustomerPortalUrl(customerId, returnUrl));
+    }
+
+    @Test
+    void getStripeCustomerPortalUrl() throws StripeException {
+        val customerId = 1L;
+        val stripeId = "test-id";
+        val returnUrl = "https://api.test/return-url";
+        val customer = Customer.builder()
+            .userId(customerId)
+            .stripeId(stripeId)
+            .build();
+
+        val customerPortalUrl = "https://api.test/customer-portal-url";
+        val customerPortalSession = mock(com.stripe.model.billingportal.Session.class);
+        when(customerPortalSession.getUrl()).thenReturn(customerPortalUrl);
+        when(stripeApi.createCustomerPortalSession(stripeId, returnUrl)).thenReturn(customerPortalSession);
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        val response = assertDoesNotThrow(() -> service.getStripeCustomerPortalUrl(customerId, returnUrl));
+        assertEquals(customerPortalUrl, response.getUrl());
     }
 
     @Test
@@ -438,10 +477,10 @@ public class SubscriptionServiceTest {
     }
 
     @NonNull
-    private static SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providerPlanId) {
+    private static SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providedId) {
         val plan = SubscriptionPlan.builder()
             .provider(provider)
-            .providerPlanId(providerPlanId)
+            .providedId(providedId)
             .billingPeriodMonths((short) 2)
             .trialPeriodDays((short) 1)
             .priceInIndianPaise(22500)
@@ -463,7 +502,7 @@ public class SubscriptionServiceTest {
             .id(Math.round(Math.random() * 1000))
             .customer(Customer.builder().userId(ownerId).build())
             .plan(plan)
-            .providerSubscriptionId(UUID.randomUUID().toString())
+            .providedId(UUID.randomUUID().toString())
             .isPaymentPending(isPaymentPending)
             .startAt(now.plusHours(-2))
             .endAt(now.plusHours(isActive ? 2 : -1))

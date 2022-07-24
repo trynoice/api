@@ -24,6 +24,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static com.trynoice.api.subscription.SubscriptionTestUtils.buildSubscriptionPlan;
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -64,7 +65,7 @@ public class SubscriptionServiceTest {
     ) throws Exception {
         val purchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan(purchase.getProductId());
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, purchase.getProductId());
         val subscription = buildSubscription(authUser, plan, wasActive, wasPaymentPending, wasActive ? purchaseToken : null);
         purchase = purchase.withObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
         when(androidPublisherApi.getSubscriptionPurchase(purchaseToken))
@@ -79,7 +80,7 @@ public class SubscriptionServiceTest {
 
         assertEquals(isActive, subscription.isActive());
         assertEquals(isPaymentPending, subscription.isPaymentPending());
-        assertEquals(purchaseToken, subscription.getProviderSubscriptionId());
+        assertEquals(purchaseToken, subscription.getProvidedId());
         assertTrue(subscription.getCustomer().isTrialPeriodUsed());
 
         verify(androidPublisherApi, times(shouldAcknowledgePurchase ? 1 : 0))
@@ -151,14 +152,14 @@ public class SubscriptionServiceTest {
 
     @Test
     void handleGooglePlayWebhookEvent_planUpgrade() throws Exception {
-        val oldPlan = buildSubscriptionPlan("test-plan-1");
-        val newPlan = buildSubscriptionPlan("test-plan-2");
+        val oldPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-plan-1");
+        val newPlan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-plan-2");
         val oldPurchaseToken = UUID.randomUUID().toString();
         val newPurchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
         val subscription = buildSubscription(authUser, oldPlan, true, false, oldPurchaseToken);
         val purchase = GooglePlaySubscriptionPurchase.builder()
-            .productId(newPlan.getProviderPlanId())
+            .productId(newPlan.getProvidedId())
             .startTimeMillis(System.currentTimeMillis())
             .expiryTimeMillis(System.currentTimeMillis() + 60 * 60 * 1000L)
             .isPaymentPending(false)
@@ -176,8 +177,8 @@ public class SubscriptionServiceTest {
                 GooglePlayDeveloperNotification.SubscriptionNotification.TYPE_RENEWED,
                 newPurchaseToken));
 
-        assertEquals(newPlan.getProviderPlanId(), subscription.getPlan().getProviderPlanId());
-        assertEquals(newPurchaseToken, subscription.getProviderSubscriptionId());
+        assertEquals(newPlan.getProvidedId(), subscription.getPlan().getProvidedId());
+        assertEquals(newPurchaseToken, subscription.getProvidedId());
     }
 
     @Test
@@ -185,12 +186,12 @@ public class SubscriptionServiceTest {
         // when user initiates purchase flow twice without completion and then goes on to complete
         // both the flows.
         val authUser = createAuthUser(entityManager);
-        val plan = buildSubscriptionPlan("test-plan");
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-plan");
         val purchaseToken = UUID.randomUUID().toString();
         val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
         val subscription2 = buildSubscription(authUser, plan, false, false, null);
         val purchase = GooglePlaySubscriptionPurchase.builder()
-            .productId(plan.getProviderPlanId())
+            .productId(plan.getProvidedId())
             .startTimeMillis(System.currentTimeMillis())
             .expiryTimeMillis(System.currentTimeMillis() * 60 * 60 * 1000L)
             .isPaymentPending(true)
@@ -209,21 +210,7 @@ public class SubscriptionServiceTest {
 
         assertTrue(subscription1.isActive());
         assertFalse(subscription2.isActive());
-        verify(androidPublisherApi, times(0)).acknowledgePurchase(plan.getProviderPlanId(), purchaseToken);
-    }
-
-    @NonNull
-    private SubscriptionPlan buildSubscriptionPlan(@NonNull String providerPlanId) {
-        val plan = SubscriptionPlan.builder()
-            .provider(SubscriptionPlan.Provider.GOOGLE_PLAY)
-            .providerPlanId(providerPlanId)
-            .billingPeriodMonths((short) 1)
-            .trialPeriodDays((short) 1)
-            .priceInIndianPaise(10000)
-            .build();
-
-        entityManager.persist(plan);
-        return plan;
+        verify(androidPublisherApi, times(0)).acknowledgePurchase(plan.getProvidedId(), purchaseToken);
     }
 
     @NonNull
@@ -232,7 +219,7 @@ public class SubscriptionServiceTest {
         @NonNull SubscriptionPlan plan,
         boolean isActive,
         boolean isPaymentPending,
-        String providerSubscriptionId
+        String providedId
     ) {
         return subscriptionRepository.save(
             Subscription.builder()
@@ -242,7 +229,7 @@ public class SubscriptionServiceTest {
                             .userId(owner.getId())
                             .build()))
                 .plan(plan)
-                .providerSubscriptionId(providerSubscriptionId)
+                .providedId(providedId)
                 .isPaymentPending(isPaymentPending)
                 .startAt(OffsetDateTime.now().plusHours(-2))
                 .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))

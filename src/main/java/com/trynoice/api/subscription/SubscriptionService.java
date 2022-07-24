@@ -19,6 +19,7 @@ import com.trynoice.api.subscription.exceptions.DuplicateSubscriptionException;
 import com.trynoice.api.subscription.exceptions.GiftCardExpiredException;
 import com.trynoice.api.subscription.exceptions.GiftCardNotFoundException;
 import com.trynoice.api.subscription.exceptions.GiftCardRedeemedException;
+import com.trynoice.api.subscription.exceptions.StripeCustomerPortalUrlException;
 import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
@@ -27,10 +28,11 @@ import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.payload.GiftCardResponse;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
+import com.trynoice.api.subscription.payload.StripeCustomerPortalUrlResponse;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
-import com.trynoice.api.subscription.payload.SubscriptionFlowResponse;
+import com.trynoice.api.subscription.payload.SubscriptionFlowResponseV2;
 import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
-import com.trynoice.api.subscription.payload.SubscriptionResponse;
+import com.trynoice.api.subscription.payload.SubscriptionResponseV2;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,7 +141,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      *
      * <p>
      * If the requested plan is provided by {@link SubscriptionPlan.Provider#STRIPE}, it also
-     * returns a non-null {@link SubscriptionFlowResponse#getStripeCheckoutSessionUrl() checkout
+     * returns a non-null {@link SubscriptionFlowResponseV2#getStripeCheckoutSessionUrl() checkout
      * session url}. The clients must redirect user to the checkout session url to conclude the
      * subscription flow.</p>
      *
@@ -151,13 +153,13 @@ class SubscriptionService implements SubscriptionServiceContract {
      *
      * @param customerId id of the customer (user) that initiated the subscription flow.
      * @param params     subscription flow parameters.
-     * @return a non-null {@link SubscriptionFlowResponse}.
+     * @return a non-null {@link SubscriptionFlowResponseV2}.
      * @throws SubscriptionPlanNotFoundException if the specified plan doesn't exist.
      * @throws DuplicateSubscriptionException    if the user already has an active/pending subscription.
      */
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
-    public SubscriptionFlowResponse createSubscription(
+    public SubscriptionFlowResponseV2 createSubscription(
         @NonNull Long customerId,
         @NonNull SubscriptionFlowParams params
     ) throws SubscriptionPlanNotFoundException, DuplicateSubscriptionException {
@@ -185,8 +187,9 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .plan(plan)
                 .build());
 
-        val result = new SubscriptionFlowResponse();
-        result.setSubscription(buildSubscriptionResponse(subscription, null, null, null));
+        val result = new SubscriptionFlowResponseV2();
+        result.setSubscription(buildSubscriptionResponse(subscription, null, null));
+        result.setSubscriptionId(subscription.getId());
         if (plan.getProvider() != SubscriptionPlan.Provider.STRIPE) {
             return result;
         }
@@ -197,7 +200,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             val checkoutSession = stripeApi.createCheckoutSession(
                 params.getSuccessUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
                 params.getCancelUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
-                plan.getProviderPlanId(),
+                plan.getProvidedId(),
                 subscriptionIdStr,
                 customer.getStripeId() == null
                     ? accountServiceContract.findEmailByUser(customerId).orElse(null)
@@ -228,18 +231,15 @@ class SubscriptionService implements SubscriptionServiceContract {
      * pages, it returns an empty list. If {@code onlyActive} is {@literal true}, it lists the
      * currently active subscription purchase (at most one).
      *
-     * @param customerId      id of the customer (user) that purchased the subscriptions.
-     * @param onlyActive      return only the active subscription (if any).
-     * @param stripeReturnUrl optional redirect URL on exiting Stripe Customer portal (only used
-     *                        when an active subscription exists and is provided by Stripe).
-     * @param pageNumber      a not {@literal null} 0-indexed page number.
+     * @param customerId id of the customer (user) that purchased the subscriptions.
+     * @param onlyActive return only the active subscription (if any).
+     * @param pageNumber a not {@literal null} 0-indexed page number.
      * @return a list of subscription purchased by the given {@code customerId}.
      */
     @NonNull
-    List<SubscriptionResponse> listSubscriptions(
+    List<SubscriptionResponseV2> listSubscriptions(
         @NonNull Long customerId,
         @NonNull Boolean onlyActive,
-        String stripeReturnUrl,
         String currencyCode,
         @NonNull Integer pageNumber
     ) {
@@ -253,43 +253,24 @@ class SubscriptionService implements SubscriptionServiceContract {
             subscriptions = subscriptionRepository.findAllStartedByCustomerUserId(customerId, pageable).toList();
         }
 
-        val stripeCustomerPortalUrl = subscriptions.stream()
-            .anyMatch(s -> s.isActive() && s.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE)
-            ? createStripeCustomerSession(subscriptions.get(0).getCustomer(), stripeReturnUrl)
-            : null;
-
         val exchangeRate = currencyCode == null ? null : exchangeRatesProvider.getRateForCurrency("INR", currencyCode).orElse(null);
         return subscriptions.stream()
-            .map(subscription -> buildSubscriptionResponse(subscription, stripeCustomerPortalUrl, currencyCode, exchangeRate))
+            .map(subscription -> buildSubscriptionResponse(subscription, currencyCode, exchangeRate))
             .collect(Collectors.toUnmodifiableList());
-    }
-
-    private String createStripeCustomerSession(@NonNull Customer customer, String returnUrl) {
-        if (customer.getStripeId() == null) {
-            return null;
-        }
-
-        try {
-            return stripeApi.createCustomerPortalSession(customer.getStripeId(), returnUrl).getUrl();
-        } catch (StripeException e) {
-            throw new RuntimeException("stripe api error", e);
-        }
     }
 
     /**
      * Get a subscription purchased by a customer by its {@code subscriptionId}.
      *
-     * @param customerId      must not be {@literal null}.
-     * @param subscriptionId  must not be {@literal null}.
-     * @param stripeReturnUrl optional redirect URL for exiting Stripe customer portal.
+     * @param customerId     must not be {@literal null}.
+     * @param subscriptionId must not be {@literal null}.
      * @return the requested subscription, guaranteed to be not {@literal null}.
      * @throws SubscriptionNotFoundException if such a subscription doesn't exist.
      */
     @NonNull
-    public SubscriptionResponse getSubscription(
+    public SubscriptionResponseV2 getSubscription(
         @NonNull Long customerId,
         @NonNull Long subscriptionId,
-        String stripeReturnUrl,
         String currencyCode
     ) throws SubscriptionNotFoundException {
         val subscription = subscriptionRepository.findById(subscriptionId)
@@ -305,9 +286,6 @@ class SubscriptionService implements SubscriptionServiceContract {
 
         return buildSubscriptionResponse(
             subscription,
-            subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
-                ? createStripeCustomerSession(subscription.getCustomer(), stripeReturnUrl)
-                : null,
             currencyCode,
             currencyCode == null
                 ? null
@@ -338,7 +316,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         switch (subscription.getPlan().getProvider()) {
             case GOOGLE_PLAY:
                 try {
-                    androidPublisherApi.cancelSubscription(subscription.getProviderSubscriptionId());
+                    androidPublisherApi.cancelSubscription(subscription.getProvidedId());
                 } catch (IOException e) {
                     throw new RuntimeException("google play api error", e);
                 }
@@ -347,7 +325,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             case STRIPE:
                 try {
                     // cancel at the end of current billing period to match Google Play Subscriptions behaviour.
-                    stripeApi.cancelSubscription(subscription.getProviderSubscriptionId());
+                    stripeApi.cancelSubscription(subscription.getProvidedId());
                 } catch (StripeException e) {
                     throw new RuntimeException("stripe api error", e);
                 }
@@ -409,13 +387,13 @@ class SubscriptionService implements SubscriptionServiceContract {
         // delivers its notification before expiring the old subscription. Hence, when an
         // upgrade/downgrade happens, we need prevent the old subscription's notification from
         // mutating our internal state. To achieve that, we rely on querying internal subscription
-        // objects using purchase tokens (provider subscription id).
+        // objects using purchase tokens (provided id).
         val subscription = notification.getNotificationType() == GooglePlayDeveloperNotification.SubscriptionNotification.TYPE_PURCHASED
             ? subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription entity for this purchase"))
-            : subscriptionRepository.findByProviderSubscriptionId(notification.getPurchaseToken())
+            : subscriptionRepository.findByProvidedId(notification.getPurchaseToken())
             .orElseGet(() -> purchase.getLinkedPurchaseToken() != null
-                ? subscriptionRepository.findByProviderSubscriptionId(purchase.getLinkedPurchaseToken()).orElse(null)
+                ? subscriptionRepository.findByProvidedId(purchase.getLinkedPurchaseToken()).orElse(null)
                 : null);
 
         if (subscription == null) {
@@ -424,7 +402,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             return;
         }
 
-        subscription.setProviderSubscriptionId(notification.getPurchaseToken());
+        subscription.setProvidedId(notification.getPurchaseToken());
         if (hasAnotherActiveSubscription(subscription)) {
             subscription.setAutoRenewing(false);
             subscription.setPaymentPending(false);
@@ -438,9 +416,9 @@ class SubscriptionService implements SubscriptionServiceContract {
             return; // without acknowledging purchase so that Google Play refunds it.
         }
 
-        if (purchase.getProductId() != null && !purchase.getProductId().equals(subscription.getPlan().getProviderPlanId())) {
+        if (purchase.getProductId() != null && !purchase.getProductId().equals(subscription.getPlan().getProvidedId())) {
             subscription.setPlan(
-                subscriptionPlanRepository.findByProviderPlanId(
+                subscriptionPlanRepository.findByProvidedId(
                         SubscriptionPlan.Provider.GOOGLE_PLAY, purchase.getProductId())
                     .orElseThrow(() -> new WebhookEventException("unknown provider plan id")));
         }
@@ -574,7 +552,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         val subscription = subscriptionRepository.findById(subscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription by checkout session's client reference id"));
 
-        subscription.setProviderSubscriptionId(session.getSubscription());
+        subscription.setProvidedId(session.getSubscription());
         val customer = subscription.getCustomer();
         if (!session.getCustomer().equals(customer.getStripeId())) {
             customer.setStripeId(session.getCustomer());
@@ -599,7 +577,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     private void handleStripeSubscriptionEvent(@NonNull String stripeSubscriptionId) throws WebhookPayloadException, WebhookEventException {
-        val subscription = subscriptionRepository.findByProviderSubscriptionId(stripeSubscriptionId)
+        val subscription = subscriptionRepository.findByProvidedId(stripeSubscriptionId)
             .orElseThrow(() -> new WebhookEventException("failed to find subscription corresponding to stripe object"));
 
         // always fetch subscription entity from Stripe API since retried (or delayed) webhook
@@ -612,7 +590,7 @@ class SubscriptionService implements SubscriptionServiceContract {
     private void copySubscriptionDetailsFromStripeObject(@NonNull Subscription subscription) throws WebhookPayloadException, WebhookEventException {
         final com.stripe.model.Subscription stripeSubscription;
         try {
-            stripeSubscription = stripeApi.getSubscription(subscription.getProviderSubscriptionId());
+            stripeSubscription = stripeApi.getSubscription(subscription.getProvidedId());
         } catch (StripeException e) {
             throw new RuntimeException("failed to get subscription object from stripe api", e);
         }
@@ -626,9 +604,9 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
 
         val stripePrice = stripeSubscription.getItems().getData().get(0).getPrice();
-        if (stripePrice.getId() != null && !subscription.getPlan().getProviderPlanId().equals(stripePrice.getId())) {
+        if (stripePrice.getId() != null && !subscription.getPlan().getProvidedId().equals(stripePrice.getId())) {
             subscription.setPlan(
-                subscriptionPlanRepository.findByProviderPlanId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
+                subscriptionPlanRepository.findByProvidedId(SubscriptionPlan.Provider.STRIPE, stripePrice.getId())
                     .orElseThrow(() -> new WebhookEventException("updated provider plan id not recognised")));
         }
 
@@ -716,7 +694,7 @@ class SubscriptionService implements SubscriptionServiceContract {
      */
     @NonNull
     @Transactional(rollbackFor = Throwable.class)
-    public SubscriptionResponse redeemGiftCard(
+    public SubscriptionResponseV2 redeemGiftCard(
         @NonNull Long customerId,
         @NonNull String giftCardCode
     ) throws GiftCardNotFoundException, GiftCardRedeemedException, GiftCardExpiredException, DuplicateSubscriptionException {
@@ -750,7 +728,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             Subscription.builder()
                 .customer(giftCard.getCustomer())
                 .plan(giftCard.getPlan())
-                .providerSubscriptionId(giftCardCode)
+                .providedId(giftCardCode)
                 .isPaymentPending(false)
                 .isAutoRenewing(false)
                 .isRefunded(false)
@@ -758,7 +736,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 .endAt(then)
                 .build());
 
-        return buildSubscriptionResponse(subscription, null, null, null);
+        return buildSubscriptionResponse(subscription, null, null);
     }
 
     /**
@@ -768,6 +746,36 @@ class SubscriptionService implements SubscriptionServiceContract {
     @Cacheable(cacheNames = SubscriptionBeans.CACHE_NAME, key = "'isSubscribed:' + #userId")
     public boolean isUserSubscribed(@NonNull Long userId) {
         return subscriptionRepository.existsActiveByCustomerUserId(userId);
+    }
+
+    /**
+     * Creates a new Stripe Customer Portal session for the given {@code customerId} and returns its
+     * URL.
+     *
+     * @param customerId a not {@literal null} id of the customer.
+     * @param returnUrl  a not {@literal null} redirect url for exiting the customer portal.
+     * @return a not {@literal null} {@link StripeCustomerPortalUrlResponse}.
+     * @throws StripeCustomerPortalUrlException if the customer with given {@code customerId}
+     *                                          doesn't exist on Stripe.
+     */
+    @NonNull
+    public StripeCustomerPortalUrlResponse getStripeCustomerPortalUrl(
+        @NonNull Long customerId,
+        @NonNull String returnUrl
+    ) throws StripeCustomerPortalUrlException {
+        val customer = customerRepository.findById(customerId).orElseThrow(StripeCustomerPortalUrlException::new);
+        if (customer.getStripeId() == null) {
+            throw new StripeCustomerPortalUrlException();
+        }
+
+        try {
+            val session = stripeApi.createCustomerPortalSession(customer.getStripeId(), returnUrl);
+            return StripeCustomerPortalUrlResponse.builder()
+                .url(session.getUrl())
+                .build();
+        } catch (StripeException e) {
+            throw new RuntimeException("stripe api error", e);
+        }
     }
 
     @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")
@@ -792,19 +800,14 @@ class SubscriptionService implements SubscriptionServiceContract {
             .requestedCurrencyCode(convertedPrice == null ? null : currencyCode)
             .googlePlaySubscriptionId(
                 plan.getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
-                    ? plan.getProviderPlanId()
+                    ? plan.getProvidedId()
                     : null)
             .build();
     }
 
     @NonNull
-    private static SubscriptionResponse buildSubscriptionResponse(
-        @NonNull Subscription subscription,
-        String stripeCustomerPortalUrl,
-        String currencyCode,
-        Double exchangeRate
-    ) {
-        return SubscriptionResponse.builder()
+    private static SubscriptionResponseV2 buildSubscriptionResponse(@NonNull Subscription subscription, String currencyCode, Double exchangeRate) {
+        return SubscriptionResponseV2.builder()
             .id(subscription.getId())
             .plan(buildSubscriptionPlanResponse(subscription.getPlan(), currencyCode, exchangeRate))
             .isActive(subscription.isActive())
@@ -817,15 +820,12 @@ class SubscriptionService implements SubscriptionServiceContract {
             .isAutoRenewing(subscription.isActive() && subscription.isAutoRenewing())
             .renewsAt(subscription.isActive() ? subscription.getEndAt() : null)
             .isRefunded(subscription.isRefunded() ? true : null)
-            .stripeCustomerPortalUrl(
-                subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.STRIPE
-                    ? stripeCustomerPortalUrl : null)
             .googlePlayPurchaseToken(
                 subscription.isActive() && subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GOOGLE_PLAY
-                    ? subscription.getProviderSubscriptionId() : null)
+                    ? subscription.getProvidedId() : null)
             .giftCardCode(
                 subscription.getPlan().getProvider() == SubscriptionPlan.Provider.GIFT_CARD
-                    ? subscription.getProviderSubscriptionId()
+                    ? subscription.getProvidedId()
                     : null)
             .build();
     }
