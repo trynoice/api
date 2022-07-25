@@ -337,7 +337,7 @@ class SubscriptionController {
     @GetMapping("/stripe/customerPortalUrl")
     ResponseEntity<StripeCustomerPortalUrlResponse> stripeCustomerPortalUrl(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotBlank @HttpUrl @RequestParam(required = false) String returnUrl
+        @Valid @NotBlank @HttpUrl @RequestParam String returnUrl
     ) {
         try {
             val response = subscriptionService.getStripeCustomerPortalUrl(principalId, returnUrl);
