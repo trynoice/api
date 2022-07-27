@@ -75,7 +75,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: Build API jar
+      - name: Build app
         run: |
           if [[ "$GITHUB_REF" =~ refs/tags/* ]]; then
             VERSION_NAME="${GITHUB_REF/'refs/tags/v'/''}"
@@ -85,6 +85,12 @@ jobs:
 
           BUILD_VERSION="${VERSION_NAME}-${GITHUB_SHA::7}" \
             ./gradlew bootJar --no-daemon
+
+          (mkdir -p jar-content; cd jar-content; jar -xf ../build/libs/*.jar;)
+          mkdir -p app
+          cp -r jar-content/BOOT-INF/lib app/lib
+          cp -r jar-content/META-INF app/
+          cp -r jar-content/BOOT-INF/classes/* app
 
       - name: Get workflow runner's public IP
         id: ip
@@ -207,17 +213,17 @@ jobs:
           aws ec2 authorize-security-group-ingress --group-id "$AWS_EC2_SG_ID" \
             --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
 
-      - name: Upload JAR and configuration files to EC2 host
+      - name: Upload app and configuration files to EC2 host
         uses: appleboy/scp-action@master
         with:
           host: ${{ env.AWS_EC2_HOST }}
           username: ${{ env.AWS_EC2_SSH_USER }}
           key: ${{ env.AWS_EC2_SSH_KEY }}
-          source: build/libs/api.jar,conf/*,deploy/systemd/*,deploy/logrotate.d/*
+          source: app,conf,deploy/systemd,deploy/logrotate.d
           target: ${{ env.SCP_DEST_PATH }}
           rm: true
 
-      - name: Configure EC2 host to use the updated JAR and configurations
+      - name: Configure EC2 host to use the updated app and configurations
         uses: appleboy/ssh-action@master
         with:
           host: ${{ env.AWS_EC2_HOST }}
@@ -232,7 +238,7 @@ jobs:
             sudo chown -R nobody:nogroup /var/log/noice
             sudo chmod -R 755 /var/log/noice
 
-            sudo mv ${{ env.SCP_DEST_PATH }}/build/libs /usr/local/share/noice
+            sudo mv ${{ env.SCP_DEST_PATH }}/app /usr/local/share/noice
             sudo chown -R nobody:nogroup /usr/local/share/noice
             sudo chmod -R 755 /usr/local/share/noice
 
