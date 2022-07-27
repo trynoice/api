@@ -1,4 +1,4 @@
-/var/log/noice/*.log {
+/var/log/noice-api/*.log {
   daily
   rotate 30
   copytruncate
