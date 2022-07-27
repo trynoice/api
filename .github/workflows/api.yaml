@@ -232,19 +232,15 @@ jobs:
           script_stop: true
           script: |
             sudo systemctl stop noice-api.service || true
-            sudo rm -rf /usr/local/share/noice /etc/noice
+            sudo rm -rf /usr/local/share/noice-api /etc/noice-api
 
-            sudo mkdir -p /var/log/noice
-            sudo chown -R nobody:nogroup /var/log/noice
-            sudo chmod -R 755 /var/log/noice
+            sudo mv ${{ env.SCP_DEST_PATH }}/app /usr/local/share/noice-api
+            sudo chown -R nobody:nogroup /usr/local/share/noice-api
+            sudo chmod -R 755 /usr/local/share/noice-api
 
-            sudo mv ${{ env.SCP_DEST_PATH }}/app /usr/local/share/noice
-            sudo chown -R nobody:nogroup /usr/local/share/noice
-            sudo chmod -R 755 /usr/local/share/noice
-
-            sudo mv ${{ env.SCP_DEST_PATH }}/conf /etc/noice
-            sudo chown -R nobody:nogroup /etc/noice
-            sudo chmod -R 700 /etc/noice
+            sudo mv ${{ env.SCP_DEST_PATH }}/conf /etc/noice-api
+            sudo chown -R nobody:nogroup /etc/noice-api
+            sudo chmod -R 700 /etc/noice-api
 
             sudo chown root:root ${{ env.SCP_DEST_PATH }}/deploy/logrotate.d/*
             sudo chmod 644 ${{ env.SCP_DEST_PATH }}/deploy/logrotate.d/*
