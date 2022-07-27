@@ -131,7 +131,6 @@ public class Application {
             .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp").anonymous()
             .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn").anonymous()
             .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials").anonymous()
-            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/googlePlay/webhook").anonymous()
             .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook").anonymous()
             .antMatchers("/v?*/**").fullyAuthenticated()
             .anyRequest().permitAll();
