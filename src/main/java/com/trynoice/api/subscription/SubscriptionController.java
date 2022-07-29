@@ -98,7 +98,7 @@ class SubscriptionController {
     @GetMapping("/plans")
     ResponseEntity<List<SubscriptionPlanResponse>> listPlans(
         @Schema(allowableValues = {"google_play", "stripe"}) @RequestParam(value = "provider", required = false) String provider,
-        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
+        @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
     ) {
         try {
             return ResponseEntity.ok(subscriptionService.listPlans(provider, currency));
@@ -189,10 +189,10 @@ class SubscriptionController {
     @GetMapping
     ResponseEntity<List<SubscriptionResponse>> listSubscriptions(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
-        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
-        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency,
-        @Valid @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
+        @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
+        @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
+        @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency,
+        @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
     ) {
         return ResponseEntity.ok(
             subscriptionService.listSubscriptions(principalId, onlyActive, currency, page)
@@ -229,9 +229,9 @@ class SubscriptionController {
     @GetMapping("/{subscriptionId}")
     ResponseEntity<SubscriptionResponse> getSubscription(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotNull @Min(1) @PathVariable Long subscriptionId,
-        @Valid @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
-        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
+        @NotNull @Min(1) @PathVariable Long subscriptionId,
+        @HttpUrl @RequestParam(required = false) String stripeReturnUrl,
+        @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
     ) {
         try {
             val responseV2 = subscriptionService.getSubscription(principalId, subscriptionId, currency);
@@ -263,7 +263,7 @@ class SubscriptionController {
     @DeleteMapping("/{subscriptionId}")
     ResponseEntity<Void> cancelSubscription(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotNull @Min(1) @PathVariable Long subscriptionId
+        @NotNull @Min(1) @PathVariable Long subscriptionId
     ) {
         try {
             subscriptionService.cancelSubscription(principalId, subscriptionId);
@@ -304,8 +304,8 @@ class SubscriptionController {
     @NonNull
     @PostMapping("/stripe/webhook")
     ResponseEntity<Void> stripeWebhook(
-        @Valid @NotBlank @RequestHeader("Stripe-Signature") String payloadSignature,
-        @Valid @NotBlank @RequestBody String body
+        @NotBlank @RequestHeader("Stripe-Signature") String payloadSignature,
+        @NotBlank @RequestBody String body
     ) {
         try {
             subscriptionService.handleStripeWebhookEvent(body, payloadSignature);
@@ -337,7 +337,7 @@ class SubscriptionController {
     @GetMapping("/stripe/customerPortalUrl")
     ResponseEntity<StripeCustomerPortalUrlResponse> stripeCustomerPortalUrl(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotBlank @HttpUrl @RequestParam String returnUrl
+        @NotBlank @HttpUrl @RequestParam String returnUrl
     ) {
         try {
             val response = subscriptionService.getStripeCustomerPortalUrl(principalId, returnUrl);
@@ -365,7 +365,7 @@ class SubscriptionController {
     @GetMapping("giftCards/{giftCardCode}")
     ResponseEntity<GiftCardResponse> getGiftCard(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
+        @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
     ) {
         try {
             val response = subscriptionService.getGiftCard(principalId, giftCardCode);
@@ -397,7 +397,7 @@ class SubscriptionController {
     @PostMapping("/giftCards/{giftCardCode}/redeem")
     ResponseEntity<SubscriptionResponse> redeemGiftCard(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
+        @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
     ) {
         try {
             val responseV2 = subscriptionService.redeemGiftCard(principalId, giftCardCode);

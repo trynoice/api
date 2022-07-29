@@ -60,10 +60,10 @@ class SoundController {
     @GetMapping("/{soundId}/segments/{segmentId}/authorize")
     ResponseEntity<Void> authorizeSegmentRequest(
         @AuthenticationPrincipal Long principalId,
-        @Valid @NotBlank @PathVariable String soundId,
-        @Valid @NotBlank @PathVariable String segmentId,
-        @Valid @NotBlank @RequestParam String audioBitrate,
-        @Valid @NotBlank @RequestParam String libraryVersion
+        @NotBlank @PathVariable String soundId,
+        @NotBlank @PathVariable String segmentId,
+        @NotBlank @RequestParam String audioBitrate,
+        @NotBlank @RequestParam String libraryVersion
     ) {
         try {
             soundService.authorizeSegmentRequest(principalId, soundId, segmentId, audioBitrate, libraryVersion);

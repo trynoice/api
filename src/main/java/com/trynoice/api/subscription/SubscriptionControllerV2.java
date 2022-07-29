@@ -126,9 +126,9 @@ public class SubscriptionControllerV2 {
     @GetMapping
     ResponseEntity<List<SubscriptionResponseV2>> listSubscriptions(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
-        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency,
-        @Valid @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
+        @NotNull @RequestParam(required = false, defaultValue = "false") Boolean onlyActive,
+        @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency,
+        @NotNull @Min(0) @RequestParam(required = false, defaultValue = "0") Integer page
     ) {
         return ResponseEntity.ok(subscriptionService.listSubscriptions(principalId, onlyActive, currency, page));
     }
@@ -153,8 +153,8 @@ public class SubscriptionControllerV2 {
     @GetMapping("/{subscriptionId}")
     ResponseEntity<SubscriptionResponseV2> getSubscription(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotNull @Min(1) @PathVariable Long subscriptionId,
-        @Valid @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
+        @NotNull @Min(1) @PathVariable Long subscriptionId,
+        @NullOrNotBlank @Size(min = 3, max = 3) @RequestParam(value = "currency", required = false) String currency
     ) {
         try {
             return ResponseEntity.ok(subscriptionService.getSubscription(principalId, subscriptionId, currency));
@@ -184,7 +184,7 @@ public class SubscriptionControllerV2 {
     @PostMapping("/giftCards/{giftCardCode}/redeem")
     ResponseEntity<Void> redeemGiftCard(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
+        @NotBlank @Size(min = 1, max = 32) @PathVariable String giftCardCode
     ) {
         try {
             subscriptionService.redeemGiftCard(principalId, giftCardCode);

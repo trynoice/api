@@ -173,12 +173,13 @@ class AccountController {
     @GetMapping(value = "/signOut")
     ResponseEntity<Void> signOut(
         @NonNull Authentication authentication,
-        @Valid @Size(min = 1) @RequestHeader(value = REFRESH_TOKEN_HEADER, required = false) String refreshTokenHeader,
-        @Valid @Size(min = 1) @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie
+        @Size(min = 1) @RequestHeader(value = REFRESH_TOKEN_HEADER, required = false) String refreshTokenHeader,
+        @Size(min = 1) @CookieValue(value = REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie
     ) {
         val isValidRefreshToken = ((refreshTokenHeader != null && !refreshTokenHeader.isBlank())
             || (refreshTokenCookie != null && !refreshTokenCookie.isBlank()));
 
+        // check if refresh and access token pair is present.
         if (!isValidRefreshToken || !(authentication.getCredentials() instanceof String)) {
             return ResponseEntity.badRequest().build();
         }
@@ -214,8 +215,8 @@ class AccountController {
     @NonNull
     @GetMapping(value = "/credentials")
     ResponseEntity<AuthCredentialsResponse> issueCredentials(
-        @Valid @NotBlank @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
-        @Valid @Size(min = 1, max = 128) @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
+        @NotBlank @RequestHeader(REFRESH_TOKEN_HEADER) String refreshToken,
+        @Size(min = 1, max = 128) @RequestHeader(value = USER_AGENT_HEADER, required = false) String userAgent
     ) {
         try {
             val credentials = accountService.issueAuthCredentials(refreshToken, userAgent);
@@ -286,7 +287,7 @@ class AccountController {
     @DeleteMapping(value = "/{accountId}")
     ResponseEntity<Void> deleteAccount(
         @NonNull @AuthenticationPrincipal Long principalId,
-        @Valid @NotNull @Min(1L) @PathVariable Long accountId
+        @NotNull @Min(1L) @PathVariable Long accountId
     ) {
         if (!principalId.equals(accountId)) {
             return ResponseEntity.badRequest().build();
