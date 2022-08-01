@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -323,6 +324,9 @@ public class SubscriptionServiceTest {
                     verify(stripeApi, times(1))
                         .cancelSubscription(subscription.getProvidedId());
                     break;
+                case GIFT_CARD:
+                    assertTrue(subscription.getEndAt().isBefore(OffsetDateTime.now()));
+                    break;
                 default:
                     throw new RuntimeException("unknown provider");
             }
@@ -332,17 +336,21 @@ public class SubscriptionServiceTest {
     static Stream<Arguments> cancelSubscriptionTestCases() {
         val userId1 = 1L;
         val userId2 = 2L;
-        val googlePlayPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provider-id");
-        val stripePlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provider-id");
+        val googlePlayPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "test-provided-id");
+        val stripePlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "test-provided-id");
+        val giftCardPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GIFT_CARD, "test-provided-id");
 
         return Stream.of(
             // subscription, principalId, expected exception
             arguments(buildSubscription(userId1, googlePlayPlan, true, false), userId1, null),
             arguments(buildSubscription(userId1, stripePlan, true, false), userId1, null),
+            arguments(buildSubscription(userId1, giftCardPlan, true, false), userId1, null),
             arguments(buildSubscription(userId2, googlePlayPlan, true, false), userId1, SubscriptionNotFoundException.class),
             arguments(buildSubscription(userId1, stripePlan, true, false), userId2, SubscriptionNotFoundException.class),
+            arguments(buildSubscription(userId1, giftCardPlan, true, false), userId2, SubscriptionNotFoundException.class),
             arguments(buildSubscription(userId1, googlePlayPlan, false, false), userId1, SubscriptionNotFoundException.class),
-            arguments(buildSubscription(userId1, stripePlan, false, false), userId1, SubscriptionNotFoundException.class)
+            arguments(buildSubscription(userId1, stripePlan, false, false), userId1, SubscriptionNotFoundException.class),
+            arguments(buildSubscription(userId1, giftCardPlan, false, false), userId1, SubscriptionNotFoundException.class)
         );
     }
 

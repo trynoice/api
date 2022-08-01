@@ -331,6 +331,9 @@ class SubscriptionService implements SubscriptionServiceContract {
                 }
 
                 break;
+            case GIFT_CARD:
+                subscription.setEndAt(OffsetDateTime.now());
+                break;
             default:
                 throw new IllegalStateException("unsupported provider used in subscription plan");
         }

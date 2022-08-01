@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -408,6 +409,9 @@ public class SubscriptionControllerTest {
                     verify(stripeApi, times(1))
                         .cancelSubscription(subscription.getProvidedId());
                     break;
+                case GIFT_CARD:
+                    assertTrue(subscription.getEndAt().isBefore(OffsetDateTime.now()));
+                    break;
                 default:
                     throw new RuntimeException("unknown provider");
             }
@@ -419,8 +423,10 @@ public class SubscriptionControllerTest {
             // subscription provider, is subscription active, expected response code
             arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, true, HttpStatus.NO_CONTENT.value()),
             arguments(SubscriptionPlan.Provider.STRIPE, true, HttpStatus.NO_CONTENT.value()),
+            arguments(SubscriptionPlan.Provider.GIFT_CARD, true, HttpStatus.NO_CONTENT.value()),
             arguments(SubscriptionPlan.Provider.GOOGLE_PLAY, false, HttpStatus.NOT_FOUND.value()),
-            arguments(SubscriptionPlan.Provider.STRIPE, false, HttpStatus.NOT_FOUND.value())
+            arguments(SubscriptionPlan.Provider.STRIPE, false, HttpStatus.NOT_FOUND.value()),
+            arguments(SubscriptionPlan.Provider.GIFT_CARD, false, HttpStatus.NOT_FOUND.value())
         );
     }
 
