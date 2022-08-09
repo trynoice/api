@@ -52,7 +52,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -325,7 +324,6 @@ public class SubscriptionServiceTest {
                         .cancelSubscription(subscription.getProvidedId());
                     break;
                 case GIFT_CARD:
-                    assertTrue(subscription.getEndAt().isBefore(OffsetDateTime.now()));
                     break;
                 default:
                     throw new RuntimeException("unknown provider");

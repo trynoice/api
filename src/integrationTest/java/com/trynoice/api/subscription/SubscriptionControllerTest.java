@@ -34,7 +34,6 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -410,7 +409,6 @@ public class SubscriptionControllerTest {
                         .cancelSubscription(subscription.getProvidedId());
                     break;
                 case GIFT_CARD:
-                    assertTrue(subscription.getEndAt().isBefore(OffsetDateTime.now()));
                     break;
                 default:
                     throw new RuntimeException("unknown provider");
