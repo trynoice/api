@@ -11,6 +11,7 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 /**
@@ -216,4 +217,16 @@ public interface BasicEntityRepository<T extends BasicEntity, ID extends Seriali
     default void deleteAll() {
         throw new UnsupportedOperationException("deleting all entities is not supported");
     }
+
+    /**
+     * Permanently removes any soft-deleted entities from the database that were marked as deleted
+     * before the {@code deletedBefore} timestamp.
+     *
+     * @param deletedBefore a not {@literal null} timestamp to remove entities that were marked as
+     *                      deleted before this instant.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Transactional
+    @Query("delete from #{#entityName} e where e.deletedAt < ?1")
+    void removeAllDeleted(@NonNull OffsetDateTime deletedBefore);
 }

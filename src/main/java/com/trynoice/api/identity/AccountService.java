@@ -5,6 +5,7 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.trynoice.api.config.GlobalConfiguration;
 import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.AuthUserRepository;
@@ -26,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -56,6 +58,7 @@ class AccountService implements AccountServiceContract {
 
     private final AuthUserRepository authUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final GlobalConfiguration globalConfig;
     private final AuthConfiguration authConfig;
     private final SignInTokenDispatchStrategy signInTokenDispatchStrategy;
     private final Algorithm jwtAlgorithm;
@@ -67,6 +70,7 @@ class AccountService implements AccountServiceContract {
     AccountService(
         @NonNull AuthUserRepository authUserRepository,
         @NonNull RefreshTokenRepository refreshTokenRepository,
+        @NonNull GlobalConfiguration globalConfig,
         @NonNull AuthConfiguration authConfig,
         @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy,
         @NonNull @Qualifier(AuthBeans.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache,
@@ -74,6 +78,7 @@ class AccountService implements AccountServiceContract {
     ) {
         this.authUserRepository = authUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.globalConfig = globalConfig;
         this.authConfig = authConfig;
         this.signInTokenDispatchStrategy = signInTokenDispatchStrategy;
         this.revokedAccessJwtCache = revokedAccessJwtCache;
@@ -284,6 +289,15 @@ class AccountService implements AccountServiceContract {
     @NonNull
     public Optional<String> findEmailByUser(@NonNull Long userId) {
         return authUserRepository.findEmailById(userId);
+    }
+
+    @Scheduled(cron = "${app.deleted-entities-garbage-collection-schedule}")
+    @Transactional(rollbackFor = Throwable.class)
+    public void performGarbageCollection() {
+        refreshTokenRepository.deleteAllExpired(OffsetDateTime.now());
+        val deletedBefore = OffsetDateTime.now().minus(globalConfig.getRemoveDeletedEntitiesAfter());
+        authUserRepository.removeAllDeleted(deletedBefore);
+        refreshTokenRepository.removeAllDeleted(deletedBefore);
     }
 
     /**

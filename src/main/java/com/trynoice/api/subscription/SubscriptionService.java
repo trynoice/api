@@ -4,6 +4,7 @@ import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
+import com.trynoice.api.config.GlobalConfiguration;
 import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.contracts.SubscriptionServiceContract;
 import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
@@ -62,6 +63,7 @@ import static java.util.Objects.requireNonNullElse;
 @Service
 class SubscriptionService implements SubscriptionServiceContract {
 
+    private final GlobalConfiguration globalConfig;
     private final SubscriptionConfiguration subscriptionConfig;
     private final CustomerRepository customerRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
@@ -75,6 +77,7 @@ class SubscriptionService implements SubscriptionServiceContract {
 
     @Autowired
     SubscriptionService(
+        @NonNull GlobalConfiguration globalConfig,
         @NonNull SubscriptionConfiguration subscriptionConfig,
         @NonNull CustomerRepository customerRepository,
         @NonNull SubscriptionPlanRepository subscriptionPlanRepository,
@@ -86,6 +89,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         @NonNull @Qualifier(SubscriptionBeans.CACHE_NAME) Cache cache,
         @NonNull ForeignExchangeRatesProvider exchangeRatesProvider
     ) {
+        this.globalConfig = globalConfig;
         this.subscriptionConfig = subscriptionConfig;
         this.customerRepository = customerRepository;
         this.subscriptionPlanRepository = subscriptionPlanRepository;
@@ -784,6 +788,15 @@ class SubscriptionService implements SubscriptionServiceContract {
     @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")
     void updateForeignExchangeRates() {
         exchangeRatesProvider.maybeUpdateRates();
+    }
+
+    @Scheduled(cron = "${app.deleted-entities-garbage-collection-schedule}")
+    @Transactional(rollbackFor = Throwable.class)
+    public void performGarbageCollection() {
+        val deletedBefore = OffsetDateTime.now().minus(globalConfig.getRemoveDeletedEntitiesAfter());
+        customerRepository.removeAllDeleted(deletedBefore);
+        subscriptionRepository.removeAllDeleted(deletedBefore);
+        giftCardRepository.removeAllDeleted(deletedBefore);
     }
 
     private void evictIsSubscribedCache(long userId) {

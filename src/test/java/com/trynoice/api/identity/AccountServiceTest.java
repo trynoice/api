@@ -3,6 +3,7 @@ package com.trynoice.api.identity;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.trynoice.api.config.GlobalConfiguration;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.AuthUserRepository;
 import com.trynoice.api.identity.entities.RefreshToken;
@@ -53,6 +54,9 @@ class AccountServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private GlobalConfiguration globalConfig;
+
+    @Mock
     private AuthConfiguration authConfiguration;
 
     @Mock
@@ -75,6 +79,7 @@ class AccountServiceTest {
         this.service = new AccountService(
             authUserRepository,
             refreshTokenRepository,
+            globalConfig,
             authConfiguration,
             signInTokenDispatchStrategy,
             revokedAccessTokenCache,

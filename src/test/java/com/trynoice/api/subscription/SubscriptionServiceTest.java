@@ -3,6 +3,7 @@ package com.trynoice.api.subscription;
 import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
+import com.trynoice.api.config.GlobalConfiguration;
 import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.entities.Customer;
@@ -65,6 +66,9 @@ import static org.mockito.Mockito.when;
 public class SubscriptionServiceTest {
 
     @Mock
+    private GlobalConfiguration globalConfig;
+
+    @Mock
     private SubscriptionConfiguration subscriptionConfiguration;
 
     @Mock
@@ -99,6 +103,7 @@ public class SubscriptionServiceTest {
     @BeforeEach
     void setUp() {
         service = new SubscriptionService(
+            globalConfig,
             subscriptionConfiguration,
             customerRepository,
             subscriptionPlanRepository,
