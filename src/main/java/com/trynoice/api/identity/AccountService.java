@@ -27,7 +27,6 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -291,7 +290,6 @@ class AccountService implements AccountServiceContract {
         return authUserRepository.findEmailById(userId);
     }
 
-    @Scheduled(cron = "${app.deleted-entities-garbage-collection-schedule}")
     @Transactional(rollbackFor = Throwable.class)
     public void performGarbageCollection() {
         refreshTokenRepository.deleteAllExpired(OffsetDateTime.now());

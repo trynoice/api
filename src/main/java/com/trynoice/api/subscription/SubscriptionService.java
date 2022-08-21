@@ -43,7 +43,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.integration.annotation.ServiceActivator;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -785,12 +784,10 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
     }
 
-    @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")
     void updateForeignExchangeRates() {
         exchangeRatesProvider.maybeUpdateRates();
     }
 
-    @Scheduled(cron = "${app.deleted-entities-garbage-collection-schedule}")
     @Transactional(rollbackFor = Throwable.class)
     public void performGarbageCollection() {
         val deletedBefore = OffsetDateTime.now().minus(globalConfig.getRemoveDeletedEntitiesAfter());
