@@ -1,10 +1,10 @@
 package com.trynoice.api.subscription.entities;
 
-import com.trynoice.api.platform.BasicEntityRepository;
 import lombok.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,11 +12,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A JPA {@link Repository} declaration for database interactions of {@link Subscription} {@link
- * com.trynoice.api.platform.BasicEntity BasicEntity}.
+ * A JPA {@link Repository} declaration for database interactions of {@link Subscription} entity.
  */
 @Repository
-public interface SubscriptionRepository extends BasicEntityRepository<Subscription, Long> {
+public interface SubscriptionRepository extends PagingAndSortingRepository<Subscription, Long> {
 
     /**
      * Find a {@link Subscription} entity by its provider assigned subscription id.
@@ -26,7 +25,7 @@ public interface SubscriptionRepository extends BasicEntityRepository<Subscripti
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.providedId = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select e from Subscription e where e.providedId = ?1")
     Optional<Subscription> findByProvidedId(@NonNull String providedId);
 
     /**
@@ -38,7 +37,7 @@ public interface SubscriptionRepository extends BasicEntityRepository<Subscripti
      */
     @Transactional(readOnly = true)
     @Query("select case when count(e) > 0 then true else false end from Subscription e where " +
-        "e.customer.userId = ?1 and e.startAt < now() and e.endAt > now() and" + WHERE_ACTIVE_CLAUSE)
+        "e.customer.userId = ?1 and e.startAt < now() and e.endAt > now()")
     boolean existsActiveByCustomerUserId(@NonNull Long customerUserId);
 
     /**
@@ -51,7 +50,7 @@ public interface SubscriptionRepository extends BasicEntityRepository<Subscripti
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt <> null and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt <> null")
     Page<Subscription> findAllStartedByCustomerUserId(@NonNull Long customerUserId, @NonNull Pageable pageable);
 
     /**
@@ -63,7 +62,6 @@ public interface SubscriptionRepository extends BasicEntityRepository<Subscripti
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt < now() and " +
-        "e.endAt > now() and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt < now() and e.endAt > now()")
     Optional<Subscription> findActiveByCustomerUserId(@NonNull Long customerUserId);
 }

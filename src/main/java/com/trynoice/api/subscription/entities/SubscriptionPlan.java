@@ -1,10 +1,8 @@
 package com.trynoice.api.subscription.entities;
 
-import com.trynoice.api.platform.BasicEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
@@ -23,8 +21,7 @@ import javax.persistence.Id;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-public class SubscriptionPlan extends BasicEntity {
+public class SubscriptionPlan {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

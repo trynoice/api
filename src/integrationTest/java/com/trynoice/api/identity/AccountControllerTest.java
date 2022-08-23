@@ -2,6 +2,7 @@ package com.trynoice.api.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.payload.AuthCredentialsResponse;
 import com.trynoice.api.identity.payload.SignInParams;
@@ -40,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -357,7 +357,7 @@ class AccountControllerTest {
             .andExpect(status().is(HttpStatus.NO_CONTENT.value()));
 
         // validate that all existing refresh tokens have been revoked.
-        assertTrue(refreshTokens.stream().noneMatch(t -> t.getDeletedAt() != null));
+        refreshTokens.forEach(t -> assertNull(entityManager.find(RefreshToken.class, t.getId())));
 
         // perform the request again to ensure access token no longer works
         mockMvc.perform(

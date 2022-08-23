@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.atLeastOnce;
@@ -204,7 +205,7 @@ class AccountServiceTest {
     void signOut_withExpiredJWT() {
         val refreshToken = buildRefreshToken(buildAuthUser());
         refreshToken.setExpiresAt(OffsetDateTime.now().minus(Duration.ofHours(1)));
-        val signedJwt = refreshToken.getJwt(jwtAlgorithm);
+        val signedJwt = refreshToken.toSignedJwt(jwtAlgorithm);
         assertThrows(RefreshTokenVerificationException.class, () -> service.signOut(signedJwt, "valid-acess-jwt"));
     }
 
@@ -214,7 +215,7 @@ class AccountServiceTest {
         val refreshToken = buildRefreshToken(authUser);
         val usedRefreshToken = buildRefreshToken(authUser);
         usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
-        val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
+        val signedJwt = usedRefreshToken.toSignedJwt(jwtAlgorithm);
 
         when(refreshTokenRepository.findById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
@@ -225,7 +226,7 @@ class AccountServiceTest {
     @Test
     void signOut_withValidJWT() {
         val refreshToken = buildRefreshToken(buildAuthUser());
-        val signedJwt = refreshToken.getJwt(jwtAlgorithm);
+        val signedJwt = refreshToken.toSignedJwt(jwtAlgorithm);
         val accessToken = "valid-acess-jwt";
 
         when(refreshTokenRepository.findById(refreshToken.getId()))
@@ -236,7 +237,7 @@ class AccountServiceTest {
             service.signOut(signedJwt, accessToken);
         });
 
-        verify(refreshTokenRepository, times(1)).delete(refreshToken);
+        assertTrue(refreshToken.getExpiresAt().isBefore(OffsetDateTime.now()));
         verify(revokedAccessTokenCache, times(1)).put(accessToken, Boolean.TRUE);
     }
 
@@ -250,7 +251,7 @@ class AccountServiceTest {
     void issueAuthCredentials_withExpiredJWT() {
         val expiredRefreshToken = buildRefreshToken(buildAuthUser());
         expiredRefreshToken.setExpiresAt(OffsetDateTime.now().minus(Duration.ofHours(1)));
-        val signedJwt = expiredRefreshToken.getJwt(jwtAlgorithm);
+        val signedJwt = expiredRefreshToken.toSignedJwt(jwtAlgorithm);
 
         assertThrows(RefreshTokenVerificationException.class, () ->
             service.issueAuthCredentials(signedJwt, "test-user-agent"));
@@ -262,7 +263,7 @@ class AccountServiceTest {
         val refreshToken = buildRefreshToken(authUser);
         val usedRefreshToken = buildRefreshToken(authUser);
         usedRefreshToken.setOrdinal(refreshToken.getOrdinal() - 1);
-        val signedJwt = usedRefreshToken.getJwt(jwtAlgorithm);
+        val signedJwt = usedRefreshToken.toSignedJwt(jwtAlgorithm);
 
         when(refreshTokenRepository.findById(refreshToken.getId()))
             .thenReturn(Optional.of(refreshToken));
@@ -280,7 +281,7 @@ class AccountServiceTest {
     @Test
     void issueAuthCredentials_withValidJWT() throws RefreshTokenVerificationException {
         val refreshToken = buildRefreshToken(buildAuthUser());
-        val token = refreshToken.getJwt(jwtAlgorithm);
+        val token = refreshToken.toSignedJwt(jwtAlgorithm);
 
         when(refreshTokenRepository.save(refreshToken))
             .thenReturn(refreshToken);
@@ -393,26 +394,20 @@ class AccountServiceTest {
 
     @NonNull
     private static AuthUser buildAuthUser() {
-        val authUser = AuthUser.builder()
+        return AuthUser.builder()
+            .id(1)
             .email("test-name@api.test")
             .name("test-name")
             .build();
-
-        authUser.setId(1L);
-        authUser.setCreatedAt(OffsetDateTime.now());
-        return authUser;
     }
 
     @NonNull
     private static RefreshToken buildRefreshToken(@NonNull AuthUser authUser) {
-        val refreshToken = RefreshToken.builder()
+        return RefreshToken.builder()
+            .id(1)
             .owner(authUser)
             .userAgent("test-user-agent")
             .expiresAt(OffsetDateTime.now().plus(Duration.ofHours(1)))
             .build();
-
-        refreshToken.setId(1L);
-        refreshToken.setCreatedAt(OffsetDateTime.now());
-        return refreshToken;
     }
 }

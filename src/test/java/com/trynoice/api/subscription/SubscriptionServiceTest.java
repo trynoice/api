@@ -114,10 +114,7 @@ public class SubscriptionServiceTest {
     @Test
     void listPlans_withSupportedProviders() throws UnsupportedSubscriptionPlanProviderException {
         val googlePlayPlan = buildSubscriptionPlan(SubscriptionPlan.Provider.GOOGLE_PLAY, "google_plan_plan_id");
-        googlePlayPlan.setId((short) 1);
-
         val stripePlan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, "stripe_plan_id");
-        stripePlan.setId((short) 2);
 
         lenient()
             .when(subscriptionPlanRepository.findAll(any(Sort.class)))
@@ -484,16 +481,14 @@ public class SubscriptionServiceTest {
 
     @NonNull
     private static SubscriptionPlan buildSubscriptionPlan(@NonNull SubscriptionPlan.Provider provider, @NonNull String providedId) {
-        val plan = SubscriptionPlan.builder()
+        return SubscriptionPlan.builder()
+            .id((short) Math.round(Math.random() * 1000))
             .provider(provider)
             .providedId(providedId)
             .billingPeriodMonths((short) 2)
             .trialPeriodDays((short) 1)
             .priceInIndianPaise(22500)
             .build();
-
-        plan.setId((short) Math.round(Math.random() * 1000));
-        return plan;
     }
 
     @NonNull

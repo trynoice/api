@@ -1,21 +1,19 @@
 package com.trynoice.api.identity.entities;
 
-import com.trynoice.api.platform.BasicEntity;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.PrePersist;
-import javax.persistence.PreUpdate;
+import javax.persistence.Version;
 import java.time.OffsetDateTime;
 
 /**
@@ -26,12 +24,19 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-public class AuthUser extends BasicEntity {
+public class AuthUser {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
+
+    @NonNull
+    @Column(updatable = false)
+    @Builder.Default
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Version
+    private long version;
 
     @NonNull
     private String email;
@@ -48,9 +53,7 @@ public class AuthUser extends BasicEntity {
 
     private OffsetDateTime lastSignInAttemptAt;
 
-    @PrePersist
-    @PreUpdate
-    void setLastActiveAt() {
+    public void updateLastActiveTimestamp() {
         this.lastActiveAt = OffsetDateTime.now();
     }
 

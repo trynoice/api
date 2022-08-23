@@ -1,27 +1,25 @@
 package com.trynoice.api.identity.entities;
 
-import com.trynoice.api.platform.BasicEntityRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A JPA {@link Repository} declaration for database interactions of {@link RefreshToken} {@link
- * com.trynoice.api.platform.BasicEntity BasicEntity}.
+ * A JPA {@link Repository} declaration for database interactions of {@link RefreshToken} entity.
  */
 @Repository
-public interface RefreshTokenRepository extends BasicEntityRepository<RefreshToken, Long> {
+public interface RefreshTokenRepository extends CrudRepository<RefreshToken, Long> {
 
     /**
-     * Marks all instances of the type {@link RefreshToken} for the given {@literal ownerId} as
-     * deleted.
+     * Deletes all instances of the type {@link RefreshToken} for the given {@literal ownerId}.
      *
      * @param ownerId must not be {@literal null}.
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Transactional
-    @Query("update RefreshToken e set" + SET_INACTIVE_CLAUSE + "where e.owner.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    @Query("delete from RefreshToken e where e.owner.id = ?1")
     void deleteAllByOwnerId(@NonNull Long ownerId);
 }

@@ -144,7 +144,7 @@ class AccountService implements AccountServiceContract {
                     .owner(authUser)
                     .expiresAt(OffsetDateTime.now().plus(authConfig.getSignInTokenExpiry()))
                     .build())
-            .getJwt(jwtAlgorithm);
+            .toSignedJwt(jwtAlgorithm);
     }
 
     /**
@@ -158,7 +158,8 @@ class AccountService implements AccountServiceContract {
     @Transactional(rollbackFor = Throwable.class)
     public void signOut(@NonNull String refreshJwt, @NonNull String accessJwt) throws RefreshTokenVerificationException {
         val refreshToken = verifyRefreshJWT(refreshJwt);
-        refreshTokenRepository.delete(refreshToken);
+        refreshToken.setExpiresAt(OffsetDateTime.now());
+        refreshTokenRepository.save(refreshToken);
         revokedAccessJwtCache.put(accessJwt, Boolean.TRUE);
     }
 
@@ -175,29 +176,29 @@ class AccountService implements AccountServiceContract {
     @Transactional(rollbackFor = Throwable.class, noRollbackFor = RefreshTokenVerificationException.class)
     public AuthCredentialsResponse issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
+        val owner = token.getOwner();
+        owner.updateLastActiveTimestamp(); // update last active timestamp for the user and save.
 
         // ordinal 0 implies that this refresh token is being used to sign in, so persist userAgent
         // and reset sign-in attempts.
         if (Long.valueOf(0).equals(token.getOrdinal())) {
             token.setUserAgent(requireNonNullElse(userAgent, ""));
-            token.getOwner().resetSignInAttemptData();
+            owner.resetSignInAttemptData();
         }
 
-        // saving AuthUser entity implicitly updates last active timestamp, so always perform the
-        // save step regardless of the token ordinal value.
-        authUserRepository.save(token.getOwner());
+        authUserRepository.save(owner);
         token.setExpiresAt(OffsetDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
         token.incrementOrdinal();
         token = refreshTokenRepository.save(token);
 
         val accessTokenExpiry = OffsetDateTime.now().plus(authConfig.getAccessTokenExpiry());
         val signedAccessToken = JWT.create()
-            .withSubject("" + token.getOwner().getId())
+            .withSubject("" + owner.getId())
             .withExpiresAt(Date.from(accessTokenExpiry.toInstant()))
             .sign(jwtAlgorithm);
 
         return AuthCredentialsResponse.builder()
-            .refreshToken(token.getJwt(jwtAlgorithm))
+            .refreshToken(token.toSignedJwt(jwtAlgorithm))
             .accessToken(signedAccessToken)
             .build();
     }
@@ -216,10 +217,17 @@ class AccountService implements AccountServiceContract {
         val token = refreshTokenRepository.findById(jwtId)
             .orElseThrow(() -> new RefreshTokenVerificationException("refresh token doesn't exist in database"));
 
+        // an edge case could be that we revoked the token in the database, but the client didn't
+        // receive the updated JWT. Currently, it happens when the token ordinals don't match.
+        if (token.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new RefreshTokenVerificationException("refresh token has expired");
+        }
+
         // if token ordinal is different, it implies that an old refresh token is being re-used.
         // delete token on re-use to effectively sign out both the legitimate user and the attacker.
         if (token.getOrdinal() != jwtOrdinal) {
-            refreshTokenRepository.delete(token);
+            token.setExpiresAt(OffsetDateTime.now());
+            refreshTokenRepository.save(token);
             throw new RefreshTokenVerificationException("refresh token ordinal mismatch");
         }
 
