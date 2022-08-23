@@ -53,6 +53,8 @@ public class AuthUser {
 
     private OffsetDateTime lastSignInAttemptAt;
 
+    private OffsetDateTime deactivatedAt;
+
     public void updateLastActiveTimestamp() {
         this.lastActiveAt = OffsetDateTime.now();
     }

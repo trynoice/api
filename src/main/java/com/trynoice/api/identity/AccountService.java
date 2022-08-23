@@ -60,8 +60,8 @@ class AccountService implements AccountServiceContract {
     private final SignInTokenDispatchStrategy signInTokenDispatchStrategy;
     private final Algorithm jwtAlgorithm;
     private final JWTVerifier jwtVerifier;
-    private final Cache<String, Boolean> revokedAccessJwtCache;
-    private final Cache<Long, Boolean> deletedUserIdCache;
+    private final Cache<String, Boolean> revokedAccessJwtsCache;
+    private final Cache<Long, Boolean> deactivatedUserIdsCache;
 
     @Autowired
     AccountService(
@@ -69,15 +69,15 @@ class AccountService implements AccountServiceContract {
         @NonNull RefreshTokenRepository refreshTokenRepository,
         @NonNull AuthConfiguration authConfig,
         @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy,
-        @NonNull @Qualifier(AuthBeans.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache,
-        @NonNull @Qualifier(AuthBeans.DELETED_USER_ID_CACHE) Cache<Long, Boolean> deletedUserIdCache
+        @NonNull @Qualifier(AuthBeans.REVOKED_ACCESS_JWTS_CACHE) Cache<String, Boolean> revokedAccessJwtsCache,
+        @NonNull @Qualifier(AuthBeans.DEACTIVATED_USER_IDS_CACHE) Cache<Long, Boolean> deactivatedUserIdsCache
     ) {
         this.authUserRepository = authUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.authConfig = authConfig;
         this.signInTokenDispatchStrategy = signInTokenDispatchStrategy;
-        this.revokedAccessJwtCache = revokedAccessJwtCache;
-        this.deletedUserIdCache = deletedUserIdCache;
+        this.revokedAccessJwtsCache = revokedAccessJwtsCache;
+        this.deactivatedUserIdsCache = deactivatedUserIdsCache;
         this.jwtAlgorithm = Algorithm.HMAC256(authConfig.getHmacSecret());
         this.jwtVerifier = JWT.require(this.jwtAlgorithm).build();
     }
@@ -160,7 +160,7 @@ class AccountService implements AccountServiceContract {
         val refreshToken = verifyRefreshJWT(refreshJwt);
         refreshToken.setExpiresAt(OffsetDateTime.now());
         refreshTokenRepository.save(refreshToken);
-        revokedAccessJwtCache.put(accessJwt, Boolean.TRUE);
+        revokedAccessJwtsCache.put(accessJwt, Boolean.TRUE);
     }
 
     /**
@@ -178,6 +178,10 @@ class AccountService implements AccountServiceContract {
         var token = verifyRefreshJWT(refreshToken);
         val owner = token.getOwner();
         owner.updateLastActiveTimestamp(); // update last active timestamp for the user and save.
+        if (owner.getDeactivatedAt() != null) { // restore deactivated account on successful sign-in
+            owner.setDeactivatedAt(null);
+            deactivatedUserIdsCache.invalidate(owner.getId());
+        }
 
         // ordinal 0 implies that this refresh token is being used to sign in, so persist userAgent
         // and reset sign-in attempts.
@@ -283,9 +287,11 @@ class AccountService implements AccountServiceContract {
      */
     @Transactional(rollbackFor = Throwable.class)
     public void deleteAccount(@NonNull Long userId) {
-        refreshTokenRepository.deleteAllByOwnerId(userId);
-        authUserRepository.deleteById(userId);
-        deletedUserIdCache.put(userId, Boolean.TRUE);
+        val user = authUserRepository.findById(userId).orElseThrow();
+        user.setDeactivatedAt(OffsetDateTime.now());
+        authUserRepository.save(user);
+        deactivatedUserIdsCache.put(userId, Boolean.TRUE);
+        refreshTokenRepository.expireAllByOwnerId(userId);
     }
 
     @Override
@@ -304,14 +310,14 @@ class AccountService implements AccountServiceContract {
      */
     Authentication verifyAccessToken(@NonNull String token) {
         // check if the token was revoked during sign-out.
-        if (requireNonNullElse(revokedAccessJwtCache.getIfPresent(token), false)) {
+        if (requireNonNullElse(revokedAccessJwtsCache.getIfPresent(token), false)) {
             log.trace("attempted authentication with a revoked access token");
             return null;
         }
 
         try {
             val auth = new BearerJWT(token);
-            if (!requireNonNullElse(deletedUserIdCache.getIfPresent(auth.principalId), false)) {
+            if (!requireNonNullElse(deactivatedUserIdsCache.getIfPresent(auth.principalId), false)) {
                 return auth;
             }
 

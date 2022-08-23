@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
+import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -25,7 +26,7 @@ public class RefreshTokenRepositoryTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Test
-    void deleteAllByOwnerId() {
+    void expireAllByOwnerId() {
         val user = createAuthUser(entityManager);
 
         val ownedRefreshTokens = IntStream.range(0, 5)
@@ -36,13 +37,11 @@ public class RefreshTokenRepositoryTest {
             .mapToObj(i -> createRefreshToken(entityManager, createAuthUser(entityManager)))
             .collect(Collectors.toUnmodifiableList());
 
-        refreshTokenRepository.deleteAllByOwnerId(user.getId());
-        assertTrue(
-            ownedRefreshTokens.stream()
-                .noneMatch(t -> refreshTokenRepository.existsById(t.getId())));
+        refreshTokenRepository.expireAllByOwnerId(user.getId());
+        ownedRefreshTokens.stream()
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(t -> assertTrue(t.getExpiresAt().isBefore(OffsetDateTime.now())));
 
-        assertTrue(
-            unownedRefreshTokens.stream()
-                .allMatch(t -> refreshTokenRepository.existsById(t.getId())));
+        unownedRefreshTokens.forEach(t -> assertTrue(refreshTokenRepository.existsById(t.getId())));
     }
 }

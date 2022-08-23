@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -357,11 +358,18 @@ class AccountControllerTest {
             .andExpect(status().is(HttpStatus.NO_CONTENT.value()));
 
         // validate that all existing refresh tokens have been revoked.
-        refreshTokens.forEach(t -> assertNull(entityManager.find(RefreshToken.class, t.getId())));
+        refreshTokens.stream()
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(t -> assertTrue(t.getExpiresAt().isBefore(OffsetDateTime.now())));
 
-        // perform the request again to ensure access token no longer works
+        // validate that account has been deactivated.'
+        Stream.of(user)
+            .map(u -> entityManager.find(AuthUser.class, u.getId()))
+            .forEach(u -> assertNotNull(u.getDeactivatedAt()));
+
+        // perform a request to ensure access token no longer works
         mockMvc.perform(
-                delete(urlFmt, anotherUser.getId())
+                get("/v1/accounts/profile")
                     .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().is(HttpStatus.UNAUTHORIZED.value()));
     }

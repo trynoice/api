@@ -14,12 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 public interface RefreshTokenRepository extends CrudRepository<RefreshToken, Long> {
 
     /**
-     * Deletes all instances of the type {@link RefreshToken} for the given {@literal ownerId}.
+     * Marks all instances of the type {@link RefreshToken} as expired for the given {@literal
+     * ownerId}.
      *
      * @param ownerId must not be {@literal null}.
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Transactional
-    @Query("delete from RefreshToken e where e.owner.id = ?1")
-    void deleteAllByOwnerId(@NonNull Long ownerId);
+    @Query("update RefreshToken e set e.expiresAt = now() where e.owner.id = ?1")
+    void expireAllByOwnerId(@NonNull Long ownerId);
 }

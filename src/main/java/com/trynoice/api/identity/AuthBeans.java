@@ -16,8 +16,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class AuthBeans {
 
-    static final String REVOKED_ACCESS_JWT_CACHE = "revoked_access_jwts";
-    static final String DELETED_USER_ID_CACHE = "deleted_user_ids";
+    static final String REVOKED_ACCESS_JWTS_CACHE = "revoked_access_jwts";
+    static final String DEACTIVATED_USER_IDS_CACHE = "deleted_user_ids";
 
     @NonNull
     @Bean
@@ -62,8 +62,8 @@ class AuthBeans {
     }
 
     @NonNull
-    @Bean(REVOKED_ACCESS_JWT_CACHE)
-    public Cache<String, Boolean> revokedAccessJwtCache(@NonNull AuthConfiguration authConfig) {
+    @Bean(REVOKED_ACCESS_JWTS_CACHE)
+    public Cache<String, Boolean> revokedAccessJwtsCache(@NonNull AuthConfiguration authConfig) {
         return Caffeine.newBuilder()
             .expireAfterWrite(authConfig.getAccessTokenExpiry())
             .maximumSize(1000) // an arbitrary upper-limit for sanity.
@@ -71,8 +71,8 @@ class AuthBeans {
     }
 
     @NonNull
-    @Bean(DELETED_USER_ID_CACHE)
-    public Cache<Long, Boolean> deleteUserIdCache(@NonNull AuthConfiguration authConfig) {
+    @Bean(DEACTIVATED_USER_IDS_CACHE)
+    public Cache<Long, Boolean> deactivatedUserIdsCache(@NonNull AuthConfiguration authConfig) {
         return Caffeine.newBuilder()
             .expireAfterWrite(authConfig.getAccessTokenExpiry())
             .maximumSize(1000) // an arbitrary upper-limit for sanity.

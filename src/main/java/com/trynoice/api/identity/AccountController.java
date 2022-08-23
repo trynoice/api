@@ -271,12 +271,18 @@ class AccountController {
     }
 
     /**
-     * Deletes the account of an authenticated user. If the account with the given {@literal
-     * accountId} does not belong to the authenticated user, it returns {@literal HTTP 400}.
+     * <p>
+     * Schedules an account for deletion. If the account with the given {@literal accountId} does
+     * not belong to the authenticated user, it returns {@literal HTTP 400}.</p>
+     *
+     * <p>
+     * Users will immediately lose access to their accounts and their account will be deactivated.
+     * Deactivated accounts are permanently deleted after some time. Users can restore their
+     * deactivated accounts before permanent deletion by completing a successful sign-in.</p>
      *
      * @param accountId must be the account id of the authenticated user.
      */
-    @Operation(summary = "Delete account of the auth user")
+    @Operation(summary = "Schedule the account of the auth user for deletion")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "account deleted successfully"),
         @ApiResponse(responseCode = "400", description = "request is not valid"),
