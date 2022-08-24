@@ -92,20 +92,18 @@ public class AuthTestUtils {
 
         val jwtSigningAlgorithm = Algorithm.HMAC256(hmacSecret);
         if (type != JwtType.REUSED) {
-            return refreshToken.getJwt(jwtSigningAlgorithm);
+            return refreshToken.toSignedJwt(jwtSigningAlgorithm);
         }
 
         // create a separate entity that is not attached to the entity manager.
-        val usedRefreshToken = RefreshToken.builder()
+        return RefreshToken.builder()
+            .id(refreshToken.getId())
+            .createdAt(refreshToken.getCreatedAt())
             .owner(owner)
             .expiresAt(refreshToken.getExpiresAt())
             .ordinal(refreshToken.getOrdinal() + 1)
-            .build();
-
-        usedRefreshToken.setId(refreshToken.getId());
-        usedRefreshToken.setCreatedAt(refreshToken.getCreatedAt());
-
-        return usedRefreshToken.getJwt(jwtSigningAlgorithm);
+            .build()
+            .toSignedJwt(jwtSigningAlgorithm);
     }
 
     /**

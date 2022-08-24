@@ -66,11 +66,13 @@ public class SubscriptionTestUtils {
 
     @NonNull
     static Customer buildCustomer(@NonNull EntityManager entityManager, @NonNull AuthUser user) {
-        val customer = Customer.builder()
-            .userId(user.getId())
-            .stripeId(UUID.randomUUID().toString())
-            .build();
+        val customer = Optional.ofNullable(entityManager.find(Customer.class, user.getId()))
+            .orElse(
+                Customer.builder()
+                    .userId(user.getId())
+                    .build());
 
+        customer.setStripeId(UUID.randomUUID().toString());
         return entityManager.merge(customer);
     }
 

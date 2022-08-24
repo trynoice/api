@@ -1,9 +1,9 @@
 package com.trynoice.api.subscription.entities;
 
-import com.trynoice.api.platform.BasicEntityRepository;
 import lombok.NonNull;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,11 +11,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * A JPA {@link Repository} declaration for database interactions of {@link SubscriptionPlan} {@link
- * com.trynoice.api.platform.BasicEntity BasicEntity}.
+ * A JPA {@link Repository} declaration for database interactions of {@link SubscriptionPlan}
+ * entity.
  */
 @Repository
-public interface SubscriptionPlanRepository extends BasicEntityRepository<SubscriptionPlan, Short> {
+public interface SubscriptionPlanRepository extends PagingAndSortingRepository<SubscriptionPlan, Short> {
 
     @NonNull
     @Override
@@ -38,7 +38,7 @@ public interface SubscriptionPlanRepository extends BasicEntityRepository<Subscr
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from SubscriptionPlan e where e.provider = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select e from SubscriptionPlan e where e.provider = ?1")
     List<SubscriptionPlan> findAllByProvider(@NonNull SubscriptionPlan.Provider provider, @NonNull Sort sort);
 
     /**
@@ -50,6 +50,6 @@ public interface SubscriptionPlanRepository extends BasicEntityRepository<Subscr
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from SubscriptionPlan e where e.provider = ?1 and e.providedId = ?2 and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select e from SubscriptionPlan e where e.provider = ?1 and e.providedId = ?2")
     Optional<SubscriptionPlan> findByProvidedId(@NonNull SubscriptionPlan.Provider provider, @NonNull String providedId);
 }

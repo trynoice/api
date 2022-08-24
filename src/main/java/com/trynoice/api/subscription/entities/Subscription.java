@@ -1,20 +1,20 @@
 package com.trynoice.api.subscription.entities;
 
 
-import com.trynoice.api.platform.BasicEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.val;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
+import javax.persistence.Version;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -27,12 +27,19 @@ import java.time.ZoneId;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-public class Subscription extends BasicEntity {
+public class Subscription {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
+
+    @NonNull
+    @Column(updatable = false)
+    @Builder.Default
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Version
+    private long version;
 
     @NonNull
     @ManyToOne(optional = false)

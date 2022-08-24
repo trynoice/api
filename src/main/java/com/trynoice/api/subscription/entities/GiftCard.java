@@ -1,16 +1,16 @@
 package com.trynoice.api.subscription.entities;
 
-import com.trynoice.api.platform.BasicEntity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
+import javax.persistence.Version;
 import java.time.OffsetDateTime;
 
 /**
@@ -21,11 +21,18 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-public class GiftCard extends BasicEntity {
+public class GiftCard {
 
     @Id
     private long id;
+
+    @NonNull
+    @Column(updatable = false)
+    @Builder.Default
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Version
+    private long version;
 
     @NonNull
     private String code;

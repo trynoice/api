@@ -60,8 +60,8 @@ class AccountService implements AccountServiceContract {
     private final SignInTokenDispatchStrategy signInTokenDispatchStrategy;
     private final Algorithm jwtAlgorithm;
     private final JWTVerifier jwtVerifier;
-    private final Cache<String, Boolean> revokedAccessJwtCache;
-    private final Cache<Long, Boolean> deletedUserIdCache;
+    private final Cache<String, Boolean> revokedAccessJwtsCache;
+    private final Cache<Long, Boolean> deactivatedUserIdsCache;
 
     @Autowired
     AccountService(
@@ -69,15 +69,15 @@ class AccountService implements AccountServiceContract {
         @NonNull RefreshTokenRepository refreshTokenRepository,
         @NonNull AuthConfiguration authConfig,
         @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy,
-        @NonNull @Qualifier(AuthBeans.REVOKED_ACCESS_JWT_CACHE) Cache<String, Boolean> revokedAccessJwtCache,
-        @NonNull @Qualifier(AuthBeans.DELETED_USER_ID_CACHE) Cache<Long, Boolean> deletedUserIdCache
+        @NonNull @Qualifier(AuthBeans.REVOKED_ACCESS_JWTS_CACHE) Cache<String, Boolean> revokedAccessJwtsCache,
+        @NonNull @Qualifier(AuthBeans.DEACTIVATED_USER_IDS_CACHE) Cache<Long, Boolean> deactivatedUserIdsCache
     ) {
         this.authUserRepository = authUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.authConfig = authConfig;
         this.signInTokenDispatchStrategy = signInTokenDispatchStrategy;
-        this.revokedAccessJwtCache = revokedAccessJwtCache;
-        this.deletedUserIdCache = deletedUserIdCache;
+        this.revokedAccessJwtsCache = revokedAccessJwtsCache;
+        this.deactivatedUserIdsCache = deactivatedUserIdsCache;
         this.jwtAlgorithm = Algorithm.HMAC256(authConfig.getHmacSecret());
         this.jwtVerifier = JWT.require(this.jwtAlgorithm).build();
     }
@@ -144,7 +144,7 @@ class AccountService implements AccountServiceContract {
                     .owner(authUser)
                     .expiresAt(OffsetDateTime.now().plus(authConfig.getSignInTokenExpiry()))
                     .build())
-            .getJwt(jwtAlgorithm);
+            .toSignedJwt(jwtAlgorithm);
     }
 
     /**
@@ -155,11 +155,12 @@ class AccountService implements AccountServiceContract {
      * @param accessJwt  access token provided by the client.
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
-    @Transactional(rollbackFor = Throwable.class)
+    @Transactional(rollbackFor = Throwable.class, noRollbackFor = RefreshTokenVerificationException.class)
     public void signOut(@NonNull String refreshJwt, @NonNull String accessJwt) throws RefreshTokenVerificationException {
         val refreshToken = verifyRefreshJWT(refreshJwt);
-        refreshTokenRepository.delete(refreshToken);
-        revokedAccessJwtCache.put(accessJwt, Boolean.TRUE);
+        refreshToken.setExpiresAt(OffsetDateTime.now());
+        refreshTokenRepository.save(refreshToken);
+        revokedAccessJwtsCache.put(accessJwt, Boolean.TRUE);
     }
 
     /**
@@ -175,29 +176,33 @@ class AccountService implements AccountServiceContract {
     @Transactional(rollbackFor = Throwable.class, noRollbackFor = RefreshTokenVerificationException.class)
     public AuthCredentialsResponse issueAuthCredentials(@NonNull String refreshToken, String userAgent) throws RefreshTokenVerificationException {
         var token = verifyRefreshJWT(refreshToken);
+        val owner = token.getOwner();
+        owner.updateLastActiveTimestamp(); // update last active timestamp for the user and save.
+        if (owner.getDeactivatedAt() != null) { // restore deactivated account on successful sign-in
+            owner.setDeactivatedAt(null);
+            deactivatedUserIdsCache.invalidate(owner.getId());
+        }
 
         // ordinal 0 implies that this refresh token is being used to sign in, so persist userAgent
         // and reset sign-in attempts.
         if (Long.valueOf(0).equals(token.getOrdinal())) {
             token.setUserAgent(requireNonNullElse(userAgent, ""));
-            token.getOwner().resetSignInAttemptData();
+            owner.resetSignInAttemptData();
         }
 
-        // saving AuthUser entity implicitly updates last active timestamp, so always perform the
-        // save step regardless of the token ordinal value.
-        authUserRepository.save(token.getOwner());
+        authUserRepository.save(owner);
         token.setExpiresAt(OffsetDateTime.now().plus(authConfig.getRefreshTokenExpiry()));
         token.incrementOrdinal();
         token = refreshTokenRepository.save(token);
 
         val accessTokenExpiry = OffsetDateTime.now().plus(authConfig.getAccessTokenExpiry());
         val signedAccessToken = JWT.create()
-            .withSubject("" + token.getOwner().getId())
+            .withSubject("" + owner.getId())
             .withExpiresAt(Date.from(accessTokenExpiry.toInstant()))
             .sign(jwtAlgorithm);
 
         return AuthCredentialsResponse.builder()
-            .refreshToken(token.getJwt(jwtAlgorithm))
+            .refreshToken(token.toSignedJwt(jwtAlgorithm))
             .accessToken(signedAccessToken)
             .build();
     }
@@ -216,10 +221,17 @@ class AccountService implements AccountServiceContract {
         val token = refreshTokenRepository.findById(jwtId)
             .orElseThrow(() -> new RefreshTokenVerificationException("refresh token doesn't exist in database"));
 
+        // an edge case could be that we revoked the token in the database, but the client didn't
+        // receive the updated JWT. Currently, it happens when the token ordinals don't match.
+        if (token.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new RefreshTokenVerificationException("refresh token has expired");
+        }
+
         // if token ordinal is different, it implies that an old refresh token is being re-used.
         // delete token on re-use to effectively sign out both the legitimate user and the attacker.
         if (token.getOrdinal() != jwtOrdinal) {
-            refreshTokenRepository.delete(token);
+            token.setExpiresAt(OffsetDateTime.now());
+            refreshTokenRepository.save(token);
             throw new RefreshTokenVerificationException("refresh token ordinal mismatch");
         }
 
@@ -275,9 +287,11 @@ class AccountService implements AccountServiceContract {
      */
     @Transactional(rollbackFor = Throwable.class)
     public void deleteAccount(@NonNull Long userId) {
-        refreshTokenRepository.deleteAllByOwnerId(userId);
-        authUserRepository.deleteById(userId);
-        deletedUserIdCache.put(userId, Boolean.TRUE);
+        val user = authUserRepository.findById(userId).orElseThrow();
+        user.setDeactivatedAt(OffsetDateTime.now());
+        authUserRepository.save(user);
+        deactivatedUserIdsCache.put(userId, Boolean.TRUE);
+        refreshTokenRepository.updateExpiresAtOfAllByOwnerId(OffsetDateTime.now(), userId);
     }
 
     @Override
@@ -296,14 +310,14 @@ class AccountService implements AccountServiceContract {
      */
     Authentication verifyAccessToken(@NonNull String token) {
         // check if the token was revoked during sign-out.
-        if (requireNonNullElse(revokedAccessJwtCache.getIfPresent(token), false)) {
+        if (requireNonNullElse(revokedAccessJwtsCache.getIfPresent(token), false)) {
             log.trace("attempted authentication with a revoked access token");
             return null;
         }
 
         try {
             val auth = new BearerJWT(token);
-            if (!requireNonNullElse(deletedUserIdCache.getIfPresent(auth.principalId), false)) {
+            if (!requireNonNullElse(deactivatedUserIdsCache.getIfPresent(auth.principalId), false)) {
                 return auth;
             }
 

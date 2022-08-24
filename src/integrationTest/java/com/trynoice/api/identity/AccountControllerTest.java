@@ -2,6 +2,7 @@ package com.trynoice.api.identity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trynoice.api.identity.entities.AuthUser;
+import com.trynoice.api.identity.entities.RefreshToken;
 import com.trynoice.api.identity.exceptions.SignInTokenDispatchException;
 import com.trynoice.api.identity.payload.AuthCredentialsResponse;
 import com.trynoice.api.identity.payload.SignInParams;
@@ -357,11 +358,18 @@ class AccountControllerTest {
             .andExpect(status().is(HttpStatus.NO_CONTENT.value()));
 
         // validate that all existing refresh tokens have been revoked.
-        assertTrue(refreshTokens.stream().noneMatch(t -> t.getDeletedAt() != null));
+        refreshTokens.stream()
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(t -> assertTrue(t.getExpiresAt().isBefore(OffsetDateTime.now())));
 
-        // perform the request again to ensure access token no longer works
+        // validate that account has been deactivated.'
+        Stream.of(user)
+            .map(u -> entityManager.find(AuthUser.class, u.getId()))
+            .forEach(u -> assertNotNull(u.getDeactivatedAt()));
+
+        // perform a request to ensure access token no longer works
         mockMvc.perform(
-                delete(urlFmt, anotherUser.getId())
+                get("/v1/accounts/profile")
                     .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().is(HttpStatus.UNAUTHORIZED.value()));
     }

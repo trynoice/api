@@ -16,20 +16,17 @@ class RefreshTokenTest {
     private static final String TEST_HMAC_SECRET = "test-hmac-secret";
 
     @Test
-    void getSignedJwt() {
-        val now = OffsetDateTime.now();
+    void toSignedJwt() {
         val jwtAlgorithm = Algorithm.HMAC256(TEST_HMAC_SECRET);
-        val refreshToken = RefreshToken.builder()
+        val signedToken = RefreshToken.builder()
+            .id(1)
             .owner(mock(AuthUser.class))
-            .expiresAt(now.plus(Duration.ofHours(1)))
-            .build();
+            .expiresAt(OffsetDateTime.now().plus(Duration.ofHours(1)))
+            .build()
+            .toSignedJwt(jwtAlgorithm);
 
-        refreshToken.setId(1L);
-        refreshToken.setVersion(1L);
-        refreshToken.setCreatedAt(now);
-
-        val signedToken = refreshToken.getJwt(jwtAlgorithm);
         val decodedJwt = JWT.require(jwtAlgorithm).build().verify(signedToken);
         assertEquals("1", decodedJwt.getId());
+        assertEquals(0, decodedJwt.getClaim(RefreshToken.ORD_JWT_CLAIM).asLong());
     }
 }

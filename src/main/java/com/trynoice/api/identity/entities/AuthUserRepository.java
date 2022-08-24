@@ -1,19 +1,18 @@
 package com.trynoice.api.identity.entities;
 
-import com.trynoice.api.platform.BasicEntityRepository;
 import lombok.NonNull;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
 /**
- * A JPA {@link Repository} declaration for database interactions of {@link AuthUser} {@link
- * com.trynoice.api.platform.BasicEntity BasicEntity}.
+ * A JPA {@link Repository} declaration for database interactions of {@link AuthUser} entity.
  */
 @Repository
-public interface AuthUserRepository extends BasicEntityRepository<AuthUser, Long> {
+public interface AuthUserRepository extends CrudRepository<AuthUser, Long> {
 
     /**
      * Retrieves a user by its email.
@@ -23,7 +22,7 @@ public interface AuthUserRepository extends BasicEntityRepository<AuthUser, Long
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from AuthUser e where e.email = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select e from AuthUser e where e.email = ?1")
     Optional<AuthUser> findByEmail(@NonNull String email);
 
     /**
@@ -34,7 +33,7 @@ public interface AuthUserRepository extends BasicEntityRepository<AuthUser, Long
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e.email from AuthUser e where e.id = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select e.email from AuthUser e where e.id = ?1")
     Optional<String> findEmailById(@NonNull Long id);
 
     /**
@@ -44,6 +43,6 @@ public interface AuthUserRepository extends BasicEntityRepository<AuthUser, Long
      * @return {@literal true} if a user with the given email exists, {@literal false} otherwise.
      */
     @Transactional(readOnly = true)
-    @Query("select case when count(e) > 0 then true else false end from #{#entityName} e where e.email = ?1 and" + WHERE_ACTIVE_CLAUSE)
+    @Query("select case when count(e) > 0 then true else false end from AuthUser e where e.email = ?1")
     boolean existsByEmail(@NonNull String email);
 }
