@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -62,6 +63,7 @@ class AccountService implements AccountServiceContract {
     private final JWTVerifier jwtVerifier;
     private final Cache<String, Boolean> revokedAccessJwtsCache;
     private final Cache<Long, Boolean> deactivatedUserIdsCache;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     AccountService(
@@ -70,7 +72,8 @@ class AccountService implements AccountServiceContract {
         @NonNull AuthConfiguration authConfig,
         @NonNull SignInTokenDispatchStrategy signInTokenDispatchStrategy,
         @NonNull @Qualifier(AuthBeans.REVOKED_ACCESS_JWTS_CACHE) Cache<String, Boolean> revokedAccessJwtsCache,
-        @NonNull @Qualifier(AuthBeans.DEACTIVATED_USER_IDS_CACHE) Cache<Long, Boolean> deactivatedUserIdsCache
+        @NonNull @Qualifier(AuthBeans.DEACTIVATED_USER_IDS_CACHE) Cache<Long, Boolean> deactivatedUserIdsCache,
+        @NonNull ApplicationEventPublisher eventPublisher
     ) {
         this.authUserRepository = authUserRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -80,6 +83,7 @@ class AccountService implements AccountServiceContract {
         this.deactivatedUserIdsCache = deactivatedUserIdsCache;
         this.jwtAlgorithm = Algorithm.HMAC256(authConfig.getHmacSecret());
         this.jwtVerifier = JWT.require(this.jwtAlgorithm).build();
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -327,6 +331,20 @@ class AccountService implements AccountServiceContract {
         }
 
         return null;
+    }
+
+    @Transactional(rollbackFor = Throwable.class)
+    public void performGarbageCollection() {
+        val now = OffsetDateTime.now();
+        // ensure that expired refresh tokens are kept for their entire expiration window.
+        refreshTokenRepository.deleteAllExpiredBefore(now.minus(authConfig.getRefreshTokenExpiry()));
+
+        val deleteUsersDeactivatedBefore = now.minus(authConfig.getRemoveDeactivatedAccountsAfter());
+        authUserRepository.findAllIdsDeactivatedBefore(deleteUsersDeactivatedBefore).forEach(userId -> {
+            refreshTokenRepository.deleteAllByOwnerId(userId);
+            authUserRepository.deleteById(userId);
+            eventPublisher.publishEvent(new UserDeletedEvent(userId));
+        });
     }
 
     private class BearerJWT extends AbstractAuthenticationToken {

@@ -3,6 +3,7 @@ package com.trynoice.api.identity;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.AuthUserRepository;
 import com.trynoice.api.identity.entities.RefreshToken;
@@ -22,9 +23,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -65,6 +68,9 @@ class AccountServiceTest {
     @Mock
     private Cache<Long, Boolean> deleteUserIdCache;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private Algorithm jwtAlgorithm;
     private AccountService service;
 
@@ -79,7 +85,8 @@ class AccountServiceTest {
             authConfiguration,
             signInTokenDispatchStrategy,
             revokedAccessTokenCache,
-            deleteUserIdCache);
+            deleteUserIdCache,
+            eventPublisher);
     }
 
     @Test
@@ -392,10 +399,24 @@ class AccountServiceTest {
         JWT.require(jwtAlgorithm).build().verify(token);
     }
 
+    @Test
+    void performGarbageCollection() {
+        val deactivatedUser = buildAuthUser();
+        when(authUserRepository.findAllIdsDeactivatedBefore(any()))
+            .thenReturn(List.of(deactivatedUser.getId()));
+
+        service.performGarbageCollection();
+        verify(refreshTokenRepository, times(1)).deleteAllExpiredBefore(any());
+        verify(refreshTokenRepository, times(1)).deleteAllByOwnerId(deactivatedUser.getId());
+        verify(authUserRepository, times(1)).deleteById(deactivatedUser.getId());
+        verify(eventPublisher, times(1)).publishEvent(argThat((Object e) ->
+            ((AccountServiceContract.UserDeletedEvent) e).getUserId() == deactivatedUser.getId()));
+    }
+
     @NonNull
     private static AuthUser buildAuthUser() {
         return AuthUser.builder()
-            .id(1)
+            .id((long) (Math.random() * 1000) + 1)
             .email("test-name@api.test")
             .name("test-name")
             .build();

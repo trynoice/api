@@ -6,6 +6,8 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -45,4 +47,16 @@ public interface AuthUserRepository extends CrudRepository<AuthUser, Long> {
     @Transactional(readOnly = true)
     @Query("select case when count(e) > 0 then true else false end from AuthUser e where e.email = ?1")
     boolean existsByEmail(@NonNull String email);
+
+    /**
+     * Returns ids of the users that deactivated their account before the given {@code before}
+     * timestamp.
+     *
+     * @param before a not {@literal null} timestamp.
+     * @return a not {@literal null} list of ids.
+     */
+    @NonNull
+    @Transactional(readOnly = true)
+    @Query("select e.id from AuthUser e where e.deactivatedAt < ?1")
+    List<Long> findAllIdsDeactivatedBefore(@NonNull OffsetDateTime before);
 }

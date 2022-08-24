@@ -45,6 +45,8 @@ import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
@@ -779,6 +781,26 @@ class SubscriptionService implements SubscriptionServiceContract {
         } catch (StripeException e) {
             throw new RuntimeException("stripe api error", e);
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = true)
+    @Transactional(rollbackFor = Throwable.class)
+    public void onUserDeleted(@NonNull AccountServiceContract.UserDeletedEvent event) {
+        customerRepository.findById(event.getUserId())
+            .map(Customer::getStripeId)
+            .ifPresent(stripeCustomerId -> {
+                try {
+                    stripeApi.resetCustomerNameAndEmail(stripeCustomerId);
+                } catch (StripeException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+        subscriptionRepository.findActiveByCustomerUserId(event.getUserId())
+            .ifPresent(subscription -> {
+                subscription.setEndAt(OffsetDateTime.now());
+                subscriptionRepository.save(subscription);
+            });
     }
 
     @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")

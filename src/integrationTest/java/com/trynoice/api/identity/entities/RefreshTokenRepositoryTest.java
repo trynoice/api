@@ -1,6 +1,7 @@
 package com.trynoice.api.identity.entities;
 
 import lombok.val;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,7 +29,6 @@ public class RefreshTokenRepositoryTest {
     @Test
     void updateExpiresAtOfAllByOwnerId() {
         val user = createAuthUser(entityManager);
-
         val ownedRefreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, user))
             .collect(Collectors.toUnmodifiableList());
@@ -45,5 +45,57 @@ public class RefreshTokenRepositoryTest {
         unownedRefreshTokens.stream()
             .map(t -> entityManager.find(RefreshToken.class, t.getId()))
             .forEach(t -> assertTrue(t.getExpiresAt().isAfter(OffsetDateTime.now())));
+    }
+
+    @Test
+    void deleteAllByOwnerId() {
+        val user = createAuthUser(entityManager);
+        val ownedRefreshTokens = IntStream.range(0, 5)
+            .mapToObj(i -> createRefreshToken(entityManager, user))
+            .collect(Collectors.toUnmodifiableList());
+
+        val unownedRefreshTokens = IntStream.range(0, 5)
+            .mapToObj(i -> createRefreshToken(entityManager, createAuthUser(entityManager)))
+            .collect(Collectors.toUnmodifiableList());
+
+        refreshTokenRepository.deleteAllByOwnerId(user.getId());
+        ownedRefreshTokens.stream()
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(Assertions::assertNull);
+
+        unownedRefreshTokens.stream()
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(Assertions::assertNotNull);
+    }
+
+    @Test
+    void deleteAllExpiredBefore() {
+        val expiredRefreshTokens = IntStream.range(0, 5)
+            .mapToObj(i -> {
+                val token = createRefreshToken(entityManager, createAuthUser(entityManager));
+                token.setExpiresAt(OffsetDateTime.now().minusHours(i));
+                return entityManager.merge(token);
+            })
+            .collect(Collectors.toUnmodifiableList());
+
+        val activeRefreshTokens = IntStream.range(0, 5)
+            .mapToObj(i -> createRefreshToken(entityManager, createAuthUser(entityManager)))
+            .collect(Collectors.toUnmodifiableList());
+
+        val deleteBefore = OffsetDateTime.now().minusHours(2);
+        refreshTokenRepository.deleteAllExpiredBefore(deleteBefore);
+        expiredRefreshTokens.stream()
+            .filter(t -> t.getExpiresAt().isBefore(deleteBefore))
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(Assertions::assertNull);
+
+        expiredRefreshTokens.stream()
+            .filter(t -> t.getExpiresAt().isAfter(deleteBefore))
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(Assertions::assertNotNull);
+
+        activeRefreshTokens.stream()
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(Assertions::assertNotNull);
     }
 }

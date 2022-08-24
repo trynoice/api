@@ -1,5 +1,7 @@
 package com.trynoice.api.contracts;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.Optional;
@@ -17,4 +19,13 @@ public interface AccountServiceContract {
      */
     @NonNull
     Optional<String> findEmailByUser(@NonNull Long userId);
+
+    /**
+     * An event that the account service publishes when it permanently removes a user.
+     */
+    @Getter
+    @AllArgsConstructor
+    final class UserDeletedEvent {
+        private long userId;
+    }
 }

@@ -4,16 +4,19 @@ package com.trynoice.api.subscription;
 import com.stripe.Stripe;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Customer;
 import com.stripe.model.Event;
 import com.stripe.model.Refund;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.CustomerUpdateParams;
 import com.stripe.param.RefundCreateParams;
 import com.stripe.param.SubscriptionCancelParams;
 import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
+import com.stripe.param.common.EmptyParam;
 import lombok.NonNull;
 import lombok.val;
 
@@ -161,6 +164,21 @@ public class StripeApi {
             com.stripe.param.billingportal.SessionCreateParams.builder()
                 .setCustomer(customerId)
                 .setReturnUrl(returnUrl)
+                .build());
+    }
+
+    /**
+     * Sets the name and email of a Stripe Customer with given {@code customerId} to an empty
+     * string.
+     *
+     * @param customerId a not {@literal null} customer id recognised by Stripe API.
+     * @throws StripeException on upstream errors.
+     */
+    void resetCustomerNameAndEmail(@NonNull String customerId) throws StripeException {
+        Customer.retrieve(customerId).update(
+            CustomerUpdateParams.builder()
+                .setName(EmptyParam.EMPTY)
+                .setEmail(EmptyParam.EMPTY)
                 .build());
     }
 }
