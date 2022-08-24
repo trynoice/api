@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.payload;
+package com.trynoice.api.subscription.upstream.models;
 
 import com.google.api.client.util.DateTime;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;

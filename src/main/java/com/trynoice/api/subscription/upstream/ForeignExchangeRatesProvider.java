@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.ecb;
+package com.trynoice.api.subscription.upstream;
 
 import lombok.NonNull;
 import lombok.val;

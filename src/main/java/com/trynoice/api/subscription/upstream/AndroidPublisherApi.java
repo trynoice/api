@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription;
+package com.trynoice.api.subscription.upstream;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
@@ -6,7 +6,7 @@ import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
+import com.trynoice.api.subscription.upstream.models.GooglePlaySubscriptionPurchase;
 import lombok.NonNull;
 import lombok.val;
 
@@ -40,7 +40,7 @@ public class AndroidPublisherApi {
      * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptionsv2#get(String, String)
      */
     @NonNull
-    GooglePlaySubscriptionPurchase getSubscriptionPurchase(@NonNull String purchaseToken) throws IOException {
+    public GooglePlaySubscriptionPurchase getSubscriptionPurchase(@NonNull String purchaseToken) throws IOException {
         return new GooglePlaySubscriptionPurchase(
             client.purchases()
                 .subscriptionsv2()
@@ -52,7 +52,7 @@ public class AndroidPublisherApi {
      * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#acknowledge(
      *String, String, String, SubscriptionPurchasesAcknowledgeRequest)
      */
-    void acknowledgePurchase(@NonNull String productId, @NonNull String purchaseToken) throws IOException {
+    public void acknowledgePurchase(@NonNull String productId, @NonNull String purchaseToken) throws IOException {
         client.purchases()
             .subscriptions()
             .acknowledge(clientAppId, productId, purchaseToken, new SubscriptionPurchasesAcknowledgeRequest())
@@ -65,7 +65,7 @@ public class AndroidPublisherApi {
      * @see com.google.api.services.androidpublisher.AndroidPublisher.Purchases.Subscriptions#cancel(String, String, String)
      * @see <a href="https://developer.android.com/google/play/billing/subscriptions#cancel">Cancellations</a>
      */
-    void cancelSubscription(@NonNull String purchaseToken) throws IOException {
+    public void cancelSubscription(@NonNull String purchaseToken) throws IOException {
         val purchase = getSubscriptionPurchase(purchaseToken);
         if ("SUBSCRIPTION_STATE_CANCELED".equals(purchase.getSubscriptionState())) {
             // subscription is already cancelled.

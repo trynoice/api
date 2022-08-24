@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription.ecb;
+package com.trynoice.api.subscription.upstream;
 
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;

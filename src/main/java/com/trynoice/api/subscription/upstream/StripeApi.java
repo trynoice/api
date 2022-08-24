@@ -1,4 +1,4 @@
-package com.trynoice.api.subscription;
+package com.trynoice.api.subscription.upstream;
 
 
 import com.stripe.Stripe;
@@ -53,7 +53,7 @@ public class StripeApi {
      * @throws StripeException on api call error
      */
     @NonNull
-    Session createCheckoutSession(
+    public Session createCheckoutSession(
         @NonNull String successUrl,
         @NonNull String cancelUrl,
         @NonNull String priceId,
@@ -86,7 +86,7 @@ public class StripeApi {
      * @see Webhook#constructEvent(String, String, String)
      */
     @NonNull
-    Event decodeWebhookPayload(
+    public Event decodeWebhookPayload(
         @NonNull String payload,
         @NonNull String signature,
         @NonNull String secret
@@ -98,7 +98,7 @@ public class StripeApi {
      * @see Subscription#retrieve(String)
      */
     @NonNull
-    Subscription getSubscription(@NonNull String id) throws StripeException {
+    public Subscription getSubscription(@NonNull String id) throws StripeException {
         return Subscription.retrieve(id);
     }
 
@@ -110,7 +110,7 @@ public class StripeApi {
      * @see Subscription#update(SubscriptionUpdateParams)
      * @see Subscription#cancel(SubscriptionCancelParams)
      */
-    void cancelSubscription(@NonNull String id) throws StripeException {
+    public void cancelSubscription(@NonNull String id) throws StripeException {
         val subscription = getSubscription(id);
         if ("canceled".equals(subscription.getStatus())) {
             return;
@@ -130,7 +130,7 @@ public class StripeApi {
      * @param id id of the stripe subscription.
      * @throws StripeException on Stripe API errors.
      */
-    void refundSubscription(@NonNull String id) throws StripeException {
+    public void refundSubscription(@NonNull String id) throws StripeException {
         val subscription = Subscription.retrieve(
             id,
             SubscriptionRetrieveParams.builder()
@@ -156,7 +156,7 @@ public class StripeApi {
      * @see com.stripe.model.billingportal.Session#create(com.stripe.param.billingportal.SessionCreateParams)
      */
     @NonNull
-    com.stripe.model.billingportal.Session createCustomerPortalSession(
+    public com.stripe.model.billingportal.Session createCustomerPortalSession(
         @NonNull String customerId,
         String returnUrl
     ) throws StripeException {
@@ -174,7 +174,7 @@ public class StripeApi {
      * @param customerId a not {@literal null} customer id recognised by Stripe API.
      * @throws StripeException on upstream errors.
      */
-    void resetCustomerNameAndEmail(@NonNull String customerId) throws StripeException {
+    public void resetCustomerNameAndEmail(@NonNull String customerId) throws StripeException {
         Customer.retrieve(customerId).update(
             CustomerUpdateParams.builder()
                 .setName(EmptyParam.EMPTY)
