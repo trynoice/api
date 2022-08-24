@@ -7,6 +7,8 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+
 /**
  * A JPA {@link Repository} declaration for database interactions of {@link RefreshToken} entity.
  */
@@ -21,6 +23,6 @@ public interface RefreshTokenRepository extends CrudRepository<RefreshToken, Lon
      */
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Transactional
-    @Query("update RefreshToken e set e.expiresAt = now() where e.owner.id = ?1")
-    void expireAllByOwnerId(@NonNull Long ownerId);
+    @Query("update RefreshToken e set e.expiresAt = ?1 where e.owner.id = ?2")
+    void updateExpiresAtOfAllByOwnerId(@NonNull OffsetDateTime expiresAt, @NonNull Long ownerId);
 }

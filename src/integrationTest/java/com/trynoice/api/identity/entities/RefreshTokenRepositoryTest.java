@@ -26,7 +26,7 @@ public class RefreshTokenRepositoryTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Test
-    void expireAllByOwnerId() {
+    void updateExpiresAtOfAllByOwnerId() {
         val user = createAuthUser(entityManager);
 
         val ownedRefreshTokens = IntStream.range(0, 5)
@@ -37,11 +37,13 @@ public class RefreshTokenRepositoryTest {
             .mapToObj(i -> createRefreshToken(entityManager, createAuthUser(entityManager)))
             .collect(Collectors.toUnmodifiableList());
 
-        refreshTokenRepository.expireAllByOwnerId(user.getId());
+        refreshTokenRepository.updateExpiresAtOfAllByOwnerId(OffsetDateTime.now(), user.getId());
         ownedRefreshTokens.stream()
             .map(t -> entityManager.find(RefreshToken.class, t.getId()))
             .forEach(t -> assertTrue(t.getExpiresAt().isBefore(OffsetDateTime.now())));
 
-        unownedRefreshTokens.forEach(t -> assertTrue(refreshTokenRepository.existsById(t.getId())));
+        unownedRefreshTokens.stream()
+            .map(t -> entityManager.find(RefreshToken.class, t.getId()))
+            .forEach(t -> assertTrue(t.getExpiresAt().isAfter(OffsetDateTime.now())));
     }
 }

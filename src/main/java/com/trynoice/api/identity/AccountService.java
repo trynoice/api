@@ -155,7 +155,7 @@ class AccountService implements AccountServiceContract {
      * @param accessJwt  access token provided by the client.
      * @throws RefreshTokenVerificationException if the refresh token is invalid, expired or re-used.
      */
-    @Transactional(rollbackFor = Throwable.class)
+    @Transactional(rollbackFor = Throwable.class, noRollbackFor = RefreshTokenVerificationException.class)
     public void signOut(@NonNull String refreshJwt, @NonNull String accessJwt) throws RefreshTokenVerificationException {
         val refreshToken = verifyRefreshJWT(refreshJwt);
         refreshToken.setExpiresAt(OffsetDateTime.now());
@@ -291,7 +291,7 @@ class AccountService implements AccountServiceContract {
         user.setDeactivatedAt(OffsetDateTime.now());
         authUserRepository.save(user);
         deactivatedUserIdsCache.put(userId, Boolean.TRUE);
-        refreshTokenRepository.expireAllByOwnerId(userId);
+        refreshTokenRepository.updateExpiresAtOfAllByOwnerId(OffsetDateTime.now(), userId);
     }
 
     @Override
