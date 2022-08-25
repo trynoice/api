@@ -1,5 +1,5 @@
 DROP INDEX auth_user__email__unqiue_idx;
-ALTER TABLE auth_user DROP COLUMN deleted_at;
+ALTER TABLE auth_user RENAME COLUMN deleted_at TO deactivated_at;
 CREATE UNIQUE INDEX auth_user__email__unqiue_idx ON auth_user (email);
 
 DROP INDEX refresh_token__owner_id__idx;
