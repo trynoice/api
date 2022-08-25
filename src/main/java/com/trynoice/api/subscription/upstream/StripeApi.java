@@ -6,6 +6,7 @@ import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Customer;
 import com.stripe.model.Event;
+import com.stripe.model.Invoice;
 import com.stripe.model.Refund;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
@@ -19,6 +20,8 @@ import com.stripe.param.checkout.SessionCreateParams;
 import com.stripe.param.common.EmptyParam;
 import lombok.NonNull;
 import lombok.val;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNullElse;
 
@@ -138,14 +141,21 @@ public class StripeApi {
                 .build(),
             null);
 
-        try {
-            Refund.create(
-                RefundCreateParams.builder()
-                    .setCharge(subscription.getLatestInvoiceObject().getCharge())
-                    .build());
-        } catch (StripeException e) {
-            if (!"charge_already_refunded".equals(e.getCode())) {
-                throw e;
+        // charge may be null if the latest invoice is for a trial period.
+        val charge = Optional.ofNullable(subscription.getLatestInvoiceObject())
+            .map(Invoice::getCharge)
+            .orElse(null);
+
+        if (charge != null) {
+            try {
+                Refund.create(
+                    RefundCreateParams.builder()
+                        .setCharge(charge)
+                        .build());
+            } catch (StripeException e) {
+                if (!"charge_already_refunded".equals(e.getCode())) {
+                    throw e;
+                }
             }
         }
 
