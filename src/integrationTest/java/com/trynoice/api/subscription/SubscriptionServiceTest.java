@@ -1,5 +1,7 @@
 package com.trynoice.api.subscription;
 
+import com.stripe.exception.StripeException;
+import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
@@ -7,7 +9,9 @@ import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.subscription.entities.SubscriptionRepository;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
-import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
+import com.trynoice.api.subscription.upstream.AndroidPublisherApi;
+import com.trynoice.api.subscription.upstream.StripeApi;
+import com.trynoice.api.subscription.upstream.models.GooglePlaySubscriptionPurchase;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.Test;
@@ -17,11 +21,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.trynoice.api.subscription.SubscriptionTestUtils.buildSubscriptionPlan;
@@ -50,6 +57,12 @@ public class SubscriptionServiceTest {
     @MockBean
     private AndroidPublisherApi androidPublisherApi;
 
+    @MockBean
+    private StripeApi stripeApi;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
     @Autowired
     private SubscriptionService service;
 
@@ -65,8 +78,9 @@ public class SubscriptionServiceTest {
     ) throws Exception {
         val purchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
+        val customer = buildCustomer(authUser, null);
         val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, purchase.getProductId());
-        val subscription = buildSubscription(authUser, plan, wasActive, wasPaymentPending, wasActive ? purchaseToken : null);
+        val subscription = buildSubscription(customer, plan, wasActive, wasPaymentPending, wasActive ? purchaseToken : null);
         purchase = purchase.withObfuscatedExternalAccountId(String.valueOf(subscription.getId()));
         when(androidPublisherApi.getSubscriptionPurchase(purchaseToken))
             .thenReturn(purchase);
@@ -157,7 +171,8 @@ public class SubscriptionServiceTest {
         val oldPurchaseToken = UUID.randomUUID().toString();
         val newPurchaseToken = UUID.randomUUID().toString();
         val authUser = createAuthUser(entityManager);
-        val subscription = buildSubscription(authUser, oldPlan, true, false, oldPurchaseToken);
+        val customer = buildCustomer(authUser, null);
+        val subscription = buildSubscription(customer, oldPlan, true, false, oldPurchaseToken);
         val purchase = GooglePlaySubscriptionPurchase.builder()
             .productId(newPlan.getProvidedId())
             .startTimeMillis(System.currentTimeMillis())
@@ -188,8 +203,9 @@ public class SubscriptionServiceTest {
         val authUser = createAuthUser(entityManager);
         val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.GOOGLE_PLAY, "test-plan");
         val purchaseToken = UUID.randomUUID().toString();
-        val subscription1 = buildSubscription(authUser, plan, true, false, UUID.randomUUID().toString());
-        val subscription2 = buildSubscription(authUser, plan, false, false, null);
+        val customer = buildCustomer(authUser, null);
+        val subscription1 = buildSubscription(customer, plan, true, false, UUID.randomUUID().toString());
+        val subscription2 = buildSubscription(customer, plan, false, false, null);
         val purchase = GooglePlaySubscriptionPurchase.builder()
             .productId(plan.getProvidedId())
             .startTimeMillis(System.currentTimeMillis())
@@ -213,9 +229,48 @@ public class SubscriptionServiceTest {
         verify(androidPublisherApi, times(0)).acknowledgePurchase(plan.getProvidedId(), purchaseToken);
     }
 
+    @Test
+    void onUserDeleted() throws StripeException {
+        val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "stripe-test-plan");
+        val deletedCustomers = IntStream.range(0, 5)
+            .mapToObj(i -> buildCustomer(createAuthUser(entityManager), "stripe-customer-" + i))
+            .collect(Collectors.toUnmodifiableList());
+
+        val activeCustomers = IntStream.range(5, 10)
+            .mapToObj(i -> buildCustomer(createAuthUser(entityManager), "stripe-customer-" + i))
+            .collect(Collectors.toUnmodifiableList());
+
+        val activeSubscriptions = IntStream.range(0, 5)
+            .mapToObj(i -> i % 2 == 0 ? deletedCustomers.get(i) : activeCustomers.get(i))
+            .map(c -> buildSubscription(c, plan, true, false, "stripe-subscription-" + c.getUserId()))
+            .collect(Collectors.toUnmodifiableList());
+
+        // TODO: how to test it using ApplicationEventPublisher#publishEvent? Since the following is
+        //  a TransactionalEventListener, it probably gets invoked after the test has finished.
+        deletedCustomers.forEach(c -> service.onUserDeleted(new AccountServiceContract.UserDeletedEvent(c.getUserId())));
+
+        for (val deletedCustomer : deletedCustomers) {
+            verify(stripeApi, times(1)).resetCustomerNameAndEmail(deletedCustomer.getStripeId());
+        }
+
+        for (val activeCustomer : activeCustomers) {
+            verify(stripeApi, times(0)).resetCustomerNameAndEmail(activeCustomer.getStripeId());
+        }
+
+        activeSubscriptions.stream()
+            .filter(s -> deletedCustomers.contains(s.getCustomer()))
+            .map(s -> subscriptionRepository.findById(s.getId()).orElseThrow())
+            .forEach(s -> assertFalse(s.isActive()));
+
+        activeSubscriptions.stream()
+            .filter(s -> activeCustomers.contains(s.getCustomer()))
+            .map(s -> subscriptionRepository.findById(s.getId()).orElseThrow())
+            .forEach(s -> assertTrue(s.isActive()));
+    }
+
     @NonNull
     private Subscription buildSubscription(
-        @NonNull AuthUser owner,
+        @NonNull Customer customer,
         @NonNull SubscriptionPlan plan,
         boolean isActive,
         boolean isPaymentPending,
@@ -223,16 +278,21 @@ public class SubscriptionServiceTest {
     ) {
         return subscriptionRepository.save(
             Subscription.builder()
-                .customer(
-                    customerRepository.save(
-                        Customer.builder()
-                            .userId(owner.getId())
-                            .build()))
+                .customer(customer)
                 .plan(plan)
                 .providedId(providedId)
                 .isPaymentPending(isPaymentPending)
                 .startAt(OffsetDateTime.now().plusHours(-2))
                 .endAt(OffsetDateTime.now().plusHours(isActive ? 2 : -1))
+                .build());
+    }
+
+    @NonNull
+    private Customer buildCustomer(@NonNull AuthUser user, String stripeCustomerId) {
+        return customerRepository.save(
+            Customer.builder()
+                .userId(user.getId())
+                .stripeId(stripeCustomerId)
                 .build());
     }
 

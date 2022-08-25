@@ -6,7 +6,6 @@ import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.AccountServiceContract;
 import com.trynoice.api.contracts.SubscriptionServiceContract;
-import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
 import com.trynoice.api.subscription.entities.GiftCard;
@@ -27,12 +26,15 @@ import com.trynoice.api.subscription.exceptions.WebhookEventException;
 import com.trynoice.api.subscription.exceptions.WebhookPayloadException;
 import com.trynoice.api.subscription.payload.GiftCardResponse;
 import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
-import com.trynoice.api.subscription.payload.GooglePlaySubscriptionPurchase;
 import com.trynoice.api.subscription.payload.StripeCustomerPortalUrlResponse;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
 import com.trynoice.api.subscription.payload.SubscriptionFlowResponseV2;
 import com.trynoice.api.subscription.payload.SubscriptionPlanResponse;
 import com.trynoice.api.subscription.payload.SubscriptionResponseV2;
+import com.trynoice.api.subscription.upstream.AndroidPublisherApi;
+import com.trynoice.api.subscription.upstream.ForeignExchangeRatesProvider;
+import com.trynoice.api.subscription.upstream.StripeApi;
+import com.trynoice.api.subscription.upstream.models.GooglePlaySubscriptionPurchase;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,9 +44,10 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.integration.annotation.ServiceActivator;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import javax.validation.ConstraintViolationException;
 import java.io.IOException;
@@ -781,9 +784,34 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
     }
 
-    @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = true)
+    @Transactional(rollbackFor = Throwable.class)
+    public void onUserDeleted(@NonNull AccountServiceContract.UserDeletedEvent event) {
+        customerRepository.findById(event.getUserId())
+            .map(Customer::getStripeId)
+            .ifPresent(stripeCustomerId -> {
+                try {
+                    stripeApi.resetCustomerNameAndEmail(stripeCustomerId);
+                } catch (StripeException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+        subscriptionRepository.findActiveByCustomerUserId(event.getUserId())
+            .ifPresent(subscription -> {
+                subscription.setEndAt(OffsetDateTime.now());
+                subscriptionRepository.save(subscription);
+            });
+    }
+
     void updateForeignExchangeRates() {
         exchangeRatesProvider.maybeUpdateRates();
+    }
+
+    @Transactional(rollbackFor = Throwable.class)
+    public void performGarbageCollection() {
+        val deleteBefore = OffsetDateTime.now().minus(subscriptionConfig.getRemoveIncompleteSubscriptionsAfter());
+        subscriptionRepository.deleteAllIncompleteCreatedBefore(deleteBefore);
     }
 
     private void evictIsSubscribedCache(long userId) {

@@ -4,7 +4,6 @@ import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.trynoice.api.contracts.AccountServiceContract;
-import com.trynoice.api.subscription.ecb.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.CustomerRepository;
 import com.trynoice.api.subscription.entities.GiftCard;
@@ -22,6 +21,9 @@ import com.trynoice.api.subscription.exceptions.SubscriptionNotFoundException;
 import com.trynoice.api.subscription.exceptions.SubscriptionPlanNotFoundException;
 import com.trynoice.api.subscription.exceptions.UnsupportedSubscriptionPlanProviderException;
 import com.trynoice.api.subscription.payload.SubscriptionFlowParams;
+import com.trynoice.api.subscription.upstream.AndroidPublisherApi;
+import com.trynoice.api.subscription.upstream.ForeignExchangeRatesProvider;
+import com.trynoice.api.subscription.upstream.StripeApi;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +41,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Sort;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -54,6 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -477,6 +481,18 @@ public class SubscriptionServiceTest {
 
         testCases.forEach((userId, isSubscribed) ->
             assertEquals(isSubscribed, service.isUserSubscribed(userId)));
+    }
+
+    @Test
+    void performGarbageCollection() {
+        when(subscriptionConfiguration.getRemoveIncompleteSubscriptionsAfter())
+            .thenReturn(Duration.ofHours(1L));
+
+        service.performGarbageCollection();
+
+        val now = OffsetDateTime.now();
+        verify(subscriptionRepository, times(1)).deleteAllIncompleteCreatedBefore(
+            argThat(t -> t.isBefore(now.minusMinutes(59)) && t.isAfter(now.minusMinutes(61))));
     }
 
     @NonNull

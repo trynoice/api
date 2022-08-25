@@ -56,6 +56,9 @@ class AuthConfiguration {
     @NotBlank
     private final String cookieDomain;
 
+    @NotNull
+    private final Duration removeDeactivatedAccountsAfter;
+
     /**
      * {@link SignInTokenDispatchStrategy} to use for dispatching sign-in tokens. It should always
      * be set to {@link SignInTokenDispatcherType#EMAIL} in production environment.

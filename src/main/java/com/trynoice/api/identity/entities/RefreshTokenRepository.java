@@ -25,4 +25,26 @@ public interface RefreshTokenRepository extends CrudRepository<RefreshToken, Lon
     @Transactional
     @Query("update RefreshToken e set e.expiresAt = ?1 where e.owner.id = ?2")
     void updateExpiresAtOfAllByOwnerId(@NonNull OffsetDateTime expiresAt, @NonNull Long ownerId);
+
+    /**
+     * Deletes any refresh token entities owned by the given {@code ownerId}.
+     *
+     * @param ownerId must not be {@literal null}.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Transactional
+    @Query("delete from RefreshToken e where e.owner.id = ?1")
+    void deleteAllByOwnerId(@NonNull Long ownerId);
+
+    /**
+     * Deletes any expired refresh token entities from the database that expired before the given
+     * {@code before} timestamp.
+     *
+     * @param before a not {@literal null} timestamp to remove entities that expired before this
+     *               instant.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Transactional
+    @Query("delete from RefreshToken e where e.expiresAt < ?1")
+    void deleteAllExpiredBefore(@NonNull OffsetDateTime before);
 }
