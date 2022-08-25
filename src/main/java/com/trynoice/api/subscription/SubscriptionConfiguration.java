@@ -38,4 +38,7 @@ class SubscriptionConfiguration {
 
     @NotNull
     private final Duration cacheTtl;
+
+    @NotNull
+    private final Duration removeIncompleteSubscriptionsAfter;
 }

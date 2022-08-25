@@ -44,7 +44,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.integration.annotation.ServiceActivator;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
@@ -805,9 +804,14 @@ class SubscriptionService implements SubscriptionServiceContract {
             });
     }
 
-    @Scheduled(fixedRateString = "${app.subscriptions.foreign-exchange-rate-refresh-interval-millis}")
     void updateForeignExchangeRates() {
         exchangeRatesProvider.maybeUpdateRates();
+    }
+
+    @Transactional(rollbackFor = Throwable.class)
+    public void performGarbageCollection() {
+        val deleteBefore = OffsetDateTime.now().minus(subscriptionConfig.getRemoveIncompleteSubscriptionsAfter());
+        subscriptionRepository.deleteAllIncompleteCreatedBefore(deleteBefore);
     }
 
     private void evictIsSubscribedCache(long userId) {
