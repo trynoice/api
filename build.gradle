@@ -80,7 +80,7 @@ dependencies {
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.1'
     implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20220704-2.0.0'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.10.0'
-    implementation 'com.stripe:stripe-java:20.136.0'
+    implementation 'com.stripe:stripe-java:21.5.0'
     implementation 'org.apache.commons:commons-text:1.9'
     implementation 'org.flywaydb:flyway-core:9.2.1'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
