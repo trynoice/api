@@ -159,7 +159,9 @@ public class StripeApi {
             }
         }
 
-        subscription.cancel();
+        if (!"canceled".equals(subscription.getStatus())) {
+            subscription.cancel();
+        }
     }
 
     /**

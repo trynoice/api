@@ -570,7 +570,7 @@ class SubscriptionService implements SubscriptionServiceContract {
             try {
                 stripeApi.refundSubscription(session.getSubscription());
             } catch (StripeException e) {
-                throw new RuntimeException("failed to cancel stripe subscription", e);
+                throw new RuntimeException("failed to refund stripe subscription", e);
             }
         } else {
             copySubscriptionDetailsFromStripeObject(subscription);
