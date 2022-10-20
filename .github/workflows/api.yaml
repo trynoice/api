@@ -27,7 +27,7 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
       - uses: actions/checkout@v3
       - run: ./gradlew check --no-daemon
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v3
 
   github-release:
     name: GitHub Release
