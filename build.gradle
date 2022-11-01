@@ -66,7 +66,7 @@ jacocoTestReport {
 }
 
 dependencies {
-    def springDocVersion = '1.6.11'
+    def springDocVersion = '1.6.12'
 
     // to enable JavaDoc support in SpringDocs
     annotationProcessor 'com.github.therapi:therapi-runtime-javadoc-scribe:0.15.0'
