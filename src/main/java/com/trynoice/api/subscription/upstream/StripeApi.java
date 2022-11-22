@@ -21,6 +21,8 @@ import com.stripe.param.common.EmptyParam;
 import lombok.NonNull;
 import lombok.val;
 
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNullElse;
@@ -41,6 +43,8 @@ public class StripeApi {
      * @param successUrl        url where user will be redirected after a successful checkout.
      * @param cancelUrl         url where user will be redirected on cancelling the checkout.
      * @param priceId           price id of the subscription.
+     * @param expireAfter       duration in range 30 minutes and 24 hours after which the checkout
+     *                          session expires.
      * @param clientReferenceId a reference id to identify customer internally.
      * @param customerEmail     customer's email. If it and {@code stripeCustomerId} are both
      *                          {@literal null}, Stripe will explicitly ask for it during the
@@ -60,6 +64,7 @@ public class StripeApi {
         @NonNull String successUrl,
         @NonNull String cancelUrl,
         @NonNull String priceId,
+        @NonNull Duration expireAfter,
         @NonNull String clientReferenceId,
         String customerEmail,
         String stripeCustomerId,
@@ -70,6 +75,7 @@ public class StripeApi {
                 .setSuccessUrl(successUrl)
                 .setCancelUrl(cancelUrl)
                 .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
+                .setExpiresAt(OffsetDateTime.now().plus(expireAfter).toEpochSecond())
                 .setClientReferenceId(clientReferenceId)
                 .setCustomerEmail(customerEmail)
                 .setCustomer(stripeCustomerId)

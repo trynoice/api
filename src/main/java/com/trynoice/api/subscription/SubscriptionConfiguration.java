@@ -37,6 +37,9 @@ class SubscriptionConfiguration {
     private final String stripeWebhookSecret;
 
     @NotNull
+    private final Duration stripeCheckoutSessionExpiry;
+
+    @NotNull
     private final Duration cacheTtl;
 
     @NotNull

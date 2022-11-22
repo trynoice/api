@@ -204,6 +204,7 @@ class SubscriptionService implements SubscriptionServiceContract {
                 params.getSuccessUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
                 params.getCancelUrl().replaceAll(toReplaceRegex, subscriptionIdStr),
                 plan.getProvidedId(),
+                subscriptionConfig.getStripeCheckoutSessionExpiry(),
                 subscriptionIdStr,
                 customer.getStripeId() == null
                     ? accountServiceContract.findEmailByUser(customerId).orElse(null)

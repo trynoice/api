@@ -215,7 +215,7 @@ public class SubscriptionServiceTest {
         when(subscriptionRepository.save(subscriptionCaptor.capture()))
             .thenAnswer((Answer<Subscription>) invocation -> subscriptionCaptor.getValue());
 
-        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any(), any()))
+        when(stripeApi.createCheckoutSession(any(), any(), any(), any(), any(), any(), any(), any()))
             .thenThrow(new ApiConnectionException("test-error"));
 
         assertThrows(RuntimeException.class, () -> service.createSubscription(userId, params));
@@ -227,9 +227,13 @@ public class SubscriptionServiceTest {
         val stripePriceId = "stripe-price-id-1";
         val stripeCustomerId = "stripe-customer-id";
         val plan = buildSubscriptionPlan(SubscriptionPlan.Provider.STRIPE, stripePriceId);
+        val checkoutSessionExpiry = Duration.ofHours(2);
 
         val planId = (short) 1;
         val params = new SubscriptionFlowParams(planId, "success-url", "cancel-url");
+
+        when(subscriptionConfiguration.getStripeCheckoutSessionExpiry())
+            .thenReturn(checkoutSessionExpiry);
 
         when(subscriptionPlanRepository.findById(planId))
             .thenReturn(Optional.of(plan));
@@ -253,6 +257,7 @@ public class SubscriptionServiceTest {
                 eq(params.getSuccessUrl()),
                 eq(params.getCancelUrl()),
                 eq(stripePriceId),
+                eq(checkoutSessionExpiry),
                 any(),
                 eq(null),
                 eq(stripeCustomerId),
