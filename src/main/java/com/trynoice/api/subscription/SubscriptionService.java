@@ -584,17 +584,34 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     private void handleStripeSubscriptionEvent(@NonNull String stripeSubscriptionId) throws WebhookPayloadException, WebhookEventException {
-        val subscription = subscriptionRepository.findByProvidedId(stripeSubscriptionId)
-            .orElseThrow(() -> new WebhookEventException("failed to find subscription corresponding to stripe object"));
+        val optional = subscriptionRepository.findByProvidedId(stripeSubscriptionId);
+        if (optional.isEmpty()) {
+            // Ignore this event if we do not have a corresponding internal subscription.
+            //
+            // Normally, it happens when we receive `customer.subscription.updated` event before
+            // receiving `checkout.session.completed` event for a subscription. If we throw error an
+            // in this case, we will be able to successfully process this event once Stripe delivers
+            // the `checkout.session.completed` event and retries this failed event. But, any one of
+            // these events is enough for us synchronise our internal subscription data.
+            //
+            // From observation, it seems that we also receive a `customer.subscription.updated`
+            // when a customer attempts to resubscribe, but their checkout session expires. If we
+            // throw an error from here, these events will continue to fail. It happens because we
+            // link internal subscriptions to Stripe object on receiving `checkout.session.completed`
+            // event. But in case of expired checkout sessions, this step doesn't happen. So
+            // ignoring events in this scenario makes more sense.
+            return;
+        }
 
-        // always fetch subscription entity from Stripe API since retried (or delayed) webhook
-        // events may contain stale data.
+        val subscription = optional.get();
         copySubscriptionDetailsFromStripeObject(subscription);
         subscriptionRepository.save(subscription);
         evictIsSubscribedCache(subscription.getCustomer().getUserId());
     }
 
     private void copySubscriptionDetailsFromStripeObject(@NonNull Subscription subscription) throws WebhookPayloadException, WebhookEventException {
+        // always fetch subscription entity from Stripe API since retried (or delayed) webhook
+        // events may contain stale data.
         final com.stripe.model.Subscription stripeSubscription;
         try {
             stripeSubscription = stripeApi.getSubscription(subscription.getProvidedId());
