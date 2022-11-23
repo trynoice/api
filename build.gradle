@@ -100,7 +100,7 @@ dependencies {
     implementation 'software.amazon.awssdk:s3'
     implementation 'software.amazon.awssdk:ses'
 
-    implementation platform('com.google.cloud:spring-cloud-gcp-dependencies:3.3.0')
+    implementation platform('com.google.cloud:spring-cloud-gcp-dependencies:3.4.0')
     implementation 'com.google.cloud:spring-cloud-gcp-starter-pubsub'
 
 
