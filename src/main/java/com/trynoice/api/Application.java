@@ -12,7 +12,6 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.Banner;
@@ -32,8 +31,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 // exclude user details service from Spring security. We're not using it.
 @SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
@@ -54,19 +51,6 @@ public class Application {
         return builder -> {
             builder.featuresToEnable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             builder.featuresToDisable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS);
-        };
-    }
-
-    @NonNull
-    @Bean
-    WebMvcConfigurer webMvcConfigurer(@Value("${app.cors.allowed-origins}") String[] allowedOrigins) {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(@NonNull CorsRegistry registry) {
-                registry.addMapping("/**")
-                    .allowedOriginPatterns(allowedOrigins)
-                    .allowedMethods("GET", "POST", "PUT", "DELETE");
-            }
         };
     }
 
@@ -107,7 +91,8 @@ public class Application {
         @NonNull GlobalControllerAdvice globalControllerAdvice
     ) throws Exception {
         // disable default filters.
-        http.csrf().disable()
+        http.cors().disable()
+            .csrf().disable()
             .formLogin().disable()
             .headers().disable()
             .httpBasic().disable()
@@ -118,9 +103,6 @@ public class Application {
             .securityContext().disable()
             .sessionManagement().disable();
 
-        // will automatically consider CORS configuration from WebMVC.
-        // https://docs.spring.io/spring-security/site/docs/5.2.1.RELEASE/reference/htmlsingle/#cors
-        http.cors();
         http.exceptionHandling()
             .authenticationEntryPoint(globalControllerAdvice.noOpAuthenticationEntrypoint());
 
