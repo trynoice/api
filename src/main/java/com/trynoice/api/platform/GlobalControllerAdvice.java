@@ -5,8 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -20,7 +18,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
-import javax.servlet.http.HttpServletResponse;
 import javax.validation.ConstraintViolationException;
 
 /**
@@ -29,18 +26,6 @@ import javax.validation.ConstraintViolationException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalControllerAdvice {
-
-    /**
-     * Builds an {@link AuthenticationEntryPoint} for REST APIs where authentication is not feasible
-     * through HTTP redirects or implicit credentials. Clients must manually send their credentials
-     * to authentication endpoint(s) upon receiving a 401 response status.
-     *
-     * @return an {@link AuthenticationEntryPoint} that always responds its clients with 401 status
-     * instead of initiating an authentication scheme.
-     */
-    public AuthenticationEntryPoint noOpAuthenticationEntrypoint() {
-        return (request, response, authException) -> response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-    }
 
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -70,12 +55,6 @@ public class GlobalControllerAdvice {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     void handleNotFound(final NoHandlerFoundException e) {
         log.trace("http handler not found", e);
-    }
-
-    @ExceptionHandler({AuthenticationException.class})
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    void handleUnauthorized(final AuthenticationException e) {
-        log.trace("http request not authorized", e);
     }
 
     @ExceptionHandler({

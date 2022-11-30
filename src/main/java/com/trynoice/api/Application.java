@@ -32,6 +32,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.stereotype.Component;
 
+import javax.servlet.http.HttpServletResponse;
+
 // exclude user details service from Spring security. We're not using it.
 @SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
 @EnableCaching
@@ -103,8 +105,12 @@ public class Application {
             .securityContext().disable()
             .sessionManagement().disable();
 
-        http.exceptionHandling()
-            .authenticationEntryPoint(globalControllerAdvice.noOpAuthenticationEntrypoint());
+
+        // Always return 401 since we don't have an entrypoint where we can redirect users for
+        // authentication. They must manually initiate authentication by invoking relevant endpoints
+        // upon receiving a 401 response status.
+        http.exceptionHandling().authenticationEntryPoint(
+            (request, response, authException) -> response.setStatus(HttpServletResponse.SC_UNAUTHORIZED));
 
         // use request filter to use SecurityContext for authorizing requests.
         http.authorizeRequests()
