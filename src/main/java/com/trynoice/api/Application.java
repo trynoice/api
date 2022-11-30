@@ -30,6 +30,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.firewall.HttpStatusRequestRejectedHandler;
+import org.springframework.security.web.firewall.RequestRejectedHandler;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletResponse;
@@ -49,7 +51,7 @@ public class Application {
 
     @NonNull
     @Bean
-    public Jackson2ObjectMapperBuilderCustomizer objectMapperBuilderCustomizer() {
+    Jackson2ObjectMapperBuilderCustomizer objectMapperBuilderCustomizer() {
         return builder -> {
             builder.featuresToEnable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             builder.featuresToDisable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS);
@@ -86,7 +88,7 @@ public class Application {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
+    SecurityFilterChain securityFilterChain(
         @NonNull HttpSecurity http,
         @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
         @NonNull CookieAuthFilter cookieAuthFilter,
@@ -127,6 +129,11 @@ public class Application {
         http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
         http.addFilterBefore(cookieAuthFilter, AnonymousAuthenticationFilter.class);
         return http.build();
+    }
+
+    @Bean
+    RequestRejectedHandler requestRejectedHandler() {
+        return new HttpStatusRequestRejectedHandler();
     }
 
     @Component
