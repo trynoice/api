@@ -97,7 +97,7 @@ jobs:
 
       - name: Get workflow runner's public IP
         id: ip
-        uses: haythem/public-ip@v1.2
+        uses: haythem/public-ip@v1.3
 
       - name: Setup environment
         run: |
