@@ -1,5 +1,8 @@
 package com.trynoice.api.identity;
 
+import jakarta.persistence.EntityManager;
+import jakarta.servlet.http.Cookie;
+import jakarta.transaction.Transactional;
 import lombok.val;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -11,9 +14,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 
-import javax.persistence.EntityManager;
-import javax.servlet.http.Cookie;
-import javax.transaction.Transactional;
 import java.util.List;
 import java.util.stream.Stream;
 

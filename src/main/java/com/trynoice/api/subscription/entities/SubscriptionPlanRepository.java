@@ -3,6 +3,7 @@ package com.trynoice.api.subscription.entities;
 import lombok.NonNull;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +16,7 @@ import java.util.Optional;
  * entity.
  */
 @Repository
-public interface SubscriptionPlanRepository extends PagingAndSortingRepository<SubscriptionPlan, Short> {
+public interface SubscriptionPlanRepository extends CrudRepository<SubscriptionPlan, Short>, PagingAndSortingRepository<SubscriptionPlan, Short> {
 
     @NonNull
     @Override

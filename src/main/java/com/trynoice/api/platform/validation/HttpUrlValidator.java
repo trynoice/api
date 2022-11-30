@@ -1,10 +1,10 @@
 package com.trynoice.api.platform.validation;
 
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import lombok.val;
 
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
 import java.net.MalformedURLException;
 import java.net.URL;
 

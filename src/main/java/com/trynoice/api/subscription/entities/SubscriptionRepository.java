@@ -5,7 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +17,7 @@ import java.util.Optional;
  * A JPA {@link Repository} declaration for database interactions of {@link Subscription} entity.
  */
 @Repository
-public interface SubscriptionRepository extends PagingAndSortingRepository<Subscription, Long> {
+public interface SubscriptionRepository extends CrudRepository<Subscription, Long> {
 
     /**
      * Find a {@link Subscription} entity by its provider assigned subscription id.

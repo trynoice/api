@@ -1,14 +1,13 @@
 package com.trynoice.api.identity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.ConstructorBinding;
 import org.springframework.validation.annotation.Validated;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import java.time.Duration;
 
 /**
@@ -16,7 +15,6 @@ import java.time.Duration;
  */
 @Validated
 @ConfigurationProperties("app.auth")
-@ConstructorBinding
 @Data
 class AuthConfiguration {
 
@@ -80,7 +78,6 @@ class AuthConfiguration {
     @Validated
     @ConfigurationProperties("app.auth.sign-in-token-dispatcher.email")
     @ConditionalOnProperty(name = "app.auth.sign-in-token-dispatcher-type", havingValue = "email")
-    @ConstructorBinding
     @Data
     static class EmailSignInTokenDispatcherConfiguration {
 

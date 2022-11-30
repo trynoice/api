@@ -18,6 +18,8 @@ import com.trynoice.api.subscription.upstream.AndroidPublisherApi;
 import com.trynoice.api.subscription.upstream.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.upstream.StripeApi;
 import com.trynoice.api.testing.AuthTestUtils;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.Test;
@@ -34,8 +36,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;

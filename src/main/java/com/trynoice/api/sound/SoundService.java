@@ -3,12 +3,12 @@ package com.trynoice.api.sound;
 import com.trynoice.api.contracts.SubscriptionServiceContract;
 import com.trynoice.api.sound.entities.LibraryManifestRepository;
 import com.trynoice.api.sound.exceptions.SegmentAccessDeniedException;
+import jakarta.validation.ConstraintViolationException;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.validation.ConstraintViolationException;
 import java.util.Set;
 
 /**

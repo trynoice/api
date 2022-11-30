@@ -1,5 +1,6 @@
 package com.trynoice.api.identity.entities;
 
+import jakarta.persistence.EntityManager;
 import lombok.val;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -7,9 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
 import java.time.OffsetDateTime;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.trynoice.api.testing.AuthTestUtils.createAuthUser;
@@ -31,11 +30,11 @@ public class RefreshTokenRepositoryTest {
         val user = createAuthUser(entityManager);
         val ownedRefreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, user))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         val unownedRefreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, createAuthUser(entityManager)))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         refreshTokenRepository.updateExpiresAtOfAllByOwnerId(OffsetDateTime.now(), user.getId());
         ownedRefreshTokens.stream()
@@ -52,11 +51,11 @@ public class RefreshTokenRepositoryTest {
         val user = createAuthUser(entityManager);
         val ownedRefreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, user))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         val unownedRefreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, createAuthUser(entityManager)))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         refreshTokenRepository.deleteAllByOwnerId(user.getId());
         ownedRefreshTokens.stream()
@@ -76,11 +75,11 @@ public class RefreshTokenRepositoryTest {
                 token.setExpiresAt(OffsetDateTime.now().minusHours(i));
                 return entityManager.merge(token);
             })
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         val activeRefreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, createAuthUser(entityManager)))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         val deleteBefore = OffsetDateTime.now().minusHours(2);
         refreshTokenRepository.deleteAllExpiredBefore(deleteBefore);

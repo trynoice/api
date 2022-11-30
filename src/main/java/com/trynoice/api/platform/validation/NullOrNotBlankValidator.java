@@ -1,9 +1,8 @@
 package com.trynoice.api.platform.validation;
 
 import com.trynoice.api.platform.validation.annotations.NullOrNotBlank;
-
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 
 /**
  * Validates a {@link String} type as a {@literal null} or a not blank string.

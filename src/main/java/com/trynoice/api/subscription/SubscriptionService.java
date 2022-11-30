@@ -35,6 +35,7 @@ import com.trynoice.api.subscription.upstream.AndroidPublisherApi;
 import com.trynoice.api.subscription.upstream.ForeignExchangeRatesProvider;
 import com.trynoice.api.subscription.upstream.StripeApi;
 import com.trynoice.api.subscription.upstream.models.GooglePlaySubscriptionPurchase;
+import jakarta.validation.ConstraintViolationException;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,11 +50,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-import javax.validation.ConstraintViolationException;
 import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static java.lang.Long.parseLong;
@@ -134,7 +133,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         return StreamSupport.stream(plans.spliterator(), false)
             .filter(p -> p.getProvider() != SubscriptionPlan.Provider.GIFT_CARD) // do not return GIFT_CARD plan(s)
             .map(p -> buildSubscriptionPlanResponse(p, currencyCode, exchangeRate))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     }
 
     /**
@@ -251,7 +250,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         if (onlyActive) {
             subscriptions = subscriptionRepository.findActiveByCustomerUserId(customerId)
                 .stream()
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
         } else {
             val pageable = PageRequest.of(pageNumber, 20, Sort.by(Sort.Order.desc("startAt")));
             subscriptions = subscriptionRepository.findAllStartedByCustomerUserId(customerId, pageable).toList();
@@ -260,7 +259,7 @@ class SubscriptionService implements SubscriptionServiceContract {
         val exchangeRate = currencyCode == null ? null : exchangeRatesProvider.getRateForCurrency("INR", currencyCode).orElse(null);
         return subscriptions.stream()
             .map(subscription -> buildSubscriptionResponse(subscription, currencyCode, exchangeRate))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
     }
 
     /**
@@ -496,14 +495,12 @@ class SubscriptionService implements SubscriptionServiceContract {
         }
 
         switch (event.getType()) {
-            case "checkout.session.completed":
+            case "checkout.session.completed" -> {
                 val session = (Session) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new WebhookPayloadException("failed to get session object from the event payload"));
-
                 if (!"complete".equals(session.getStatus())) {
                     throw new WebhookPayloadException("checkout session status is not complete");
                 }
-
                 try {
                     handleStripeCheckoutSessionEvent(session);
                 } catch (WebhookPayloadException | WebhookEventException outer) {
@@ -520,21 +517,21 @@ class SubscriptionService implements SubscriptionServiceContract {
 
                     throw outer;
                 }
-                break;
-            case "customer.subscription.updated":
-            case "customer.subscription.deleted":
-            case "customer.subscription.pending_update_applied":
-            case "customer.subscription.pending_update_expired":
-            case "customer.subscription.trial_will_end":
+            }
+            case "customer.subscription.updated",
+                "customer.subscription.deleted",
+                "customer.subscription.pending_update_applied",
+                "customer.subscription.pending_update_expired",
+                "customer.subscription.trial_will_end" -> {
                 val stripeSubscription = (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new WebhookPayloadException("failed to get subscription object from the event payload"));
                 handleStripeSubscriptionEvent(stripeSubscription.getId());
-                break;
-            case "customer.deleted":
+            }
+            case "customer.deleted" -> {
                 val stripeCustomer = (com.stripe.model.Customer) event.getDataObjectDeserializer().getObject()
                     .orElseThrow(() -> new WebhookPayloadException("failed to get customer object from the event payload"));
                 customerRepository.resetStripeId(stripeCustomer.getId());
-                break;
+            }
         }
     }
 

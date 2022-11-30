@@ -35,7 +35,7 @@ configuration in [`application-dev-default.properties`][app-dev-default-props].
 docker-compose -f scripts/postgres-with-docker-compose.yaml up -d
 ```
 
-To delete and recreate the develop database, restart the `postgres-init`
+To delete and recreate the development database, restart the `postgres-init`
 container.
 
 ```sh

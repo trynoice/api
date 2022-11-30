@@ -9,14 +9,15 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.Banner;
-import org.springframework.boot.actuate.trace.http.HttpTraceRepository;
-import org.springframework.boot.actuate.trace.http.InMemoryHttpTraceRepository;
+import org.springframework.boot.actuate.web.exchanges.HttpExchangeRepository;
+import org.springframework.boot.actuate.web.exchanges.InMemoryHttpExchangeRepository;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
@@ -31,8 +32,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.stereotype.Component;
-
-import javax.servlet.http.HttpServletResponse;
 
 // exclude user details service from Spring security. We're not using it.
 @SpringBootApplication(exclude = {UserDetailsServiceAutoConfiguration.class})
@@ -80,9 +79,9 @@ public class Application {
 
     @NonNull
     @Bean
-    HttpTraceRepository httpTraceRepository() {
+    HttpExchangeRepository httpExchangeRepository() {
         // TODO: configure a production-ready http request tracing solution.
-        return new InMemoryHttpTraceRepository();
+        return new InMemoryHttpExchangeRepository();
     }
 
     @Bean
@@ -113,14 +112,14 @@ public class Application {
             (request, response, authException) -> response.setStatus(HttpServletResponse.SC_UNAUTHORIZED));
 
         // use request filter to use SecurityContext for authorizing requests.
-        http.authorizeRequests()
-            .mvcMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
-            .mvcMatchers(HttpMethod.GET, "/v1/subscriptions/plans").permitAll()
-            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signUp").anonymous()
-            .mvcMatchers(HttpMethod.POST, "/v1/accounts/signIn").anonymous()
-            .mvcMatchers(HttpMethod.GET, "/v1/accounts/credentials").anonymous()
-            .mvcMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook").anonymous()
-            .antMatchers("/v?*/**").fullyAuthenticated()
+        http.authorizeHttpRequests()
+            .requestMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
+            .requestMatchers(HttpMethod.GET, "/v1/subscriptions/plans").permitAll()
+            .requestMatchers(HttpMethod.POST, "/v1/accounts/signUp").anonymous()
+            .requestMatchers(HttpMethod.POST, "/v1/accounts/signIn").anonymous()
+            .requestMatchers(HttpMethod.GET, "/v1/accounts/credentials").anonymous()
+            .requestMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook").anonymous()
+            .requestMatchers("/v?*/**").fullyAuthenticated()
             .anyRequest().permitAll();
 
         // add custom filter to set SecurityContext based on Authorization bearer JWT.

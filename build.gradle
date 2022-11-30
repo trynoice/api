@@ -13,8 +13,6 @@ repositories {
 group = "com.trynoice"
 version = System.getenv("BUILD_VERSION") ?: "0.0.0-dev"
 
-sourceCompatibility = "11"
-
 sourceSets {
     integrationTest {
         compileClasspath += sourceSets.main.output

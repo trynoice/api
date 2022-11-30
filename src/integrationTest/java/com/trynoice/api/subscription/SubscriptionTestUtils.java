@@ -12,10 +12,10 @@ import com.trynoice.api.subscription.entities.Customer;
 import com.trynoice.api.subscription.entities.GiftCard;
 import com.trynoice.api.subscription.entities.Subscription;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
+import jakarta.persistence.EntityManager;
 import lombok.NonNull;
 import lombok.val;
 
-import javax.persistence.EntityManager;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
