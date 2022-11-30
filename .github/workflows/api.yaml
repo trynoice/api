@@ -125,21 +125,11 @@ jobs:
             # prepare api configuration
             cp deploy/conf/production.properties conf/api.properties
 
-            # generate EnvironmentFile for noice-api.service
-            {
-              echo "NOICE_API_PG_DSN=$PROD_NOICE_API_PG_DSN";
-              echo "NOICE_API_PG_USER=$PROD_NOICE_API_PG_USER";
-              echo "NOICE_API_PG_PASSWORD=$PROD_NOICE_API_PG_PASSWORD";
-              echo "NOICE_API_GCP_PROJECT_ID=$PROD_NOICE_API_GCP_PROJECT_ID";
-              echo "NOICE_API_GCP_PUBSUB_SUB_NAME=$PROD_NOICE_API_GCP_PUBSUB_SUB_NAME";
-              echo "NOICE_API_AUTH_HMAC_SECRET=$PROD_NOICE_API_AUTH_HMAC_SECRET";
-              echo "NOICE_API_STRIPE_API_KEY=$PROD_NOICE_API_STRIPE_API_KEY";
-              echo "NOICE_API_STRIPE_WH_SECRET=$PROD_NOICE_API_STRIPE_WH_SECRET";
-              echo "NOICE_API_LIBRARY_S3_PREFIX=$PROD_NOICE_API_LIBRARY_S3_PREFIX";
-            } > conf/api.env
+            # write EnvironmentFile for noice-api.service
+            echo "$PROD_API_ENV_FILE" > conf/api.env
 
             # write google play api key
-            echo "$PROD_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/gcp-service-account-key.json
+            echo "$PROD_API_GOOGLE_PLAY_API_KEY" > conf/gcp-service-account-key.json
           else
             {
               echo "AWS_DEFAULT_REGION=$STAGING_AWS_DEFAULT_REGION";
@@ -159,21 +149,11 @@ jobs:
             # prepare api configuration
             cp deploy/conf/staging.properties conf/api.properties
 
-            # generate EnvironmentFile for noice-api.service
-            {
-              echo "NOICE_API_PG_DSN=$STAGING_NOICE_API_PG_DSN";
-              echo "NOICE_API_PG_USER=$STAGING_NOICE_API_PG_USER";
-              echo "NOICE_API_PG_PASSWORD=$STAGING_NOICE_API_PG_PASSWORD";
-              echo "NOICE_API_GCP_PROJECT_ID=$STAGING_NOICE_API_GCP_PROJECT_ID";
-              echo "NOICE_API_GCP_PUBSUB_SUB_NAME=$STAGING_NOICE_API_GCP_PUBSUB_SUB_NAME";
-              echo "NOICE_API_AUTH_HMAC_SECRET=$STAGING_NOICE_API_AUTH_HMAC_SECRET";
-              echo "NOICE_API_STRIPE_API_KEY=$STAGING_NOICE_API_STRIPE_API_KEY";
-              echo "NOICE_API_STRIPE_WH_SECRET=$STAGING_NOICE_API_STRIPE_WH_SECRET";
-              echo "NOICE_API_LIBRARY_S3_PREFIX=$STAGING_NOICE_API_LIBRARY_S3_PREFIX";
-            } > conf/api.env
+             # write EnvironmentFile for noice-api.service
+            echo "$STAGING_API_ENV_FILE" > conf/api.env
 
             # write google play api key
-            echo "$STAGING_NOICE_API_GOOGLE_PLAY_API_KEY" > conf/gcp-service-account-key.json
+            echo "$STAGING_API_GOOGLE_PLAY_API_KEY" > conf/gcp-service-account-key.json
           fi
         env:
           PROD_AWS_DEFAULT_REGION: ${{ secrets.PROD_AWS_DEFAULT_REGION }}
@@ -183,16 +163,8 @@ jobs:
           PROD_AWS_EC2_SG_ID: ${{ secrets.PROD_AWS_EC2_SG_ID }}
           PROD_AWS_EC2_SSH_KEY: ${{ secrets.PROD_AWS_EC2_SSH_KEY }}
           PROD_AWS_EC2_SSH_USER: ${{ secrets.PROD_AWS_EC2_SSH_USER }}
-          PROD_NOICE_API_PG_DSN: ${{ secrets.PROD_NOICE_API_PG_DSN }}
-          PROD_NOICE_API_PG_USER: ${{ secrets.PROD_NOICE_API_PG_USER }}
-          PROD_NOICE_API_PG_PASSWORD: ${{ secrets.PROD_NOICE_API_PG_PASSWORD }}
-          PROD_NOICE_API_GCP_PROJECT_ID: ${{ secrets.PROD_NOICE_API_GCP_PROJECT_ID }}
-          PROD_NOICE_API_GCP_PUBSUB_SUB_NAME: ${{ secrets.PROD_NOICE_API_GCP_PUBSUB_SUB_NAME }}
-          PROD_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.PROD_NOICE_API_AUTH_HMAC_SECRET }}
-          PROD_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.PROD_NOICE_API_GOOGLE_PLAY_API_KEY }}
-          PROD_NOICE_API_STRIPE_API_KEY: ${{ secrets.PROD_NOICE_API_STRIPE_API_KEY }}
-          PROD_NOICE_API_STRIPE_WH_SECRET: ${{ secrets.PROD_NOICE_API_STRIPE_WH_SECRET }}
-          PROD_NOICE_API_LIBRARY_S3_PREFIX: ${{ secrets.PROD_NOICE_API_LIBRARY_S3_PREFIX }}
+          PROD_API_ENV_FILE: ${{ secrets.PROD_API_ENV_FILE }}
+          PROD_API_GOOGLE_PLAY_API_KEY: ${{ secrets.PROD_API_GOOGLE_PLAY_API_KEY }}
           STAGING_AWS_DEFAULT_REGION: ${{ secrets.STAGING_AWS_DEFAULT_REGION }}
           STAGING_AWS_ACCESS_KEY_ID: ${{ secrets.STAGING_AWS_ACCESS_KEY_ID }}
           STAGING_AWS_SECRET_ACCESS_KEY: ${{ secrets.STAGING_AWS_SECRET_ACCESS_KEY }}
@@ -200,16 +172,8 @@ jobs:
           STAGING_AWS_EC2_SG_ID: ${{ secrets.STAGING_AWS_EC2_SG_ID }}
           STAGING_AWS_EC2_SSH_KEY: ${{ secrets.STAGING_AWS_EC2_SSH_KEY }}
           STAGING_AWS_EC2_SSH_USER: ${{ secrets.STAGING_AWS_EC2_SSH_USER }}
-          STAGING_NOICE_API_PG_DSN: ${{ secrets.STAGING_NOICE_API_PG_DSN }}
-          STAGING_NOICE_API_PG_USER: ${{ secrets.STAGING_NOICE_API_PG_USER }}
-          STAGING_NOICE_API_PG_PASSWORD: ${{ secrets.STAGING_NOICE_API_PG_PASSWORD }}
-          STAGING_NOICE_API_GCP_PROJECT_ID: ${{ secrets.STAGING_NOICE_API_GCP_PROJECT_ID }}
-          STAGING_NOICE_API_GCP_PUBSUB_SUB_NAME: ${{ secrets.STAGING_NOICE_API_GCP_PUBSUB_SUB_NAME }}
-          STAGING_NOICE_API_AUTH_HMAC_SECRET: ${{ secrets.STAGING_NOICE_API_AUTH_HMAC_SECRET }}
-          STAGING_NOICE_API_GOOGLE_PLAY_API_KEY: ${{ secrets.STAGING_NOICE_API_GOOGLE_PLAY_API_KEY }}
-          STAGING_NOICE_API_STRIPE_API_KEY: ${{ secrets.STAGING_NOICE_API_STRIPE_API_KEY }}
-          STAGING_NOICE_API_STRIPE_WH_SECRET: ${{ secrets.STAGING_NOICE_API_STRIPE_WH_SECRET }}
-          STAGING_NOICE_API_LIBRARY_S3_PREFIX: ${{ secrets.STAGING_NOICE_API_LIBRARY_S3_PREFIX }}
+          STAGING_API_ENV_FILE: ${{ secrets.STAGING_API_ENV_FILE }}
+          STAGING_API_GOOGLE_PLAY_API_KEY: ${{ secrets.STAGING_API_GOOGLE_PLAY_API_KEY }}
 
       - name: Authorize runner's SSH access to EC2 host
         run: |
