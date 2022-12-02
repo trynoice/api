@@ -91,8 +91,7 @@ public class Application {
     SecurityFilterChain securityFilterChain(
         @NonNull HttpSecurity http,
         @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
-        @NonNull CookieAuthFilter cookieAuthFilter,
-        @NonNull GlobalControllerAdvice globalControllerAdvice
+        @NonNull CookieAuthFilter cookieAuthFilter
     ) throws Exception {
         // disable default filters.
         http.cors().disable()
@@ -106,7 +105,6 @@ public class Application {
             .requestCache().disable()
             .securityContext().disable()
             .sessionManagement().disable();
-
 
         // Always return 401 since we don't have an entrypoint where we can redirect users for
         // authentication. They must manually initiate authentication by invoking relevant endpoints
