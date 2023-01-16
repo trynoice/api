@@ -80,14 +80,7 @@ jobs:
 
       - name: Build app
         run: |
-          if [[ "$GITHUB_REF" =~ refs/tags/* ]]; then
-            VERSION_NAME="${GITHUB_REF/'refs/tags/v'/''}"
-          else
-            VERSION_NAME="0.0.0-staging"
-          fi
-
-          BUILD_VERSION="${VERSION_NAME}-${GITHUB_SHA::7}" \
-            ./gradlew bootJar --no-daemon
+          ./gradlew bootJar --no-daemon
 
           (mkdir -p jar-content; cd jar-content; jar -xf ../build/libs/*.jar;)
           mkdir -p app
