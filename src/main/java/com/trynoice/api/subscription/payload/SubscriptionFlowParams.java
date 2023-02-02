@@ -2,12 +2,11 @@ package com.trynoice.api.subscription.payload;
 
 import com.trynoice.api.platform.validation.annotations.HttpUrl;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 /**
  * A data transfer object to hold the body of create-subscription requests.

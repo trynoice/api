@@ -8,6 +8,9 @@ import com.trynoice.api.identity.payload.AuthCredentialsResponse;
 import com.trynoice.api.identity.payload.SignInParams;
 import com.trynoice.api.identity.payload.SignUpParams;
 import com.trynoice.api.identity.payload.UpdateProfileParams;
+import jakarta.persistence.EntityManager;
+import jakarta.servlet.http.Cookie;
+import jakarta.transaction.Transactional;
 import lombok.val;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,11 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import javax.persistence.EntityManager;
-import javax.servlet.http.Cookie;
-import javax.transaction.Transactional;
 import java.time.OffsetDateTime;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -343,7 +342,7 @@ class AccountControllerTest {
 
         val refreshTokens = IntStream.range(0, 5)
             .mapToObj(i -> createRefreshToken(entityManager, user))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         // try deleting someone else's account
         mockMvc.perform(
@@ -362,7 +361,7 @@ class AccountControllerTest {
             .map(t -> entityManager.find(RefreshToken.class, t.getId()))
             .forEach(t -> assertTrue(t.getExpiresAt().isBefore(OffsetDateTime.now())));
 
-        // validate that account has been deactivated.'
+        // validate that account has been deactivated.
         Stream.of(user)
             .map(u -> entityManager.find(AuthUser.class, u.getId()))
             .forEach(u -> assertNotNull(u.getDeactivatedAt()));

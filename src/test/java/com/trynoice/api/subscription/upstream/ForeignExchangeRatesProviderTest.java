@@ -30,19 +30,21 @@ class ForeignExchangeRatesProviderTest {
 
     @Test
     void getRateForCurrency() {
-        val xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<gesmes:Envelope>\n" +
-            "<gesmes:subject>Reference rates</gesmes:subject>\n" +
-            "<gesmes:Sender>\n" +
-            "<gesmes:name>European Central Bank</gesmes:name>\n" +
-            "</gesmes:Sender>\n" +
-            "<Cube>\n" +
-            "<Cube time=\"2022-06-28\">\n" +
-            "<Cube currency=\"USD\" rate=\"10\"/>\n" +
-            "<Cube currency=\"INR\" rate=\"100\"/>\n" +
-            "</Cube>\n" +
-            "</Cube>\n" +
-            "</gesmes:Envelope>";
+        val xml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <gesmes:Envelope>
+            <gesmes:subject>Reference rates</gesmes:subject>
+            <gesmes:Sender>
+            <gesmes:name>European Central Bank</gesmes:name>
+            </gesmes:Sender>
+            <Cube>
+            <Cube time="2022-06-28">
+            <Cube currency="USD" rate="10"/>
+            <Cube currency="INR" rate="100"/>
+            </Cube>
+            </Cube>
+            </gesmes:Envelope>
+            """;
 
         mockServer.expect(manyTimes(), requestTo(ForeignExchangeRatesProvider.DAILY_RATES_URL))
             .andExpect(method(HttpMethod.GET))

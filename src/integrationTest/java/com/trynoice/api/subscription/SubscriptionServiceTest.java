@@ -12,6 +12,7 @@ import com.trynoice.api.subscription.payload.GooglePlayDeveloperNotification;
 import com.trynoice.api.subscription.upstream.AndroidPublisherApi;
 import com.trynoice.api.subscription.upstream.StripeApi;
 import com.trynoice.api.subscription.upstream.models.GooglePlaySubscriptionPurchase;
+import jakarta.persistence.EntityManager;
 import lombok.NonNull;
 import lombok.val;
 import org.junit.jupiter.api.Test;
@@ -24,10 +25,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
 import java.time.OffsetDateTime;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -234,16 +233,16 @@ public class SubscriptionServiceTest {
         val plan = buildSubscriptionPlan(entityManager, SubscriptionPlan.Provider.STRIPE, "stripe-test-plan");
         val deletedCustomers = IntStream.range(0, 5)
             .mapToObj(i -> buildCustomer(createAuthUser(entityManager), "stripe-customer-" + i))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         val activeCustomers = IntStream.range(5, 10)
             .mapToObj(i -> buildCustomer(createAuthUser(entityManager), "stripe-customer-" + i))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         val activeSubscriptions = IntStream.range(0, 5)
             .mapToObj(i -> i % 2 == 0 ? deletedCustomers.get(i) : activeCustomers.get(i))
             .map(c -> buildSubscription(c, plan, true, false, "stripe-subscription-" + c.getUserId()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         // TODO: how to test it using ApplicationEventPublisher#publishEvent? Since the following is
         //  a TransactionalEventListener, it probably gets invoked after the test has finished.

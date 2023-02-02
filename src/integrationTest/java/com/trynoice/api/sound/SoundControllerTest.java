@@ -3,6 +3,8 @@ package com.trynoice.api.sound;
 import com.trynoice.api.subscription.SubscriptionTestUtils;
 import com.trynoice.api.subscription.entities.SubscriptionPlan;
 import com.trynoice.api.testing.AuthTestUtils;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import lombok.val;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -20,8 +22,6 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
-import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;

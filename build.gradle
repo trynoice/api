@@ -1,6 +1,6 @@
 plugins {
     id "java"
-    id "org.springframework.boot" version "2.7.5"
+    id "org.springframework.boot" version "3.0.0"
     id "io.spring.dependency-management" version "1.1.0"
     id "com.palantir.git-version" version "0.15.0"
     id "com.adarshr.test-logger" version "3.2.0"
@@ -13,8 +13,6 @@ repositories {
 
 group = "com.trynoice"
 version = gitVersion().substring(1) // remove leading 'v' from the Git tag
-
-sourceCompatibility = "11"
 
 sourceSets {
     integrationTest {
@@ -101,7 +99,7 @@ dependencies {
     implementation 'software.amazon.awssdk:s3'
     implementation 'software.amazon.awssdk:ses'
 
-    implementation platform('com.google.cloud:spring-cloud-gcp-dependencies:3.4.1')
+    implementation platform('com.google.cloud:spring-cloud-gcp-dependencies:4.0.0')
     implementation 'com.google.cloud:spring-cloud-gcp-starter-pubsub'
 
 

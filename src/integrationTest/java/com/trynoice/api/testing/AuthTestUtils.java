@@ -4,10 +4,10 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.trynoice.api.identity.entities.AuthUser;
 import com.trynoice.api.identity.entities.RefreshToken;
+import jakarta.persistence.EntityManager;
 import lombok.NonNull;
 import lombok.val;
 
-import javax.persistence.EntityManager;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Calendar;

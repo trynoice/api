@@ -1,11 +1,10 @@
 package com.trynoice.api.sound;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.ConstructorBinding;
 import org.springframework.validation.annotation.Validated;
 
-import javax.validation.constraints.NotNull;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
@@ -15,7 +14,6 @@ import java.util.Set;
  */
 @Validated
 @ConfigurationProperties("app.sounds")
-@ConstructorBinding
 @Data
 public class SoundConfiguration {
 

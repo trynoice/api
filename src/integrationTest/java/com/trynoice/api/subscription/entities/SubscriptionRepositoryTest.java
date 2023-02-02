@@ -1,14 +1,13 @@
 package com.trynoice.api.subscription.entities;
 
+import jakarta.persistence.EntityManager;
 import lombok.val;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
 import java.time.OffsetDateTime;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,7 +53,7 @@ public class SubscriptionRepositoryTest {
                     .endAt(OffsetDateTime.now().minusHours(1))
                     .isAutoRenewing(i % 2 == 0)
                     .build()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         val incomplete = IntStream.range(5, 10)
             .mapToObj(i -> subscriptionRepository.save(
@@ -67,7 +66,7 @@ public class SubscriptionRepositoryTest {
                     .endAt(null)
                     .isAutoRenewing(true)
                     .build()))
-            .collect(Collectors.toUnmodifiableList());
+            .toList();
 
         subscriptionRepository.deleteAllIncompleteCreatedBefore(stale.plusMinutes(1));
 
