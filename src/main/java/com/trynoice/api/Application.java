@@ -31,6 +31,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.firewall.HttpStatusRequestRejectedHandler;
+import org.springframework.security.web.firewall.RequestRejectedHandler;
 import org.springframework.stereotype.Component;
 
 // exclude user details service from Spring security. We're not using it.
@@ -48,7 +50,7 @@ public class Application {
 
     @NonNull
     @Bean
-    public Jackson2ObjectMapperBuilderCustomizer objectMapperBuilderCustomizer() {
+    Jackson2ObjectMapperBuilderCustomizer objectMapperBuilderCustomizer() {
         return builder -> {
             builder.featuresToEnable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             builder.featuresToDisable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS);
@@ -85,11 +87,10 @@ public class Application {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
+    SecurityFilterChain securityFilterChain(
         @NonNull HttpSecurity http,
         @NonNull BearerTokenAuthFilter bearerTokenAuthFilter,
-        @NonNull CookieAuthFilter cookieAuthFilter,
-        @NonNull GlobalControllerAdvice globalControllerAdvice
+        @NonNull CookieAuthFilter cookieAuthFilter
     ) throws Exception {
         // disable default filters.
         http.cors().disable()
@@ -103,7 +104,6 @@ public class Application {
             .requestCache().disable()
             .securityContext().disable()
             .sessionManagement().disable();
-
 
         // Always return 401 since we don't have an entrypoint where we can redirect users for
         // authentication. They must manually initiate authentication by invoking relevant endpoints
@@ -126,6 +126,11 @@ public class Application {
         http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
         http.addFilterBefore(cookieAuthFilter, AnonymousAuthenticationFilter.class);
         return http.build();
+    }
+
+    @Bean
+    RequestRejectedHandler requestRejectedHandler() {
+        return new HttpStatusRequestRejectedHandler();
     }
 
     @Component

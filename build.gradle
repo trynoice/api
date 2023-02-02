@@ -2,6 +2,7 @@ plugins {
     id "java"
     id "org.springframework.boot" version "3.0.0"
     id "io.spring.dependency-management" version "1.1.0"
+    id "com.palantir.git-version" version "0.15.0"
     id "com.adarshr.test-logger" version "3.2.0"
     id "jacoco"
 }
@@ -11,7 +12,7 @@ repositories {
 }
 
 group = "com.trynoice"
-version = System.getenv("BUILD_VERSION") ?: "0.0.0-dev"
+version = gitVersion().substring(1) // remove leading 'v' from the Git tag
 
 sourceSets {
     integrationTest {
@@ -77,10 +78,10 @@ dependencies {
     implementation 'com.auth0:java-jwt:4.2.1'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.2'
     implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20221108-2.0.0'
-    implementation 'com.google.auth:google-auth-library-oauth2-http:1.13.0'
+    implementation 'com.google.auth:google-auth-library-oauth2-http:1.14.0'
     implementation 'com.stripe:stripe-java:22.1.0'
     implementation 'org.apache.commons:commons-text:1.10.0'
-    implementation 'org.flywaydb:flyway-core:9.8.3'
+    implementation 'org.flywaydb:flyway-core:9.11.0'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -94,11 +95,11 @@ dependencies {
     implementation "org.springdoc:springdoc-openapi-ui:$springDocVersion"
     implementation 'org.postgresql:postgresql'
 
-    implementation platform('software.amazon.awssdk:bom:2.18.23')
+    implementation platform('software.amazon.awssdk:bom:2.19.8')
     implementation 'software.amazon.awssdk:s3'
     implementation 'software.amazon.awssdk:ses'
 
-    implementation platform('com.google.cloud:spring-cloud-gcp-dependencies:3.4.0')
+    implementation platform('com.google.cloud:spring-cloud-gcp-dependencies:3.4.1')
     implementation 'com.google.cloud:spring-cloud-gcp-starter-pubsub'
 
 

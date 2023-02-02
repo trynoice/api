@@ -42,12 +42,12 @@ jobs:
       - id: tag_info
         run: |
           export TAG_NAME="${GITHUB_REF/'refs/tags/'/''}"
-          export TAG_BODY="$(git tag  --list --format='%(contents:body)' $TAG_NAME)"
-          export TAG_BODY="${TAG_BODY//'%'/'%25'}"
-          export TAG_BODY="${TAG_BODY//$'\n'/'%0A'}"
-          export TAG_BODY="${TAG_BODY//$'\r'/'%0D'}"
-          echo "::set-output name=name::${TAG_NAME}"
-          echo "::set-output name=body::${TAG_BODY}"
+          {
+            echo "name=$TAG_NAME";
+            echo "body<<EOF";
+            git tag  --list --format='%(contents:body)' $TAG_NAME;
+            echo "EOF";
+          } >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.BOT_PAT }}
@@ -66,6 +66,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v3
 
+      - name: Fetch Git Tags
+        run: git fetch --prune --unshallow --tags -f
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
@@ -80,14 +83,7 @@ jobs:
 
       - name: Build app
         run: |
-          if [[ "$GITHUB_REF" =~ refs/tags/* ]]; then
-            VERSION_NAME="${GITHUB_REF/'refs/tags/v'/''}"
-          else
-            VERSION_NAME="0.0.0-staging"
-          fi
-
-          BUILD_VERSION="${VERSION_NAME}-${GITHUB_SHA::7}" \
-            ./gradlew bootJar --no-daemon
+          ./gradlew bootJar --no-daemon
 
           (mkdir -p jar-content; cd jar-content; jar -xf ../build/libs/*.jar;)
           mkdir -p app
