@@ -65,10 +65,11 @@ jacocoTestReport {
 }
 
 dependencies {
-    def springDocVersion = '1.6.14'
+    def springDocVersion = '2.0.2'
+    def therapiVersion = '0.15.0'
 
     // to enable JavaDoc support in SpringDocs
-    annotationProcessor 'com.github.therapi:therapi-runtime-javadoc-scribe:0.15.0'
+    annotationProcessor "com.github.therapi:therapi-runtime-javadoc-scribe:$therapiVersion"
     annotationProcessor 'org.projectlombok:lombok'
 
     compileOnly 'org.projectlombok:lombok'
@@ -77,6 +78,7 @@ dependencies {
 
     implementation 'com.auth0:java-jwt:4.2.2'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.2'
+    implementation "com.github.therapi:therapi-runtime-javadoc:$therapiVersion" // for javadoc support in springdoc
     implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20230123-2.0.0'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.15.0'
     implementation 'com.stripe:stripe-java:22.7.0'
@@ -89,10 +91,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.integration:spring-integration-core'
-    implementation "org.springdoc:springdoc-openapi-javadoc:$springDocVersion"
-    // https://github.com/springdoc/springdoc-openapi/issues/198
-    implementation "org.springdoc:springdoc-openapi-security:$springDocVersion"
-    implementation "org.springdoc:springdoc-openapi-ui:$springDocVersion"
+    implementation "org.springdoc:springdoc-openapi-starter-common:$springDocVersion"
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:$springDocVersion"
     implementation 'org.postgresql:postgresql'
 
     implementation platform('software.amazon.awssdk:bom:2.19.33')
