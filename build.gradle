@@ -95,7 +95,7 @@ dependencies {
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:$springDocVersion"
     implementation 'org.postgresql:postgresql'
 
-    implementation platform('software.amazon.awssdk:bom:2.19.33')
+    implementation platform('software.amazon.awssdk:bom:2.20.14')
     implementation 'software.amazon.awssdk:s3'
     implementation 'software.amazon.awssdk:ses'
 
