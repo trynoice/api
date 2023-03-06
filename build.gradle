@@ -76,7 +76,7 @@ dependencies {
 
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
-    implementation 'com.auth0:java-jwt:4.2.2'
+    implementation 'com.auth0:java-jwt:4.3.0'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.2'
     implementation "com.github.therapi:therapi-runtime-javadoc:$therapiVersion" // for javadoc support in springdoc
     implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20230208-2.0.0'
