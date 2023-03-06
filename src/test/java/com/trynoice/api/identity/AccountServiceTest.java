@@ -78,6 +78,9 @@ class AccountServiceTest {
     void setUp() {
         lenient().when(authConfiguration.getHmacSecret()).thenReturn(TEST_HMAC_SECRET);
         lenient().when(authConfiguration.getSignInReattemptMaxDelay()).thenReturn(Duration.ofMinutes(5));
+        lenient().when(authConfiguration.getRefreshTokenExpiry()).thenReturn(Duration.ofMinutes(5));
+        lenient().when(authConfiguration.getAccessTokenExpiry()).thenReturn(Duration.ofMinutes(5));
+
         this.jwtAlgorithm = Algorithm.HMAC256(TEST_HMAC_SECRET);
         this.service = new AccountService(
             authUserRepository,
