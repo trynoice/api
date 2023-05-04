@@ -81,7 +81,7 @@ dependencies {
     implementation "com.github.therapi:therapi-runtime-javadoc:$therapiVersion" // for javadoc support in springdoc
     implementation 'com.google.apis:google-api-services-androidpublisher:v3-rev20230327-2.0.0'
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.16.1'
-    implementation 'com.stripe:stripe-java:22.15.0'
+    implementation 'com.stripe:stripe-java:22.17.0'
     implementation 'org.apache.commons:commons-text:1.10.0'
     implementation 'org.flywaydb:flyway-core:9.17.0'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
