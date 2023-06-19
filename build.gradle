@@ -83,7 +83,7 @@ dependencies {
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.18.0'
     implementation 'com.stripe:stripe-java:22.23.1'
     implementation 'org.apache.commons:commons-text:1.10.0'
-    implementation 'org.flywaydb:flyway-core:9.19.1'
+    implementation 'org.flywaydb:flyway-core:9.19.4'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
