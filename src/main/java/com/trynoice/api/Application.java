@@ -3,7 +3,6 @@ package com.trynoice.api;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.trynoice.api.identity.BearerTokenAuthFilter;
 import com.trynoice.api.identity.CookieAuthFilter;
-import com.trynoice.api.platform.GlobalControllerAdvice;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -29,6 +28,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.firewall.HttpStatusRequestRejectedHandler;
@@ -93,34 +93,37 @@ public class Application {
         @NonNull CookieAuthFilter cookieAuthFilter
     ) throws Exception {
         // disable default filters.
-        http.cors().disable()
-            .csrf().disable()
-            .formLogin().disable()
-            .headers().disable()
-            .httpBasic().disable()
-            .jee().disable()
-            .logout().disable()
-            .rememberMe().disable()
-            .requestCache().disable()
-            .securityContext().disable()
-            .sessionManagement().disable();
+        http.cors(AbstractHttpConfigurer::disable)
+            .csrf(AbstractHttpConfigurer::disable)
+            .formLogin(AbstractHttpConfigurer::disable)
+            .headers(AbstractHttpConfigurer::disable)
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .jee(AbstractHttpConfigurer::disable)
+            .logout(AbstractHttpConfigurer::disable)
+            .rememberMe(AbstractHttpConfigurer::disable)
+            .requestCache(AbstractHttpConfigurer::disable)
+            .securityContext(AbstractHttpConfigurer::disable)
+            .sessionManagement(AbstractHttpConfigurer::disable);
 
         // Always return 401 since we don't have an entrypoint where we can redirect users for
         // authentication. They must manually initiate authentication by invoking relevant endpoints
         // upon receiving a 401 response status.
-        http.exceptionHandling().authenticationEntryPoint(
-            (request, response, authException) -> response.setStatus(HttpServletResponse.SC_UNAUTHORIZED));
+        http.exceptionHandling(configurer ->
+            configurer.authenticationEntryPoint((request, response, authException) ->
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)));
 
         // use request filter to use SecurityContext for authorizing requests.
-        http.authorizeHttpRequests()
-            .requestMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
-            .requestMatchers(HttpMethod.GET, "/v1/subscriptions/plans").permitAll()
-            .requestMatchers(HttpMethod.POST, "/v1/accounts/signUp").anonymous()
-            .requestMatchers(HttpMethod.POST, "/v1/accounts/signIn").anonymous()
-            .requestMatchers(HttpMethod.GET, "/v1/accounts/credentials").anonymous()
-            .requestMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook").anonymous()
-            .requestMatchers("/v?*/**").fullyAuthenticated()
-            .anyRequest().permitAll();
+        http.authorizeHttpRequests(configurer ->
+            configurer
+                .requestMatchers(HttpMethod.GET, "/v1/sounds/*/segments/*/authorize").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/subscriptions/plans").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/accounts/signUp").anonymous()
+                .requestMatchers(HttpMethod.POST, "/v1/accounts/signIn").anonymous()
+                .requestMatchers(HttpMethod.GET, "/v1/accounts/credentials").anonymous()
+                .requestMatchers(HttpMethod.POST, "/v1/subscriptions/stripe/webhook").anonymous()
+                .requestMatchers("/v?*/**").fullyAuthenticated()
+                .anyRequest().permitAll()
+        );
 
         // add custom filter to set SecurityContext based on Authorization bearer JWT.
         http.addFilterBefore(bearerTokenAuthFilter, AnonymousAuthenticationFilter.class);
