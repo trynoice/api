@@ -65,7 +65,7 @@ jacocoTestReport {
 }
 
 dependencies {
-    def springDocVersion = '2.2.0'
+    def springDocVersion = '2.5.0'
     def therapiVersion = '0.15.0'
 
     // to enable JavaDoc support in SpringDocs
