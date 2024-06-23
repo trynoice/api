@@ -7,7 +7,7 @@ Wants=network-online.target
 User=nobody
 Group=nogroup
 Type=simple
-ExecStart=/usr/bin/authbind --deep /usr/bin/java -cp '/usr/local/share/noice-api:/usr/local/share/noice-api/lib/*' com.trynoice.api.Application --spring.config.additional-location=file:///etc/noice-api/api.properties --logging.file.name=/var/log/noice-api/api.log
+ExecStart=/usr/bin/java -cp '/usr/local/share/noice-api:/usr/local/share/noice-api/lib/*' com.trynoice.api.Application --spring.config.additional-location=file:///etc/noice-api/api.properties --logging.file.name=/var/log/noice-api/api.log
 EnvironmentFile=/etc/noice-api/api.env
 SuccessExitStatus=143
 Restart=on-failure
