@@ -115,5 +115,5 @@ dependencies {
     integrationTestCompileOnly 'org.projectlombok:lombok'
 
     integrationTestImplementation 'org.springframework.boot:spring-boot-starter-test'
-    integrationTestImplementation 'org.testcontainers:postgresql:1.18.3'
+    integrationTestImplementation 'org.testcontainers:postgresql:1.19.8'
 }
