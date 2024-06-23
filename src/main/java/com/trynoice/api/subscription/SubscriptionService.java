@@ -800,7 +800,6 @@ class SubscriptionService implements SubscriptionServiceContract {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT, fallbackExecution = true)
-    @Transactional(rollbackFor = Throwable.class)
     public void onUserDeleted(@NonNull AccountServiceContract.UserDeletedEvent event) {
         customerRepository.findById(event.getUserId())
             .map(Customer::getStripeId)
