@@ -39,7 +39,7 @@ public interface SubscriptionRepository extends CrudRepository<Subscription, Lon
      */
     @Transactional(readOnly = true)
     @Query("select case when count(e) > 0 then true else false end from Subscription e where " +
-        "e.customer.userId = ?1 and e.startAt < now() and e.endAt > now()")
+        "e.customer.userId = ?1 and e.startAt < offset_datetime and e.endAt > offset_datetime")
     boolean existsActiveByCustomerUserId(@NonNull Long customerUserId);
 
     /**
@@ -52,7 +52,7 @@ public interface SubscriptionRepository extends CrudRepository<Subscription, Lon
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt <> null")
+    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt is not null")
     Page<Subscription> findAllStartedByCustomerUserId(@NonNull Long customerUserId, @NonNull Pageable pageable);
 
     /**
@@ -64,7 +64,8 @@ public interface SubscriptionRepository extends CrudRepository<Subscription, Lon
      */
     @NonNull
     @Transactional(readOnly = true)
-    @Query("select e from Subscription e where e.customer.userId = ?1 and e.startAt < now() and e.endAt > now()")
+    @Query("select e from Subscription e where e.customer.userId = ?1 and " +
+        "e.startAt < offset_datetime and e.endAt > offset_datetime")
     Optional<Subscription> findActiveByCustomerUserId(@NonNull Long customerUserId);
 
     /**
