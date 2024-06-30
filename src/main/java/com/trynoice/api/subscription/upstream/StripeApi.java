@@ -2,15 +2,13 @@ package com.trynoice.api.subscription.upstream;
 
 
 import com.stripe.Stripe;
+import com.stripe.StripeClient;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
-import com.stripe.model.Customer;
 import com.stripe.model.Event;
 import com.stripe.model.Invoice;
-import com.stripe.model.Refund;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
-import com.stripe.net.Webhook;
 import com.stripe.param.CustomerUpdateParams;
 import com.stripe.param.RefundCreateParams;
 import com.stripe.param.SubscriptionCancelParams;
@@ -32,8 +30,10 @@ import static java.util.Objects.requireNonNullElse;
  */
 public class StripeApi {
 
+    private final StripeClient client;
+
     public StripeApi(@NonNull String apiKey) {
-        Stripe.apiKey = apiKey;
+        client = new StripeClient(apiKey);
     }
 
     /**
@@ -70,7 +70,7 @@ public class StripeApi {
         String stripeCustomerId,
         Long trialPeriodDays
     ) throws StripeException {
-        return Session.create(
+        return client.checkout().sessions().create(
             new SessionCreateParams.Builder()
                 .setSuccessUrl(successUrl)
                 .setCancelUrl(cancelUrl)
@@ -92,7 +92,7 @@ public class StripeApi {
     }
 
     /**
-     * @see Webhook#constructEvent(String, String, String)
+     * @see StripeClient#constructEvent(String, String, String)
      */
     @NonNull
     public Event decodeWebhookPayload(
@@ -100,15 +100,15 @@ public class StripeApi {
         @NonNull String signature,
         @NonNull String secret
     ) throws SignatureVerificationException {
-        return Webhook.constructEvent(payload, signature, secret);
+        return client.constructEvent(payload, signature, secret);
     }
 
     /**
-     * @see Subscription#retrieve(String)
+     * @see com.stripe.service.SubscriptionService#retrieve(String)
      */
     @NonNull
     public Subscription getSubscription(@NonNull String id) throws StripeException {
-        return Subscription.retrieve(id);
+        return client.subscriptions().retrieve(id);
     }
 
     /**
@@ -116,8 +116,8 @@ public class StripeApi {
      *
      * @param id id of the subscription to cancel.
      * @throws StripeException on Stripe API errors.
-     * @see Subscription#update(SubscriptionUpdateParams)
-     * @see Subscription#cancel(SubscriptionCancelParams)
+     * @see com.stripe.service.SubscriptionService#update(String, SubscriptionUpdateParams)
+     * @see com.stripe.service.SubscriptionService#cancel(String, SubscriptionCancelParams)
      */
     public void cancelSubscription(@NonNull String id) throws StripeException {
         val subscription = getSubscription(id);
@@ -126,8 +126,10 @@ public class StripeApi {
         }
 
         if (!requireNonNullElse(subscription.getCancelAtPeriodEnd(), false)) {
-            subscription.update(
-                SubscriptionUpdateParams.builder()
+            client.subscriptions()
+                .update(
+                    id,
+                    SubscriptionUpdateParams.builder()
                     .setCancelAtPeriodEnd(true)
                     .build());
         }
@@ -140,7 +142,7 @@ public class StripeApi {
      * @throws StripeException on Stripe API errors.
      */
     public void refundSubscription(@NonNull String id) throws StripeException {
-        val subscription = Subscription.retrieve(
+        val subscription = client.subscriptions().retrieve(
             id,
             SubscriptionRetrieveParams.builder()
                 .addExpand("latest_invoice")
@@ -154,7 +156,7 @@ public class StripeApi {
 
         if (charge != null) {
             try {
-                Refund.create(
+                client.refunds().create(
                     RefundCreateParams.builder()
                         .setCharge(charge)
                         .build());
@@ -166,19 +168,19 @@ public class StripeApi {
         }
 
         if (!"canceled".equals(subscription.getStatus())) {
-            subscription.cancel();
+            client.subscriptions().cancel(id);
         }
     }
 
     /**
-     * @see com.stripe.model.billingportal.Session#create(com.stripe.param.billingportal.SessionCreateParams)
+     * @see com.stripe.service.billingportal.SessionService#create(com.stripe.param.billingportal.SessionCreateParams)
      */
     @NonNull
     public com.stripe.model.billingportal.Session createCustomerPortalSession(
         @NonNull String customerId,
         String returnUrl
     ) throws StripeException {
-        return com.stripe.model.billingportal.Session.create(
+        return client.billingPortal().sessions().create(
             com.stripe.param.billingportal.SessionCreateParams.builder()
                 .setCustomer(customerId)
                 .setReturnUrl(returnUrl)
@@ -193,7 +195,8 @@ public class StripeApi {
      * @throws StripeException on upstream errors.
      */
     public void resetCustomerNameAndEmail(@NonNull String customerId) throws StripeException {
-        Customer.retrieve(customerId).update(
+        client.customers().update(
+            customerId,
             CustomerUpdateParams.builder()
                 .setName(EmptyParam.EMPTY)
                 .setEmail(EmptyParam.EMPTY)
