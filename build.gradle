@@ -65,7 +65,7 @@ jacocoTestReport {
 }
 
 dependencies {
-    def flywayVersion = '10.15.0'
+    def flywayVersion = '10.17.0'
     def springDocVersion = '2.5.0'
     def therapiVersion = '0.15.0'
 
